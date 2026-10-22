@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
-import { event } from "@/lib/event";
+import type { EventDay } from "@/lib/event";
 import {
   attendeeRoleLabels,
   attendeeRoles,
@@ -28,12 +28,11 @@ import {
   validateRegistration,
 } from "@/lib/registrations/fields";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
+import { RegistrationClosed } from "./RegistrationClosed";
 import type { RegistrationFormState, SubmitRegistrationAction } from "./form-state";
 
 const roleOptions = attendeeRoles.map((value) => ({ value, label: attendeeRoleLabels[value] }));
 const referralOptions = referralSources.map((value) => ({ value, label: referralSourceLabels[value] }));
-// Ticket 07 narrows this to Event Days that have not ended.
-const eventDayOptions = event.eventDays.map((day) => ({ value: day.date, label: day.label }));
 
 const initialState: RegistrationFormState = { status: "idle" };
 
@@ -65,7 +64,13 @@ function caretAfterSignificant(formatted: string, count: number) {
   return formatted.length;
 }
 
-export function RegistrationForm({ action }: { action: SubmitRegistrationAction }) {
+type RegistrationFormProps = {
+  action: SubmitRegistrationAction;
+  /** The Event Days that have not ended; the page works these out at request time. */
+  eventDays: readonly EventDay[];
+};
+
+export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [values, setValues] = useState<FormValues>(emptyRegistrationForm);
   // Fields that have shown an error; from then on they are re-validated as the Attendee types.
@@ -76,6 +81,7 @@ export function RegistrationForm({ action }: { action: SubmitRegistrationAction 
   const formRef = useRef<HTMLFormElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const phoneCaret = useRef<number | null>(null);
+  const closedRef = useRef<HTMLElement>(null);
 
   if (state !== handledState) {
     setHandledState(state);
@@ -89,6 +95,10 @@ export function RegistrationForm({ action }: { action: SubmitRegistrationAction 
     if (state.status !== "invalid" || !formRef.current) return;
     const first = fieldOrder.find((field) => state.fieldErrors[field]);
     if (first) focusField(formRef.current, first);
+  }, [state]);
+
+  useEffect(() => {
+    if (state.status === "closed") closedRef.current?.focus();
   }, [state]);
 
   useLayoutEffect(() => {
@@ -163,6 +173,10 @@ export function RegistrationForm({ action }: { action: SubmitRegistrationAction 
   });
 
   const isSponsor = values.role === "sponsor";
+  const eventDayOptions = eventDays.map((day) => ({ value: day.date, label: day.label }));
+
+  // The last Event Day ended while the form was open.
+  if (state.status === "closed") return <RegistrationClosed ref={closedRef} />;
 
   return (
     <form
@@ -245,7 +259,7 @@ export function RegistrationForm({ action }: { action: SubmitRegistrationAction 
         name="eventDays"
         type="checkbox"
         legend="วันที่ต้องการเข้าร่วมงาน"
-        hint="(เลือกได้มากกว่า 1 ข้อ)"
+        hint={eventDayOptions.length > 1 ? "(เลือกได้มากกว่า 1 ข้อ)" : "(เลือก 1 ข้อ)"}
         options={eventDayOptions}
         selected={values.eventDays}
         required
