@@ -76,19 +76,26 @@ All commands below run from the repo checkout on the server.
   ```
 - [ ] Open `https://<registration domain>`: the registration page loads with a valid certificate.
 - [ ] `curl -sI http://<registration domain>` returns `301` with `Location: https://…`.
+- [ ] Thai name sorting in the Back Office needs PostgreSQL's ICU collation. Check it once; the command should print `1`:
+  ```sh
+  docker compose exec db psql -U stem_racing stem_racing -Atc "select 1 from pg_collation where collname = 'th-TH-x-icu'"
+  ```
+  If it prints nothing, everything else works but sorting the Registration list by name fails.
 
 ## 6. First Staff Account and test email
 
 Operator commands run inside the running `app` container, exactly like `npm run …` locally. The container gets its environment from `.env` through Compose, so no `.env` file is needed inside it. The "`.env` not found. Continuing without it." line in the output is harmless.
 
-- [ ] Create the first Staff Account. The arguments are defined by the `staff` script (`scripts/`).
+- [ ] Create the first Staff Account. Use `-it` so the password prompt works; the password must be at least 12 characters.
   ```sh
-  docker compose exec app npm run staff -- <arguments>
+  docker compose exec -it app npm run staff -- create staff@example.com "ชื่อเจ้าหน้าที่"
+  docker compose exec -it app npm run staff -- reset-password staff@example.com   # later, if needed
   ```
+  Resetting a password signs that Staff member out everywhere, Kiosks included.
 - [ ] Sign in at `https://<registration domain>/admin/login`.
 - [ ] Send a test Event Pass email to yourself, then check it arrives, including in the spam folder:
   ```sh
-  docker compose exec app npm run email:test -- <arguments>
+  docker compose exec app npm run email:test -- you@example.com
   ```
 - [ ] Migrations can also be run by hand: `docker compose exec app npm run migrate`. It is idempotent and reports `applied 0 new migration(s)` when the database is up to date.
 
