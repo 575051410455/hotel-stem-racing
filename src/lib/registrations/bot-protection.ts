@@ -13,7 +13,9 @@ export type SubmissionContext = {
   remoteIp?: string;
 };
 
-export const SUBMISSIONS_PER_WINDOW = 10;
+// Generous on purpose: Turnstile is the bot defence, and many real Attendees share one IP
+// (the venue's Wi-Fi at the door, Thai mobile carriers' CGNAT). This only stops floods.
+export const SUBMISSIONS_PER_WINDOW = 60;
 export const SUBMISSION_WINDOW_MINUTES = 10;
 
 export interface SubmissionRateLimiter {

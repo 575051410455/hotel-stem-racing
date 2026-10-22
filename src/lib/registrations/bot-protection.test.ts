@@ -67,25 +67,26 @@ describe("Bot protection on submitting a Registration", () => {
     assert.equal(await savedRegistrations(), 1);
   });
 
-  test("one IP is limited to 10 submissions per 10 minutes; other IPs are not affected", async () => {
+  test("one IP is limited to 60 submissions per 10 minutes; other IPs are not affected", async () => {
     let now = new Date("2026-10-22T12:00:00+07:00");
     const registrations = createRegistrations({ db: database.db, clock: () => now });
     // A different phone each time, so none of these is a Duplicate Registration.
     const submitFrom = (remoteIp: string, n: number) =>
       registrations.submit({ ...attendee, phone: `081-234-${5600 + n}` }, { remoteIp });
 
-    for (let n = 0; n < 10; n++) {
+    // A queue at the door on the venue Wi-Fi: 60 Attendees five seconds apart, all one IP.
+    for (let n = 0; n < 60; n++) {
       assert.equal((await submitFrom("203.0.113.7", n)).status, "accepted", `submission ${n + 1}`);
-      now = new Date(now.getTime() + 30_000);
+      now = new Date(now.getTime() + 5_000);
     }
-    assert.deepEqual(await submitFrom("203.0.113.7", 10), { status: "rate-limited" });
-    assert.equal((await submitFrom("198.51.100.20", 11)).status, "accepted");
-    assert.equal(await savedRegistrations(), 11);
+    assert.deepEqual(await submitFrom("203.0.113.7", 60), { status: "rate-limited" });
+    assert.equal((await submitFrom("198.51.100.20", 61)).status, "accepted");
+    assert.equal(await savedRegistrations(), 61);
 
     // Ten minutes after the first submission, its slot frees up again.
     now = new Date("2026-10-22T12:10:00+07:00");
-    assert.equal((await submitFrom("203.0.113.7", 12)).status, "accepted");
-    assert.deepEqual(await submitFrom("203.0.113.7", 13), { status: "rate-limited" });
+    assert.equal((await submitFrom("203.0.113.7", 62)).status, "accepted");
+    assert.deepEqual(await submitFrom("203.0.113.7", 63), { status: "rate-limited" });
   });
 });
 
