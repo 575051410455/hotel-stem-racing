@@ -1,6 +1,8 @@
 import Image from "next/image";
+import { RegistrationForm } from "@/components/registration/RegistrationForm";
 import { Container } from "@/components/site/Container";
 import { event } from "@/lib/event";
+import { submitRegistration } from "./actions";
 
 export default function RegistrationPage() {
   return (
@@ -28,10 +30,7 @@ export default function RegistrationPage() {
             วันที่ {event.dateRangeLabel} · {event.venue}
           </p>
         </section>
-        {/* Ticket 02 replaces this with the registration form. */}
-        <section className="mx-auto w-[min(100%,528px)] rounded-input border border-line bg-surface p-6 text-muted">
-          แบบฟอร์มลงทะเบียนจะเปิดให้ใช้งานเร็ว ๆ นี้
-        </section>
+        <RegistrationForm action={submitRegistration} />
       </Container>
     </>
   );
