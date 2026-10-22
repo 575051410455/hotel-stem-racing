@@ -1,6 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema";
+import * as authSchema from "./auth-schema";
+import * as appSchema from "./schema";
+
+const schema = { ...appSchema, ...authSchema };
 
 export function createDatabase(url: string) {
   const client = postgres(url, { max: 10, onnotice: () => {} });
