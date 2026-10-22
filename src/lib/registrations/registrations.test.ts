@@ -11,7 +11,7 @@ describe("Registration module", () => {
 
   before(async () => {
     database = await createTestDatabase();
-    registrations = createRegistrations({ db: database.db });
+    registrations = createRegistrations({ db: database.db, clock: beforeTheEvent });
   });
 
   beforeEach(async () => {
@@ -111,7 +111,11 @@ describe("Registration module", () => {
 
     test("a Pass Code that is already taken is replaced by a fresh one", async () => {
       const codes = ["EP-AAAAAAAA", "EP-AAAAAAAA", "EP-BBBBBBBB"];
-      const withRepeats = createRegistrations({ db: database.db, generatePassCode: () => codes.shift()! });
+      const withRepeats = createRegistrations({
+        db: database.db,
+        clock: beforeTheEvent,
+        generatePassCode: () => codes.shift()!,
+      });
 
       const first = await withRepeats.submit(attendee);
       const second = await withRepeats.submit({ ...attendee, givenName: "วิภา" });
@@ -120,7 +124,60 @@ describe("Registration module", () => {
       assert.equal(second.status === "accepted" && second.pass.passCode, "EP-BBBBBBBB");
     });
   });
+
+  describe("Event Day availability", () => {
+    const at = (bangkokWallClock: string) =>
+      createRegistrations({ db: database.db, clock: () => new Date(`${bangkokWallClock}+07:00`) });
+
+    test("before the Event, both Event Days are accepted", async () => {
+      const result = await at("2026-10-22T12:00:00").submit(attendee);
+
+      assert.equal(result.status, "accepted");
+      assert.deepEqual(result.pass.eventDays, ["2026-10-31", "2026-11-01"]);
+    });
+
+    test("on the morning of 31 October, a walk-in can still choose it", async () => {
+      const result = await at("2026-10-31T08:00:00").submit(attendee);
+
+      assert.equal(result.status, "accepted");
+      assert.deepEqual(result.pass.eventDays, ["2026-10-31", "2026-11-01"]);
+    });
+
+    test("after 31 October ends, it is rejected while 1 November is accepted", async () => {
+      const registrations = at("2026-11-01T00:00:00");
+
+      assert.deepEqual(await registrations.submit(attendee), {
+        status: "invalid",
+        fieldErrors: { eventDays: "วันที่ 31 ตุลาคม 2569 ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น" },
+      });
+      const accepted = await registrations.submit({ ...attendee, eventDays: ["2026-11-01"] });
+      assert.equal(accepted.status, "accepted");
+      assert.deepEqual(accepted.pass.eventDays, ["2026-11-01"]);
+    });
+
+    test("an ended Event Day is reported together with the other field errors", async () => {
+      const registrations = at("2026-11-01T08:00:00");
+
+      assert.deepEqual(await registrations.submit({ ...attendee, eventDays: ["2026-10-31"], email: "" }), {
+        status: "invalid",
+        fieldErrors: {
+          email: "กรุณากรอกอีเมล",
+          eventDays: "วันที่ 31 ตุลาคม 2569 ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น",
+        },
+      });
+    });
+
+    test("after 1 November ends, submitting returns registration closed", async () => {
+      const registrations = at("2026-11-02T00:00:00");
+
+      assert.deepEqual(await registrations.submit(attendee), { status: "closed" });
+      assert.deepEqual(await registrations.submit({ ...attendee, givenName: "" }), { status: "closed" });
+    });
+  });
 });
+
+/** A fixed time before the Event, so these tests do not depend on the real date. */
+const beforeTheEvent = () => new Date("2026-10-22T12:00:00+07:00");
 
 const attendee: RegistrationForm = {
   givenName: " วิชัย ",

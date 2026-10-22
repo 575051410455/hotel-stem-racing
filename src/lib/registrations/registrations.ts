@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
 import { generatePassCode } from "./event-pass-codec";
 import {
   type AttendeeRole,
@@ -46,7 +47,9 @@ export type EventPassLookup = { status: "found"; pass: EventPass } | { status: "
  */
 export type SubmitResult =
   | { status: "accepted"; pass: EventPass }
-  | { status: "invalid"; fieldErrors: FieldErrors };
+  | { status: "invalid"; fieldErrors: FieldErrors }
+  /** The last Event Day has ended (per the injected clock); checked before Field validation. */
+  | { status: "closed" };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -128,8 +131,15 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
      * browser runs is re-run here; nothing is saved unless every field is valid.
      */
     async submit(form: RegistrationForm): Promise<SubmitResult> {
+      const now = deps.clock();
+      if (isRegistrationClosed(now)) return { status: "closed" };
+
       const parsed = parseRegistration(form);
-      if (!parsed.ok) return { status: "invalid", fieldErrors: parsed.fieldErrors };
+      const fieldErrors = {
+        ...endedEventDayErrors(form.eventDays, now),
+        ...(parsed.ok ? {} : parsed.fieldErrors),
+      };
+      if (!parsed.ok || Object.keys(fieldErrors).length > 0) return { status: "invalid", fieldErrors };
 
       return { status: "accepted", pass: await save(parsed.registration) };
     },

@@ -1,7 +1,11 @@
 import Image from "next/image";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { RegistrationClosed } from "@/components/registration/RegistrationClosed";
 import { RegistrationForm } from "@/components/registration/RegistrationForm";
 import { Container } from "@/components/site/Container";
 import { event } from "@/lib/event";
+import { openEventDays } from "@/lib/registrations/event-day-availability";
 import { submitRegistration } from "./actions";
 
 export default function RegistrationPage() {
@@ -30,8 +34,30 @@ export default function RegistrationPage() {
             วันที่ {event.dateRangeLabel} · {event.venue}
           </p>
         </section>
-        <RegistrationForm action={submitRegistration} />
+        <Suspense fallback={<RegistrationPlaceholder />}>
+          <Registration />
+        </Suspense>
       </Container>
     </>
+  );
+}
+
+// Which Event Days are still open depends on the current time, so it is read per request.
+async function Registration() {
+  await connection();
+  const eventDays = openEventDays(new Date());
+  if (eventDays.length === 0) return <RegistrationClosed />;
+
+  return <RegistrationForm action={submitRegistration} eventDays={eventDays} />;
+}
+
+function RegistrationPlaceholder() {
+  return (
+    <div
+      aria-busy="true"
+      className="mx-auto flex h-[640px] w-[min(100%,528px)] items-center justify-center rounded-input border border-line bg-surface text-muted"
+    >
+      กำลังโหลดแบบฟอร์มลงทะเบียน…
+    </div>
   );
 }
