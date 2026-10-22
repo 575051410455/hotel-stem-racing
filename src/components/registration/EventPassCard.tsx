@@ -1,9 +1,13 @@
 import QRCode from "react-qr-code";
 import { event } from "@/lib/event";
 import type { EventPass } from "@/lib/registrations/registrations";
+import { DownloadEventPass } from "./DownloadEventPass";
 
 const eventDayLabel = (date: string) =>
   event.eventDays.find((day) => day.date === date)?.label ?? date;
+
+/** The download button redraws this QR onto the card image, so both encode the same link. */
+const qrId = "event-pass-qr";
 
 /**
  * The Event Pass an Attendee shows at the door: QR, Pass Code, name and Event Days.
@@ -28,6 +32,7 @@ export function EventPassCard({ pass, link }: { pass: EventPass; link: string })
 
         <div className="w-full max-w-[280px] bg-white p-4">
           <QRCode
+            id={qrId}
             value={link}
             level="M"
             size={248}
@@ -63,6 +68,13 @@ export function EventPassCard({ pass, link }: { pass: EventPass; link: string })
             </dd>
           </div>
         </dl>
+
+        <DownloadEventPass
+          qrId={qrId}
+          passCode={pass.passCode}
+          attendeeName={`${pass.givenName} ${pass.familyName}`}
+          eventDayLabels={pass.eventDays.map(eventDayLabel)}
+        />
       </div>
     </article>
   );
