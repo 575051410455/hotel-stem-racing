@@ -16,10 +16,13 @@
     "staff": "tsx --env-file-if-exists=.env scripts/staff.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-table": "^9.3.1",
     "better-auth": "^1.7.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
+    "lucide-react": "^1.57.0",
     "next": "16.4.2",
     "nodemailer": "^10.0.16",
     "postgres": "^3.4.9",
@@ -29,7 +32,8 @@
     "react-dom": "19.3.0",
     "react-qr-code": "^2.2.0",
     "tailwind-merge": "^3.7.0",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
