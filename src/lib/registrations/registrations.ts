@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import {
+  createInMemoryRateLimiter,
+  type SubmissionContext,
+  type SubmissionRateLimiter,
+} from "./bot-protection";
 import { countByEventDayAndRole } from "./counts";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
@@ -39,6 +44,8 @@ export type RegistrationDependencies = {
    * callers without a response to protect (and tests) see its effect straight away.
    */
   afterResponse?: (task: () => Promise<unknown>) => void | Promise<void>;
+  /** Per-IP submission limit; defaults to 10 per 10 minutes, in memory. */
+  rateLimiter?: SubmissionRateLimiter;
 };
 
 export type EventPass = {
@@ -54,7 +61,8 @@ export type EventPassLookup = { status: "found"; pass: EventPass } | { status: "
 
 /**
  * The outcome of submitting a Registration, discriminated by `status`.
- * Later outcomes join as new members: `duplicate` (06), `closed` (07), `bot-check-failed` (08).
+ * Later outcomes join as new members: `duplicate` (06), `closed` (07), `bot-check-failed` and
+ * `rate-limited` (08). Order of checks: closed, bot check, rate limit, Field validation, save.
  */
 export type SubmitResult =
   | { status: "accepted"; pass: EventPass }
@@ -66,7 +74,11 @@ export type SubmitResult =
    */
   | { status: "duplicate"; maskedEmail: string; passResent: boolean; emailConfigured: boolean }
   /** The last Event Day has ended (per the injected clock); checked before Field validation. */
-  | { status: "closed" };
+  | { status: "closed" }
+  /** The Turnstile token was missing, invalid or already spent, or siteverify was unreachable. */
+  | { status: "bot-check-failed" }
+  /** Too many submissions from this IP recently; the form was not looked at, nothing saved. */
+  | { status: "rate-limited" };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -122,6 +134,7 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
     },
     ...dependencies,
   };
+  const rateLimiter = dependencies.rateLimiter ?? createInMemoryRateLimiter();
 
   /** Saves a new Registration, or resolves to undefined when it is a Duplicate Registration. */
   async function save(registration: ValidRegistration): Promise<EventPass | undefined> {
@@ -152,9 +165,18 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
      * Submits a Registration from what the Attendee entered. The same Field validation the
      * browser runs is re-run here; nothing is saved unless every field is valid.
      */
-    async submit(form: RegistrationForm): Promise<SubmitResult> {
+    async submit(form: RegistrationForm, context: SubmissionContext = {}): Promise<SubmitResult> {
       const now = deps.clock();
       if (isRegistrationClosed(now)) return { status: "closed" };
+
+      // Bot check before the rate limit, so only verified submissions use up an IP's allowance:
+      // bots on a shared IP (venue Wi-Fi, mobile carrier NAT) can't lock real Attendees out.
+      if (!(await deps.botCheck.verify(context.botCheckToken, context.remoteIp))) {
+        return { status: "bot-check-failed" };
+      }
+      if (context.remoteIp !== undefined && !rateLimiter.tryAcquire(context.remoteIp, now)) {
+        return { status: "rate-limited" };
+      }
 
       const parsed = parseRegistration(form);
       const fieldErrors = {

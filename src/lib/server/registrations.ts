@@ -1,11 +1,11 @@
 import { after } from "next/server";
+import { createTurnstileBotCheck } from "@/lib/bot-check/turnstile";
 import { createDatabase } from "@/lib/db/client";
 import { createSmtpEmailSender } from "@/lib/email/smtp-sender";
 import { createRegistrations, type Registrations } from "@/lib/registrations/registrations";
 
 // Composition root: the one place that turns environment variables into real collaborators.
 // Everything is built on first use, never at import: the Docker build has no runtime secrets.
-// Ticket 08 plugs the Turnstile verifier in here.
 
 const globalForRegistrations = globalThis as unknown as {
   registrations?: Registrations;
@@ -23,6 +23,8 @@ export function registrations(): Registrations {
       appUrl: process.env.APP_URL,
       // Event Pass emails go out once the response (the redirect to the pass) has been sent.
       afterResponse: (task) => after(task),
+      // Turnstile siteverify when TURNSTILE_SECRET_KEY is set, otherwise passThroughBotCheck.
+      botCheck: createTurnstileBotCheck(process.env),
     });
   }
   return globalForRegistrations.registrations;
