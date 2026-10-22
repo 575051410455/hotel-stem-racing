@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local env (keep the example)
 !.env.example
+
+# agent worktrees
+/.claude/worktrees/
