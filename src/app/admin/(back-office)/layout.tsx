@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { event } from "@/lib/event";
+import { BackOfficeQueryProvider } from "./query-provider";
 import { StaffMenu } from "./staff-menu";
 
 // Chrome for every signed-in Back Office page (/admin, and /admin/check-in later). The header is
@@ -19,7 +20,7 @@ export default function SignedInBackOfficeLayout({ children }: LayoutProps<"/adm
           </Suspense>
         </div>
       </header>
-      {children}
+      <BackOfficeQueryProvider>{children}</BackOfficeQueryProvider>
     </>
   );
 }

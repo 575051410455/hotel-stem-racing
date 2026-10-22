@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { requireStaff } from "@/lib/auth/session";
+import { RegistrationListSection } from "./_registration-list/registration-list-section";
 import { CountsPanel } from "./counts-panel";
 
-// Minimal Back Office shell. Ticket 11 adds the Registration list, 12 the counts, 13 Check-In.
+// /admin: counts (12) and the Registration list (11). Each section checks the session itself.
 export default function BackOfficeHomePage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -10,6 +11,7 @@ export default function BackOfficeHomePage() {
         <BackOfficeHome />
       </Suspense>
       <CountsPanel />
+      <RegistrationListSection />
     </main>
   );
 }

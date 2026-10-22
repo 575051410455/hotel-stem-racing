@@ -27,6 +27,8 @@ import {
   systemClock,
   unconfiguredEmailSender,
 } from "./ports";
+import { searchRegistrations } from "./search";
+import type { RegistrationSearch } from "./search-params";
 import { sendEventPassEmail } from "./send-event-pass";
 
 export type RegistrationDependencies = {
@@ -209,6 +211,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /** Head counts per Event Day by Attendee Role, plus totals (see counts.ts). */
     countByEventDayAndRole: () => countByEventDayAndRole(deps.db),
+
+    /** One page of the Back Office Registration list; see ./search.ts. */
+    search: (search: RegistrationSearch) => searchRegistrations(deps.db, search),
   };
 }
 
