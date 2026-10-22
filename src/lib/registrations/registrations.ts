@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import { countByEventDayAndRole } from "./counts";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
 import { generatePassCode } from "./event-pass-codec";
@@ -183,6 +184,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
       return row ? { status: "found", pass: row } : { status: "not-found" };
     },
+
+    /** Head counts per Event Day by Attendee Role, plus totals (see counts.ts). */
+    countByEventDayAndRole: () => countByEventDayAndRole(deps.db),
   };
 }
 

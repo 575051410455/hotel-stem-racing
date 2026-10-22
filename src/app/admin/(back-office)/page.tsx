@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireStaff } from "@/lib/auth/session";
+import { CountsPanel } from "./counts-panel";
 
 // Minimal Back Office shell. Ticket 11 adds the Registration list, 12 the counts, 13 Check-In.
 export default function BackOfficeHomePage() {
@@ -8,6 +9,7 @@ export default function BackOfficeHomePage() {
       <Suspense fallback={<p className="text-sm text-muted-foreground">กำลังโหลด…</p>}>
         <BackOfficeHome />
       </Suspense>
+      <CountsPanel />
     </main>
   );
 }
