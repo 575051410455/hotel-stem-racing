@@ -19,6 +19,7 @@ import {
   systemClock,
   unconfiguredEmailSender,
 } from "./ports";
+import { sendEventPassEmail } from "./send-event-pass";
 
 export type RegistrationDependencies = {
   db: Database;
@@ -27,6 +28,14 @@ export type RegistrationDependencies = {
   botCheck?: BotCheckVerifier;
   /** Source of new Pass Codes; tests pass a fixed sequence to exercise collisions. */
   generatePassCode?: () => string;
+  /** Base of Event Pass links in emails (APP_URL). When unset, `passLink` reads APP_URL itself. */
+  appUrl?: string;
+  /**
+   * Runs work that must not hold up the Attendee's response, such as the Event Pass email.
+   * The app passes Next's `after()`. The default runs the task before `submit` resolves, so
+   * callers without a response to protect (and tests) see its effect straight away.
+   */
+  afterResponse?: (task: () => Promise<unknown>) => void | Promise<void>;
 };
 
 export type EventPass = {
@@ -97,6 +106,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
     emailSender: unconfiguredEmailSender,
     botCheck: passThroughBotCheck,
     generatePassCode,
+    afterResponse: async (task: () => Promise<unknown>) => {
+      await task();
+    },
     ...dependencies,
   };
 
@@ -131,7 +143,12 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
       const parsed = parseRegistration(form);
       if (!parsed.ok) return { status: "invalid", fieldErrors: parsed.fieldErrors };
 
-      return { status: "accepted", pass: await save(parsed.registration) };
+      const pass = await save(parsed.registration);
+      // Never fails the Registration: sendEventPassEmail catches and logs everything.
+      await deps.afterResponse(() =>
+        sendEventPassEmail(deps, { ...pass, email: parsed.registration.email }),
+      );
+      return { status: "accepted", pass };
     },
 
     async getEventPass(token: string): Promise<EventPassLookup> {
