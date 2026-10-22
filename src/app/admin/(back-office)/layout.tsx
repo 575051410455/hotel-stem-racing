@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { event } from "@/lib/event";
 import { BackOfficeQueryProvider } from "./query-provider";
@@ -10,11 +11,21 @@ export default function SignedInBackOfficeLayout({ children }: LayoutProps<"/adm
   return (
     <>
       <header className="border-b bg-background">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <p className="min-w-0 text-sm leading-normal font-semibold">
-            ระบบหลังบ้าน{" "}
-            <span className="font-normal text-muted-foreground">{event.name}</span>
-          </p>
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1">
+            <p className="min-w-0 text-sm leading-normal font-semibold">
+              ระบบหลังบ้าน{" "}
+              <span className="font-normal text-muted-foreground">{event.name}</span>
+            </p>
+            <nav aria-label="เมนูระบบหลังบ้าน" className="flex gap-4 text-sm leading-normal font-medium">
+              <Link href="/admin" className="underline underline-offset-4">
+                ผู้ลงทะเบียน
+              </Link>
+              <Link href="/admin/check-in" className="underline underline-offset-4">
+                เช็คอิน
+              </Link>
+            </nav>
+          </div>
           <Suspense fallback={null}>
             <StaffMenu />
           </Suspense>
