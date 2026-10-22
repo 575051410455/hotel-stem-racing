@@ -136,7 +136,7 @@ const sortKeys: Record<RegistrationSortColumn, (AnyColumn | SQL)[]> = {
 };
 
 /** ORDER BY for `sort`. Anything but an allowed column and direction means newest first. */
-function orderBy(sort: RegistrationSort | undefined): SQL[] {
+export function orderBy(sort: RegistrationSort | undefined): SQL[] {
   const [column, direction] = (sort ?? DEFAULT_REGISTRATION_SORT).split(".");
   const keys = Object.hasOwn(sortKeys, column) ? sortKeys[column as RegistrationSortColumn] : null;
   if (!keys || (direction !== "asc" && direction !== "desc")) {
@@ -146,18 +146,23 @@ function orderBy(sort: RegistrationSort | undefined): SQL[] {
   return [...keys, registrationsTable.id].map((key) => order(key));
 }
 
+/** WHERE for the search text and the Event Day and Attendee Role filters; the CSV export reuses it. */
+export function searchFilter(search: Pick<RegistrationSearch, "q" | "day" | "role">) {
+  const conditions: SQL[] = [];
+  const q = normaliseQuery(search.q);
+  if (q) conditions.push(matchesQuery(q));
+  if (search.day) conditions.push(arrayContains(registrationsTable.eventDays, [search.day]));
+  if (search.role) conditions.push(eq(registrationsTable.role, search.role));
+  return and(...conditions);
+}
+
 export async function searchRegistrations(
   db: Database,
   search: RegistrationSearch,
 ): Promise<RegistrationSearchResult> {
   const page = clampPage(search.page);
   const pageSize = clampPageSize(search.pageSize);
-  const conditions: SQL[] = [];
-  const q = normaliseQuery(search.q);
-  if (q) conditions.push(matchesQuery(q));
-  if (search.day) conditions.push(arrayContains(registrationsTable.eventDays, [search.day]));
-  if (search.role) conditions.push(eq(registrationsTable.role, search.role));
-  const where = and(...conditions);
+  const where = searchFilter(search);
 
   const [rows, [{ total }]] = await Promise.all([
     db
