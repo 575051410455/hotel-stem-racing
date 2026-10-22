@@ -1,0 +1,25 @@
+# Keep the build context small and secrets out of the image.
+.git
+node_modules
+.next
+coverage
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+
+# Secrets: .env is read by Compose on the host, never baked into the image.
+.env
+.env.*
+deploy
+*.pem
+*.key
+
+# Not needed to build or run the app.
+.agents
+.claude
+.scratch
+docs
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
