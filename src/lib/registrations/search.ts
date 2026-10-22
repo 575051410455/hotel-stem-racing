@@ -43,6 +43,10 @@ export type RegistrationListRow = {
   phone: string;
   email: string;
   passCode: string;
+  /** Times the Event Pass email went out; 0 means it was never sent. */
+  emailSentCount: number;
+  /** When it last went out; read "sent" from the count, as a duplicate re-send claims this early. */
+  lastEmailSentAt: Date | null;
 };
 
 export type RegistrationSearchResult = {
@@ -65,6 +69,8 @@ const listColumns = {
   phone: registrationsTable.phone,
   email: registrationsTable.email,
   passCode: registrationsTable.passCode,
+  emailSentCount: registrationsTable.emailSentCount,
+  lastEmailSentAt: registrationsTable.lastEmailSentAt,
 };
 
 /** Collapses whitespace and NFC-normalises, as names are stored. Empty means no search. */

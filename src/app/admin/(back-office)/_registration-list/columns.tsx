@@ -10,6 +10,7 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { EventPassEmailCell } from "./event-pass-email";
 import { attendeeRoleListLabels, formatCreatedAt, formatEventDay, formatPhone } from "./format";
 import type { RegistrationListItem } from "./query";
 
@@ -85,6 +86,12 @@ export const registrationListColumns = column.columns([
     enableColumnFilter: false,
   }),
   column.accessor("email", { header: "อีเมล", enableSorting: false, enableColumnFilter: false }),
+  column.accessor("emailSentCount", {
+    header: "อีเมล Event Pass",
+    cell: ({ row }) => <EventPassEmailCell registration={row.original} />,
+    enableSorting: false,
+    enableColumnFilter: false,
+  }),
   column.accessor("passCode", {
     header: "รหัส Event Pass",
     cell: (info) => <span className="font-mono">{info.getValue()}</span>,

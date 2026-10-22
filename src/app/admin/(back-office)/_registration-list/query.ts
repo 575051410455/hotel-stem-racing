@@ -6,8 +6,11 @@ import {
 } from "@/lib/registrations/search-params";
 import { BackOfficeRequestError } from "../query-provider";
 
-/** A list row as JSON carries it: `createdAt` is an ISO string. */
-export type RegistrationListItem = Omit<RegistrationListRow, "createdAt"> & { createdAt: string };
+/** A list row as JSON carries it: `createdAt` and `lastEmailSentAt` are ISO strings. */
+export type RegistrationListItem = Omit<RegistrationListRow, "createdAt" | "lastEmailSentAt"> & {
+  createdAt: string;
+  lastEmailSentAt: string | null;
+};
 
 /** GET /api/back-office/registrations: `RegistrationSearchResult` as JSON. */
 export type RegistrationListPage = Omit<RegistrationSearchResult, "rows"> & {

@@ -29,6 +29,7 @@ import {
   systemClock,
   unconfiguredEmailSender,
 } from "./ports";
+import { createResendEventPass } from "./resend-event-pass";
 import { searchRegistrations } from "./search";
 import type { RegistrationSearch } from "./search-params";
 import { sendEventPassEmail } from "./send-event-pass";
@@ -222,6 +223,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /** One page of the Back Office Registration list; see ./search.ts. */
     search: (search: RegistrationSearch) => searchRegistrations(deps.db, search),
+
+    /** Staff email one Registration (by id) its Event Pass again; see ./resend-event-pass.ts. */
+    resendEventPass: createResendEventPass(deps),
   };
 }
 
