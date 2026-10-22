@@ -27,6 +27,7 @@ import {
   referralSources,
   validateRegistration,
 } from "@/lib/registrations/fields";
+import { BotProtection } from "./BotProtection";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
 import { DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
 import { RegistrationClosed } from "./RegistrationClosed";
@@ -312,6 +313,7 @@ export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
       <TextAreaField {...textProps("comments")} label="ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม" />
 
       <div className="flex flex-col gap-4">
+        <BotProtection state={state} pending={pending} />
         <button
           type="submit"
           aria-disabled={!isValid || pending}
