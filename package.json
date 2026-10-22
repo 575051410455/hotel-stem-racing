@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "email:test": "tsx --env-file-if-exists=.env scripts/send-test-email.ts",
     "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
-    "staff": "tsx --env-file-if-exists=.env scripts/staff.ts"
+    "staff": "tsx --env-file-if-exists=.env scripts/staff.ts",
+    "postinstall": "node scripts/icloud-exclude.mjs 2>/dev/null || true",
+    "icloud:exclude": "node scripts/icloud-exclude.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
