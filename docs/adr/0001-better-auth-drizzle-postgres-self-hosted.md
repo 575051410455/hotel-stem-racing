@@ -1,0 +1,3 @@
+# Better Auth on Drizzle + PostgreSQL, self-hosted with Docker Compose
+
+Staff sign in to the Back Office through Better Auth (email/password, sessions, password reset). Public sign-up is turned off, and Accounts are stored in PostgreSQL through Better Auth's Drizzle adapter. The app and the database run on our own VPS under Docker Compose, not on a managed platform such as Vercel + Neon. We picked Better Auth over Auth.js v5 because its Credentials provider would leave reset and rate limiting for us to build. We also rejected a hand-rolled session layer: on a short timeline before the Event, that is too much security-sensitive code to own.
