@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BackOfficeRequestError } from "../query-provider";
 import { registrationListColumns, registrationListFeatures } from "./columns";
+import { ExportCsvLink } from "./export-csv-link";
 import { attendeeRoleListLabels } from "./format";
 import { type RegistrationListItem, registrationListQuery } from "./query";
 import { useRegistrationView } from "./use-registration-view";
@@ -236,6 +237,8 @@ export function RegistrationList() {
             </Button>
           )}
         </div>
+
+        <ExportCsvLink view={view} />
       </div>
 
       <p role="status" className="min-h-5 text-sm leading-normal text-muted-foreground">

@@ -12,6 +12,7 @@ import { countByEventDayAndRole } from "./counts";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
 import { generatePassCode } from "./event-pass-codec";
+import { exportRegistrations, type RegistrationExportFilters } from "./export";
 import {
   type AttendeeRole,
   type FieldErrors,
@@ -215,6 +216,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /** Head counts per Event Day by Attendee Role, plus totals (see counts.ts). */
     countByEventDayAndRole: () => countByEventDayAndRole(deps.db),
+
+    /** Every Registration matching the list's search, filters and sort, unpaged; see ./export.ts. */
+    exportRows: (filters: RegistrationExportFilters) => exportRegistrations(deps.db, filters),
 
     /** One page of the Back Office Registration list; see ./search.ts. */
     search: (search: RegistrationSearch) => searchRegistrations(deps.db, search),
