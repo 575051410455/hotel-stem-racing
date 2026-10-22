@@ -44,3 +44,9 @@ export function endedEventDayErrors(chosen: readonly string[], now: Date): Field
   const labels = ended.map((day) => day.label).join(" และ ");
   return { eventDays: `${labels} ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น` };
 }
+
+/** The Event Day that `now` falls on in Bangkok, or undefined when today isn't an Event Day. */
+export function eventDayOn(now: Date): EventDay | undefined {
+  const today = eventDate(now);
+  return event.eventDays.find((day) => day.date === today);
+}

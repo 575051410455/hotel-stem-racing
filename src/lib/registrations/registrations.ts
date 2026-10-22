@@ -7,6 +7,7 @@ import {
   type SubmissionContext,
   type SubmissionRateLimiter,
 } from "./bot-protection";
+import { createCheckIn } from "./check-in";
 import { countByEventDayAndRole } from "./counts";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
@@ -161,6 +162,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
   }
 
   return {
+    /** Checks an Attendee in from scanned or typed text; see `check-in.ts` for the outcomes. */
+    checkIn: createCheckIn(deps),
+
     /**
      * Submits a Registration from what the Attendee entered. The same Field validation the
      * browser runs is re-run here; nothing is saved unless every field is valid.
