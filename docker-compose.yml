@@ -1,0 +1,83 @@
+# STEM Racing Thailand 2026 registration: app + PostgreSQL 17 + nginx, behind Cloudflare's proxy.
+# Operator guide: docs/deploy.md. All configuration comes from ./.env (a filled-in .env.example).
+#
+#   docker compose up -d --build     # build the app image and (re)start everything
+#   docker compose logs -f app       # follow app logs
+#
+# Never run `docker compose down -v`: -v deletes the database volume and every Registration.
+
+# A fixed project name keeps the volume name (stem-racing_db-data) stable whatever the checkout
+# directory is called.
+name: stem-racing
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build:
+      context: .
+      # NEXT_PUBLIC_* are inlined at build time, so they are build args, read from ./.env.
+      args:
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        NEXT_PUBLIC_CONTACT_LINE: ${NEXT_PUBLIC_CONTACT_LINE:-}
+        NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-}
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      # Overrides the localhost DATABASE_URL from .env: inside Compose the database is `db`.
+      DATABASE_URL: postgres://${POSTGRES_USER:-stem_racing}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-stem_racing}
+    depends_on:
+      db:
+        condition: service_healthy
+    # Reachable only on the Compose network; nginx is the only service with published ports.
+    expose:
+      - "3000"
+    stop_grace_period: 30s
+    logging: *logging
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      # Applied only when the volume is first initialised; see docs/deploy.md before changing.
+      POSTGRES_USER: ${POSTGRES_USER:-stem_racing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-stem_racing}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1: during first-time init Postgres listens on its Unix socket only, so a
+      # socket check would report ready before the real server is up.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging: *logging
+
+  nginx:
+    image: nginx:1.30.6-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      # IPv4 only, on purpose: Docker forwards published IPv6 ports through docker-proxy, which
+      # replaces the source address with the bridge gateway. nginx would then not see a
+      # Cloudflare IP and could not restore the visitor's IP. Point Cloudflare at the server's
+      # IPv4 (A record only); see docs/deploy.md.
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      # Replaces the image's default site with ours; files here are included inside http {}.
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      # Cloudflare Origin Certificate (origin.pem) and private key (origin.key), host-only files.
+      - ./deploy/certs:/etc/nginx/certs:ro
+    logging: *logging
+
+volumes:
+  db-data:
