@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
 import { generatePassCode } from "./event-pass-codec";
 import {
@@ -57,6 +58,12 @@ export type EventPassLookup = { status: "found"; pass: EventPass } | { status: "
 export type SubmitResult =
   | { status: "accepted"; pass: EventPass }
   | { status: "invalid"; fieldErrors: FieldErrors }
+  /**
+   * The same person is already registered (Duplicate Registration). Never carries the token,
+   * the Pass Code or a link: `maskedEmail` is the registered email, masked (j***@gmail.com).
+   * `emailConfigured` is false when SMTP is off, so the form shows the contact channels instead.
+   */
+  | { status: "duplicate"; maskedEmail: string; passResent: boolean; emailConfigured: boolean }
   /** The last Event Day has ended (per the injected clock); checked before Field validation. */
   | { status: "closed" };
 
@@ -115,7 +122,8 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
     ...dependencies,
   };
 
-  async function save(registration: ValidRegistration): Promise<EventPass> {
+  /** Saves a new Registration, or resolves to undefined when it is a Duplicate Registration. */
+  async function save(registration: ValidRegistration): Promise<EventPass | undefined> {
     const token = randomUUID();
     for (let attempt = 1; ; attempt++) {
       try {
@@ -130,6 +138,7 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
           .returning(eventPassColumns);
         return pass;
       } catch (error) {
+        if (isUniqueViolation(error, "registrations_duplicateKey_unique")) return undefined;
         const retry =
           attempt < PASS_CODE_ATTEMPTS && isUniqueViolation(error, "registrations_passCode_unique");
         if (!retry) throw error;
@@ -154,6 +163,8 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
       if (!parsed.ok || Object.keys(fieldErrors).length > 0) return { status: "invalid", fieldErrors };
 
       const pass = await save(parsed.registration);
+      if (!pass) return respondToDuplicate(deps, duplicateKey(parsed.registration));
+
       // Never fails the Registration: sendEventPassEmail catches and logs everything.
       await deps.afterResponse(() =>
         sendEventPassEmail(deps, { ...pass, email: parsed.registration.email }),

@@ -28,6 +28,7 @@ import {
   validateRegistration,
 } from "@/lib/registrations/fields";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
+import { DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
 import { RegistrationClosed } from "./RegistrationClosed";
 import type { RegistrationFormState, SubmitRegistrationAction } from "./form-state";
 
@@ -82,6 +83,7 @@ export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
   const phoneRef = useRef<HTMLInputElement>(null);
   const phoneCaret = useRef<number | null>(null);
   const closedRef = useRef<HTMLElement>(null);
+  const duplicateRef = useRef<HTMLElement>(null);
 
   if (state !== handledState) {
     setHandledState(state);
@@ -99,6 +101,7 @@ export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
 
   useEffect(() => {
     if (state.status === "closed") closedRef.current?.focus();
+    if (state.status === "duplicate") duplicateRef.current?.focus();
   }, [state]);
 
   useLayoutEffect(() => {
@@ -177,6 +180,8 @@ export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
 
   // The last Event Day ended while the form was open.
   if (state.status === "closed") return <RegistrationClosed ref={closedRef} />;
+  // Already registered: the Event Pass only goes to the registered email, never to this screen.
+  if (state.status === "duplicate") return <DuplicateRegistrationNotice ref={duplicateRef} result={state} />;
 
   return (
     <form
