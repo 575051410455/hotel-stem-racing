@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireStaff } from "@/lib/auth/session";
+import { DailyRegistrationsCard } from "./_daily-registrations/daily-registrations-card";
 import { PageContent, PageHeader, PageTitle } from "./_shell/page-header";
 import { RegistrationDeletedNotice } from "./_registration-list/registration-deleted-notice";
 import { RegistrationListSection } from "./_registration-list/registration-list-section";
@@ -14,6 +15,7 @@ export default function BackOfficeHomePage() {
       </PageHeader>
       <PageContent>
         <CountsPanel />
+        <DailyRegistrationsCard className="mt-8" />
         {/* After the counts, not first: a boundary that resolves to nothing would shift the page. */}
         <Suspense fallback={null}>
           <StaffOnlyDeletedNotice />
