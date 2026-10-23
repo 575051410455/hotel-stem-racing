@@ -3,10 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   type ColumnFiltersState,
+  type ColumnVisibilityState,
   functionalUpdate,
   type Header,
   type PaginationState,
-  type ReactTable,
   type SortingState,
   useTable,
 } from "@tanstack/react-table";
@@ -46,7 +46,12 @@ import {
 } from "@/lib/registrations/search-params";
 import { cn } from "@/lib/utils";
 import { BackOfficeRequestError } from "../query-provider";
-import { registrationListColumns, registrationListFeatures } from "./columns";
+import { ColumnMenu } from "./column-menu";
+import {
+  type RegistrationListTable,
+  registrationListColumns,
+  registrationListFeatures,
+} from "./columns";
 import { ExportCsvLink } from "./export-csv-link";
 import { type RegistrationListItem, registrationListQuery } from "./query";
 import { useRegistrationView } from "./use-registration-view";
@@ -63,18 +68,21 @@ const isOneOf = <T extends string>(options: readonly T[], value: unknown): value
 const searchText = (typed: string) => typed.trim().slice(0, MAX_QUERY_LENGTH);
 
 /**
- * The Back Office Registration list: search, Event Day and Attendee Role filters, sortable
- * columns and pagination, all run on the server. The view lives in the URL
- * (useRegistrationView); TanStack Query fetches each page from /api/back-office/registrations
- * and keeps the previous page on screen while the next loads. Render below <Suspense>.
+ * The Back Office Registration list: a toolbar (search, Event Day and Attendee Role filters, the
+ * "คอลัมน์" menu, CSV export), sortable columns and pagination. Search, filters, sort and paging
+ * run on the server: the view lives in the URL (useRegistrationView), and TanStack Query fetches
+ * each page from /api/back-office/registrations, keeping the previous page on screen while the
+ * next loads. Hidden columns belong to this screen only: not in the URL, all shown again on
+ * reload, and never left out of the CSV export. Render below <Suspense>.
  */
 export function RegistrationList() {
   const [view, changeView] = useRegistrationView();
   const { data, error, isPending, isFetching, isPlaceholderData, refetch } = useQuery(
     registrationListQuery(view),
   );
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
 
-  // ---- Table state, all derived from the URL; every change goes back to the URL ----
+  // ---- Table state: the view comes from the URL, and every change to it goes back there ----
   const tableState = useMemo(() => {
     const [column, direction] = view.sort.split(".");
     return {
@@ -85,8 +93,9 @@ export function RegistrationList() {
         ...(view.role ? [{ id: "role", value: view.role }] : []),
         ...(view.day ? [{ id: "eventDays", value: view.day }] : []),
       ] satisfies ColumnFiltersState,
+      columnVisibility,
     };
-  }, [view]);
+  }, [view, columnVisibility]);
 
   const table = useTable({
     features: registrationListFeatures,
@@ -124,6 +133,7 @@ export function RegistrationList() {
         day: isOneOf(eventDayDates, day) ? (day as EventDayDate) : undefined,
       });
     },
+    onColumnVisibilityChange: setColumnVisibility,
   });
 
   // ---- Search box: sent to the URL after a pause in typing, or at once on Enter ----
@@ -159,14 +169,18 @@ export function RegistrationList() {
 
   const ids = { search: useId(), day: useId(), role: useId() };
   const rows = table.getRowModel().rows;
-  const columnCount = registrationListColumns.length;
+  const visibleColumnCount = table.getVisibleLeafColumns().length;
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+      {/*
+        The toolbar, in dashboard-01's compact size (h-8): one row at 1280 with the sidebar open,
+        even with ล้างตัวกรอง showing; on a narrow screen it wraps, search first.
+      */}
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
         <form
           role="search"
-          className="flex min-w-0 flex-1 flex-col gap-2"
+          className="flex min-w-0 flex-[1_1_12rem] flex-col gap-2"
           onSubmit={(formEvent) => {
             formEvent.preventDefault();
             submitSearch();
@@ -187,56 +201,59 @@ export function RegistrationList() {
               placeholder="ชื่อ นามสกุล เบอร์โทรศัพท์ อีเมล หรือรหัส Event Pass"
               autoComplete="off"
               enterKeyHint="search"
-              className="pl-9"
+              className="h-8 pl-9"
             />
           </div>
         </form>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={ids.day}>วันเข้าร่วมงาน</Label>
-            <NativeSelect
-              id={ids.day}
-              value={view.day ?? ""}
-              onChange={(changeEvent) =>
-                table.getColumn("eventDays")?.setFilterValue(changeEvent.target.value || undefined)
-              }
-            >
-              <NativeSelectOption value="">ทุกวัน</NativeSelectOption>
-              {event.eventDays.map(({ date, label }) => (
-                <NativeSelectOption key={date} value={date}>
-                  {label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={ids.role}>ฐานะการเข้าร่วมงาน</Label>
-            <NativeSelect
-              id={ids.role}
-              value={view.role ?? ""}
-              onChange={(changeEvent) =>
-                table.getColumn("role")?.setFilterValue(changeEvent.target.value || undefined)
-              }
-            >
-              <NativeSelectOption value="">ทุกฐานะ</NativeSelectOption>
-              {attendeeRoles.map((role) => (
-                <NativeSelectOption key={role} value={role}>
-                  {attendeeRoleShortLabels[role]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-
-          {filtered && (
-            <Button type="button" variant="ghost" onClick={clearFilters}>
-              ล้างตัวกรอง
-            </Button>
-          )}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={ids.day}>วันเข้าร่วมงาน</Label>
+          <NativeSelect
+            id={ids.day}
+            size="sm"
+            value={view.day ?? ""}
+            onChange={(changeEvent) =>
+              table.getColumn("eventDays")?.setFilterValue(changeEvent.target.value || undefined)
+            }
+          >
+            <NativeSelectOption value="">ทุกวัน</NativeSelectOption>
+            {event.eventDays.map(({ date, label }) => (
+              <NativeSelectOption key={date} value={date}>
+                {label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
         </div>
 
-        <ExportCsvLink view={view} />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={ids.role}>ฐานะการเข้าร่วมงาน</Label>
+          <NativeSelect
+            id={ids.role}
+            size="sm"
+            value={view.role ?? ""}
+            onChange={(changeEvent) =>
+              table.getColumn("role")?.setFilterValue(changeEvent.target.value || undefined)
+            }
+          >
+            <NativeSelectOption value="">ทุกฐานะ</NativeSelectOption>
+            {attendeeRoles.map((role) => (
+              <NativeSelectOption key={role} value={role}>
+                {attendeeRoleShortLabels[role]}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+
+        {filtered && (
+          <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+            ล้างตัวกรอง
+          </Button>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <ColumnMenu table={table} columnVisibility={columnVisibility} />
+          <ExportCsvLink view={view} />
+        </div>
       </div>
 
       <p role="status" className="min-h-5 text-sm leading-normal text-muted-foreground">
@@ -251,12 +268,12 @@ export function RegistrationList() {
       <div
         aria-busy={isFetching}
         className={cn(
-          "rounded-md border bg-background transition-opacity",
+          "overflow-hidden rounded-lg border bg-background transition-opacity",
           isPlaceholderData && "opacity-60",
         )}
       >
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
@@ -270,7 +287,7 @@ export function RegistrationList() {
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id}>
-                {row.getAllCells().map((cell) => (
+                {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     <table.FlexRender cell={cell} />
                   </TableCell>
@@ -279,7 +296,10 @@ export function RegistrationList() {
             ))}
             {rows.length === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columnCount} className="h-32 text-center whitespace-normal">
+                <TableCell
+                  colSpan={visibleColumnCount}
+                  className="h-32 text-center whitespace-normal"
+                >
                   {error && !data ? (
                     <LoadFailed error={error} onRetry={() => refetch()} />
                   ) : !data ? (
@@ -315,8 +335,6 @@ export function RegistrationList() {
   );
 }
 
-type ListTable = ReactTable<typeof registrationListFeatures, RegistrationListItem>;
-
 /** A column header; sortable columns get a button that flips the order, and `aria-sort`. */
 function SortableHead({
   header,
@@ -337,7 +355,8 @@ function SortableHead({
         type="button"
         variant="ghost"
         size="sm"
-        className="-ml-3"
+        // The header row is bg-muted, the same grey as a ghost button's hover, so hover lightens.
+        className="-ml-3 hover:bg-background"
         onClick={header.column.getToggleSortingHandler()}
       >
         {children}
@@ -387,6 +406,10 @@ function LoadFailed({ error, onRetry }: { error: Error; onRetry: () => void }) {
   );
 }
 
+/**
+ * Below the table: the rows on show, rows per page, "หน้า X จาก Y", and buttons for the first,
+ * previous, next and last page, disabled at the ends. Every change goes to the URL via the table.
+ */
 function Pagination({
   table,
   total,
@@ -394,7 +417,7 @@ function Pagination({
   page,
   pageSize,
 }: {
-  table: ListTable;
+  table: RegistrationListTable;
   total: number;
   shownRows: number;
   page: number;
@@ -406,19 +429,19 @@ function Pagination({
   const to = shownRows > 0 ? from + shownRows - 1 : 0;
   // A size typed into the URL (and clamped) still shows in the menu.
   const sizes = [...new Set<number>([...pageSizeOptions, pageSize])].sort((a, b) => a - b);
+  const onFirstPage = !table.getCanPreviousPage();
+  const onLastPage = !table.getCanLastPage() || !table.getCanNextPage();
 
   return (
-    <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-      <p className="leading-normal text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-sm">
+      <p className="leading-normal text-muted-foreground tabular-nums">
         {shownRows > 0
           ? `แสดง ${formatCount(from)}–${formatCount(to)} จาก ${formatCount(total)} รายการ`
           : null}
       </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
         <div className="flex items-center gap-2">
-          <Label htmlFor={pageSizeId} className="font-normal">
-            แถวต่อหน้า
-          </Label>
+          <Label htmlFor={pageSizeId}>แถวต่อหน้า</Label>
           <NativeSelect
             id={pageSizeId}
             size="sm"
@@ -432,36 +455,20 @@ function Pagination({
             ))}
           </NativeSelect>
         </div>
-        <p className="leading-normal tabular-nums">
+        <p className="leading-normal font-medium tabular-nums">
           หน้า {formatCount(page)} จาก {formatCount(pageCount)}
         </p>
-        <nav aria-label="เลือกหน้า" className="flex items-center gap-1">
-          <PageButton
-            label="หน้าแรก"
-            disabled={!table.getCanPreviousPage()}
-            onClick={() => table.firstPage()}
-          >
+        <nav aria-label="เลือกหน้า" className="flex items-center gap-2">
+          <PageButton label="หน้าแรก" disabled={onFirstPage} onClick={() => table.firstPage()}>
             <ChevronsLeftIcon />
           </PageButton>
-          <PageButton
-            label="หน้าก่อนหน้า"
-            disabled={!table.getCanPreviousPage()}
-            onClick={() => table.previousPage()}
-          >
+          <PageButton label="ก่อนหน้า" disabled={onFirstPage} onClick={() => table.previousPage()}>
             <ChevronLeftIcon />
           </PageButton>
-          <PageButton
-            label="หน้าถัดไป"
-            disabled={!table.getCanNextPage()}
-            onClick={() => table.nextPage()}
-          >
+          <PageButton label="ถัดไป" disabled={onLastPage} onClick={() => table.nextPage()}>
             <ChevronRightIcon />
           </PageButton>
-          <PageButton
-            label="หน้าสุดท้าย"
-            disabled={!table.getCanLastPage() || !table.getCanNextPage()}
-            onClick={() => table.lastPage()}
-          >
+          <PageButton label="หน้าสุดท้าย" disabled={onLastPage} onClick={() => table.lastPage()}>
             <ChevronsRightIcon />
           </PageButton>
         </nav>

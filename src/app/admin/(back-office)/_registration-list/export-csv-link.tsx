@@ -24,7 +24,7 @@ export function registrationExportHref(view: RegistrationView): string {
  */
 export function ExportCsvLink({ view }: { view: RegistrationView }) {
   return (
-    <Button asChild variant="outline" className="self-start md:self-auto">
+    <Button asChild variant="outline" size="sm">
       <a
         href={registrationExportHref(view)}
         download
