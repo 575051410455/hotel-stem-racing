@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { event } from "@/lib/event";
 import { cn } from "@/lib/utils";
 import { checkInScan } from "./actions";
+import { CameraScanner } from "./camera-scanner";
 import { type CheckInAttempt, CheckInResultPanel } from "./check-in-result";
 
 /** Results that say nothing about the pass: the text goes back in the box so Staff can resubmit. */
@@ -92,6 +93,8 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
           </p>
         )}
       </fieldset>
+
+      <CameraScanner onPass={(scan) => void submitScan(scan)} />
 
       {/* Above the box: on a phone the on-screen keyboard stays up between scans and would cover
           anything below it. */}
