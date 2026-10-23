@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { EventPassEmailCell } from "./event-pass-email";
 import { attendeeRoleListLabels, formatCreatedAt, formatEventDay, formatPhone } from "./format";
 import type { RegistrationListItem } from "./query";
+import { RegistrationDetailLink } from "./registration-detail-link";
 
 /**
  * TanStack Table v9 features for the Registration list. Searching, filtering, sorting and
@@ -39,6 +40,12 @@ const column = createColumnHelper<Features, RegistrationListItem>();
  * the Attendee Role and Event Day filters. Add a row action as a `column.display({ id, cell })`.
  */
 export const registrationListColumns = column.columns([
+  // First, so it stays in view when the wide table scrolls sideways.
+  column.display({
+    id: "detail",
+    header: () => <span className="sr-only">รายละเอียด</span>,
+    cell: ({ row }) => <RegistrationDetailLink registration={row.original} />,
+  }),
   column.accessor("createdAt", {
     header: "ลงทะเบียนเมื่อ",
     cell: (info) => (

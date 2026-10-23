@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
-import { eq } from "drizzle-orm";
-import { registrations as registrationsTable } from "@/lib/db/schema";
 import { createTestDatabase } from "@/test-support/database";
 import type { AttendeeRole, RegistrationForm } from "./fields";
 import { createRegistrations, type EventPass } from "./registrations";
@@ -83,8 +81,8 @@ describe("counts per Event Day by Attendee Role", () => {
     const removed = await register("student", [OCT_31, NOV_01]);
     await register("sponsor", [NOV_01]);
 
-    // There is no delete in the Registration module yet; ticket 14 swaps this for it.
-    await database.db.delete(registrationsTable).where(eq(registrationsTable.token, removed.token));
+    const { rows } = await registrations.search({ q: removed.passCode, page: 1, pageSize: 10 });
+    assert.equal((await registrations.deleteRegistration(rows[0].id)).status, "deleted");
 
     assert.deepEqual(await registrations.countByEventDayAndRole(), {
       eventDays: [
