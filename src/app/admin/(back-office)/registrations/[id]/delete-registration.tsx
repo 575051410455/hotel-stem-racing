@@ -8,7 +8,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
 import type { DeleteRegistrationResult } from "@/lib/registrations/detail";
-import { REGISTRATION_LIST_ENDPOINT, registrationListKey } from "../../_registration-list/query";
+import { REGISTRATION_LIST_ENDPOINT, registrationListKey } from "../../_registration-list/list-endpoint";
 
 /** What a delete can come back with, as the browser sees it. */
 type DeleteOutcome = DeleteRegistrationResult | { status: "signed-out" } | { status: "error" };

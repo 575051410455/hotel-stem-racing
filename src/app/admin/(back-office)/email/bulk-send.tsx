@@ -11,7 +11,7 @@ import type { BulkSendMessageResult, BulkSendSummary } from "@/lib/registrations
 import type { BulkSendMode } from "@/lib/registrations/bulk-send-params";
 import { cn } from "@/lib/utils";
 import { sendFailureMessage } from "../_registration-list/event-pass-email";
-import { registrationListKey } from "../_registration-list/query";
+import { registrationListKey } from "../_registration-list/list-endpoint";
 import { toastError, toastInfo, toastSuccess } from "../_shell/toasts";
 import { BackOfficeRequestError } from "../query-provider";
 import { bulkSendSummaryKey, bulkSendSummaryQuery, postEventPassBatch } from "./bulk-send-api";

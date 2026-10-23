@@ -5,6 +5,7 @@ import {
   registrationViewToSearchParams,
 } from "@/lib/registrations/search-params";
 import { BackOfficeRequestError } from "../query-provider";
+import { REGISTRATION_LIST_ENDPOINT, registrationListKey } from "./list-endpoint";
 
 /** A list row as JSON carries it: `createdAt` and `lastEmailSentAt` are ISO strings. */
 export type RegistrationListItem = Omit<RegistrationListRow, "createdAt" | "lastEmailSentAt"> & {
@@ -16,8 +17,6 @@ export type RegistrationListItem = Omit<RegistrationListRow, "createdAt" | "last
 export type RegistrationListPage = Omit<RegistrationSearchResult, "rows"> & {
   rows: RegistrationListItem[];
 };
-
-export const REGISTRATION_LIST_ENDPOINT = "/api/back-office/registrations";
 
 async function fetchRegistrationList(
   view: RegistrationView,
@@ -31,12 +30,6 @@ async function fetchRegistrationList(
   if (!response.ok) throw new BackOfficeRequestError(response.status);
   return response.json();
 }
-
-/**
- * Every cached list page sits under this key, so a row action (delete, resend, …) can refresh
- * them all: `queryClient.invalidateQueries({ queryKey: registrationListKey })`.
- */
-export const registrationListKey = ["back-office", "registrations"] as const;
 
 export function registrationListQuery(view: RegistrationView) {
   return queryOptions({
