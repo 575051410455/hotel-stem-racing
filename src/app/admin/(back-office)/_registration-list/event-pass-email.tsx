@@ -227,6 +227,11 @@ export function sendFailureMessage(reason: string): string {
 }
 
 function failureReason(reason: string, code: string | undefined): string {
+  // Gmail's daily limit ("550 5.4.5 Daily user sending limit exceeded") arrives as EENVELOPE,
+  // so check it first: it isn't the address's fault, and a bulk send (17) can hit it.
+  if (/5\.4\.5|sending limit|quota/i.test(reason)) {
+    return "เกินโควตาการส่งอีเมลต่อวันของบัญชีผู้ส่ง ส่งต่อได้เมื่อโควตารีเซ็ต";
+  }
   switch (code) {
     case "EAUTH":
     case "ENOAUTH":

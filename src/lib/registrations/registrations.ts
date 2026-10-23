@@ -7,6 +7,8 @@ import {
   type SubmissionContext,
   type SubmissionRateLimiter,
 } from "./bot-protection";
+import { bulkSendSummary, type EventPassBatchRequest, sendEventPassBatch } from "./bulk-send";
+import type { BulkSendMode } from "./bulk-send-params";
 import { createCheckIn } from "./check-in";
 import { countByEventDayAndRole } from "./counts";
 import { deleteRegistration, getRegistrationDetail } from "./detail";
@@ -233,6 +235,12 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /** Staff email one Registration (by id) its Event Pass again; see ./resend-event-pass.ts. */
     resendEventPass: createResendEventPass(deps),
+
+    /** How many Event Pass emails a bulk send would send, per Event Day; see ./bulk-send.ts. */
+    bulkSendSummary: (mode: BulkSendMode) => bulkSendSummary(deps, mode),
+
+    /** Sends the next batch of a bulk send and returns its results and cursor; see ./bulk-send.ts. */
+    sendEventPassBatch: (request: EventPassBatchRequest) => sendEventPassBatch(deps, request),
   };
 }
 
