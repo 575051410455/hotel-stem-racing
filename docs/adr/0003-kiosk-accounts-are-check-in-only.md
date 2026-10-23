@@ -1,0 +1,3 @@
+# Kiosk iPads sign in with a check-in-only Kiosk Account
+
+The spec gave every Staff member the same permissions. But a Kiosk is an unattended iPad signed in to the Back Office, and from it an Attendee can tap out of Kiosk mode, or use the address bar or Back, and reach the full Registration list, the CSV export and everyone's contact details. Guided Access only helps if someone sets it up correctly on the day. Kiosk iPads therefore sign in with a separate kind of Account, the Kiosk Account, which can only open the Kiosk and record Check-Ins. Every other Back Office page and API refuses it. Staff Accounts keep full, equal access. We rejected a password to exit Kiosk mode, because the address bar would still bypass it.

@@ -74,5 +74,12 @@ A member of the organising team who works with Registrations in the Back Office.
 _Avoid_: Admin (keep for a permission level, if one is ever needed), user, operator
 
 **Account** (บัญชี):
-A Staff member's sign-in identity for the Back Office, keyed by email address. Attendees never have Accounts.
+A sign-in identity for the Back Office, keyed by email address: either a Staff Account or a Kiosk Account. Attendees never have Accounts.
 _Avoid_: User, member, profile
+
+**Staff Account** (บัญชีเจ้าหน้าที่):
+The Account of one Staff member, with full access to the Back Office.
+
+**Kiosk Account** (บัญชี Kiosk):
+An Account that can only run a Kiosk and record Check-Ins; it can see no Registration data.
+_Avoid_: Device account, guest account
