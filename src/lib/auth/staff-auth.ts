@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
-import { ACCOUNT_KINDS } from "./access";
+import { ACCOUNT_KINDS, canChangeOwnPassword, isAccountKind } from "./access";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./password-rules";
 
 /**
@@ -61,6 +62,23 @@ export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
         // Better Auth only trusts a single-value header, so a raw X-Forwarded-For chain is ignored.
         ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
       },
+    },
+    hooks: {
+      // Better Auth lets any signed-in Account change its password. A Kiosk Account may not (ADR 0003):
+      // its /admin/password page already sends it back to the Kiosk, and this refuses the endpoint.
+      // Fails closed: an unknown kind is refused too. Signed-out requests fall through to the endpoint's 401.
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password") return;
+        const session = await getSessionFromCtx(ctx, { disableRefresh: true });
+        if (!session) return;
+        const { kind } = session.user as { kind?: unknown };
+        if (!isAccountKind(kind) || !canChangeOwnPassword(kind)) {
+          throw APIError.from("FORBIDDEN", {
+            message: "This Account's password is changed with the server command",
+            code: "PASSWORD_CHANGE_NOT_ALLOWED",
+          });
+        }
+      }),
     },
     telemetry: { enabled: false },
     // Must stay last: lets Server Actions that call `auth.api.*` set and clear the session cookie.
