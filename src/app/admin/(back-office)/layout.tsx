@@ -1,40 +1,39 @@
-import Link from "next/link";
-import { Suspense } from "react";
-import { event } from "@/lib/event";
+import { type CSSProperties, Suspense } from "react";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { BackOfficeSidebar } from "./_shell/back-office-sidebar";
+import { StaffAccountMenu, StaffAccountMenuSkeleton } from "./_shell/staff-account-menu";
 import { BackOfficeQueryProvider } from "./query-provider";
-import { StaffMenu } from "./staff-menu";
 
-// Chrome for every signed-in Back Office page (/admin, and /admin/check-in later). The header is
-// static; only the Staff menu reads the session, behind its own boundary. This layout does NOT
-// protect anything: each page calls `requireStaff()` (layouts don't re-run on client navigation).
+// Chrome for every signed-in Back Office page: the sidebar (page links and the Staff account menu)
+// and the inset each page fills with its own header (see _shell/page-header.tsx) and content.
+// Static apart from the account menu, which reads the session behind its own boundary. The sidebar
+// opens on every load: remembering it would mean reading a cookie here, making every page wait.
+// This layout does NOT protect anything: each page calls `requireStaff()` (layouts don't re-run on
+// client navigation).
 export default function SignedInBackOfficeLayout({ children }: LayoutProps<"/admin">) {
   return (
-    <>
-      <header className="border-b bg-background">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1">
-            <p className="min-w-0 text-sm leading-normal font-semibold">
-              ระบบหลังบ้าน{" "}
-              <span className="font-normal text-muted-foreground">{event.name}</span>
-            </p>
-            <nav aria-label="เมนูระบบหลังบ้าน" className="flex gap-4 text-sm leading-normal font-medium">
-              <Link href="/admin" className="underline underline-offset-4">
-                ผู้ลงทะเบียน
-              </Link>
-              <Link href="/admin/check-in" className="underline underline-offset-4">
-                เช็คอิน
-              </Link>
-              <Link href="/admin/email" className="underline underline-offset-4">
-                ส่งอีเมล
-              </Link>
-            </nav>
-          </div>
-          <Suspense fallback={null}>
-            <StaffMenu />
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as CSSProperties
+      }
+    >
+      <BackOfficeSidebar
+        accountMenu={
+          <Suspense fallback={<StaffAccountMenuSkeleton />}>
+            <StaffAccountMenu />
           </Suspense>
-        </div>
-      </header>
-      <BackOfficeQueryProvider>{children}</BackOfficeQueryProvider>
-    </>
+        }
+      />
+      {/* min-w-0: a flex item would otherwise grow to the Registration table's width, so the page
+          scrolled sideways instead of the table. */}
+      <SidebarInset className="min-w-0">
+        <BackOfficeQueryProvider>{children}</BackOfficeQueryProvider>
+      </SidebarInset>
+      <Toaster />
+    </SidebarProvider>
   );
 }

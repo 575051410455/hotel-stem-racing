@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @theme {
   /* ---- Brand (sampled from the STEM Racing Thailand National Finals 2026 banner) ---- */
@@ -95,8 +96,10 @@
 
 /* ========================================================================================
    Back Office: shadcn/ui theme (ticket 04)
-   Everything here applies only inside `.back-office`, which src/app/admin/layout.tsx sets.
-   Public pages and the @theme tokens and base layer above are unchanged.
+   Everything here applies only inside `.back-office`, which src/app/admin/layout.tsx sets, and to
+   the content of the shadcn/ui primitives Radix portals straight into <body> (Sheet, Dropdown
+   Menu, Tooltip), matched by their data-slot. Public pages use no shadcn/ui, so they and the
+   @theme tokens and base layer above are unchanged. A new portaled primitive joins the list.
    - New shadcn colour tokens (primary, card, border, ring, ...) are mapped with `@theme inline`
      and read variables that exist only inside `.back-office`.
    - shadcn's `muted` and `accent` clash with the public tokens of the same name, so they are
@@ -104,8 +107,7 @@
      Inside the Back Office, use `text-muted-foreground` for secondary text, never `text-muted`.
    - Radii keep Tailwind's defaults; shadcn's --radius override would change public pages.
    - Light only: `dark:` follows a `.dark` class that nothing sets.
-   - Not imported yet: tw-animate-css. Add `@import "tw-animate-css";` next to the tailwindcss
-     import at the top before adding animated components (Dialog, Select, Dropdown Menu, ...).
+   - tw-animate-css (imported at the top) gives Sheet and Dropdown Menu their enter/exit animations.
    ======================================================================================== */
 
 @custom-variant dark (&:is(.dark *));
@@ -143,7 +145,7 @@
 }
 
 @layer base {
-  .back-office {
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) {
     /* shadcn "neutral" palette, with contrast fixes: muted-foreground is darker so small text passes
        AA on the warm page background; input borders reach 3:1; ring uses the site's ink so keyboard
        focus stays visible; destructive uses the site's accent red (white text passes AA). */
@@ -186,9 +188,9 @@
     color: var(--foreground);
   }
 
-  .back-office *,
-  .back-office ::before,
-  .back-office ::after {
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) *,
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::before,
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::after {
     border-color: var(--border);
   }
 }

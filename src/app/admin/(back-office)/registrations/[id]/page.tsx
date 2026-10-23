@@ -3,6 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { type ReactNode, Suspense } from "react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth/session";
 import { eventDayLabel } from "@/lib/event";
@@ -12,6 +20,7 @@ import { registrationIdFromPath } from "@/lib/registrations/registration-id";
 import { eventPassLink, registrations } from "@/lib/server/registrations";
 import { formatCreatedAt, formatPhone } from "../../_registration-list/format";
 import { registrationListHref } from "../../_registration-list/list-links";
+import { PageContent, PageHeader } from "../../_shell/page-header";
 import { DeleteRegistration } from "./delete-registration";
 import { DetailEventPassEmail, EventPassLink } from "./detail-actions";
 
@@ -19,20 +28,49 @@ export const metadata: Metadata = { title: "รายละเอียดกา
 
 // /admin/registrations/{id}: every answer of one Registration, its Event Pass, email status and
 // Check-Ins, and delete. Staff-only; the id, the session and the data are request-time, so it all
-// renders behind one boundary. The query string is the list view to return to (see list-links.ts).
+// renders behind one boundary, header included. The query string is the list view to return to
+// (see list-links.ts).
 export default function RegistrationDetailPage({ params, searchParams }: PageProps<"/admin/registrations/[id]">) {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8">
-      <Suspense
-        fallback={
-          <p role="status" className="text-sm leading-normal text-muted-foreground">
-            กำลังโหลดรายละเอียดการลงทะเบียน…
-          </p>
-        }
-      >
-        <RegistrationDetailContent params={params} searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <Suspense
+      fallback={
+        <>
+          <DetailHeader listHref={registrationListHref([])} passCode={null} />
+          <PageContent narrow>
+            <p role="status" className="text-sm leading-normal text-muted-foreground">
+              กำลังโหลดรายละเอียดการลงทะเบียน…
+            </p>
+          </PageContent>
+        </>
+      }
+    >
+      <RegistrationDetailContent params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+/** "ผู้ลงทะเบียน › EP-…": back to the list view Staff came from, then the Pass Code once known. */
+function DetailHeader({ listHref, passCode }: { listHref: string; passCode: string | null }) {
+  return (
+    <PageHeader>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={listHref}>ผู้ลงทะเบียน</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {passCode && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono">{passCode}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+        </BreadcrumbList>
+      </Breadcrumb>
+    </PageHeader>
   );
 }
 
@@ -49,9 +87,12 @@ async function RegistrationDetailContent({
   if (lookup.status === "not-found") {
     return (
       <>
-        <BackToList href={listHref} />
-        <h1 className="mt-6 text-2xl leading-normal font-semibold">ไม่พบการลงทะเบียนนี้</h1>
-        <p className="mt-2 leading-normal text-muted-foreground">อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>
+        <DetailHeader listHref={listHref} passCode={null} />
+        <PageContent narrow>
+          <BackToList href={listHref} />
+          <h1 className="mt-6 text-2xl leading-normal font-semibold">ไม่พบการลงทะเบียนนี้</h1>
+          <p className="mt-2 leading-normal text-muted-foreground">อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>
+        </PageContent>
       </>
     );
   }
@@ -62,67 +103,70 @@ async function RegistrationDetailContent({
 
   return (
     <>
-      <BackToList href={listHref} />
-      <h1 className="mt-6 text-2xl leading-normal font-semibold wrap-anywhere">{attendeeName}</h1>
-      <p className="mt-1 text-sm leading-normal text-muted-foreground">
-        <span className="font-mono">{registration.passCode}</span> · ลงทะเบียนเมื่อ{" "}
-        <time dateTime={createdAt} className="tabular-nums">
-          {formatCreatedAt(createdAt)}
-        </time>
-      </p>
+      <DetailHeader listHref={listHref} passCode={registration.passCode} />
+      <PageContent narrow>
+        <BackToList href={listHref} />
+        <h1 className="mt-6 text-2xl leading-normal font-semibold wrap-anywhere">{attendeeName}</h1>
+        <p className="mt-1 text-sm leading-normal text-muted-foreground">
+          <span className="font-mono">{registration.passCode}</span> · ลงทะเบียนเมื่อ{" "}
+          <time dateTime={createdAt} className="tabular-nums">
+            {formatCreatedAt(createdAt)}
+          </time>
+        </p>
 
-      <div className="mt-6 flex flex-col gap-6">
-        <Section title="ข้อมูลการลงทะเบียน">
-          <Answers registration={registration} />
-        </Section>
+        <div className="mt-6 flex flex-col gap-6">
+          <Section title="ข้อมูลการลงทะเบียน">
+            <Answers registration={registration} />
+          </Section>
 
-        <Section title="Event Pass">
-          <dl className="flex flex-col gap-4 text-sm">
-            <div className="flex flex-col gap-1">
-              <dt className="text-muted-foreground">รหัส Event Pass</dt>
-              <dd className="font-mono text-lg leading-normal font-semibold">{registration.passCode}</dd>
-            </div>
-            <div className="flex flex-col gap-1">
-              <dt className="text-muted-foreground">ลิงก์ Event Pass</dt>
-              <dd className="flex flex-col gap-2">
-                <EventPassLinkOrNotice token={registration.token} />
-                <p className="text-xs leading-normal text-muted-foreground">
-                  ส่งลิงก์นี้ให้ผู้เข้าร่วมงานที่หา Event Pass ไม่พบ ใครมีลิงก์ก็เปิด Event Pass ได้
-                  จึงควรส่งให้เจ้าของเท่านั้น
-                </p>
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1">
-              <dt className="text-muted-foreground">อีเมล Event Pass</dt>
-              <dd>
-                <DetailEventPassEmail
-                  registrationId={registration.id}
-                  email={registration.email}
-                  emailSentCount={registration.emailSentCount}
-                  lastEmailSentAt={registration.lastEmailSentAt?.toISOString() ?? null}
-                />
-              </dd>
-            </div>
-          </dl>
-        </Section>
+          <Section title="Event Pass">
+            <dl className="flex flex-col gap-4 text-sm">
+              <div className="flex flex-col gap-1">
+                <dt className="text-muted-foreground">รหัส Event Pass</dt>
+                <dd className="font-mono text-lg leading-normal font-semibold">{registration.passCode}</dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-muted-foreground">ลิงก์ Event Pass</dt>
+                <dd className="flex flex-col gap-2">
+                  <EventPassLinkOrNotice token={registration.token} />
+                  <p className="text-xs leading-normal text-muted-foreground">
+                    ส่งลิงก์นี้ให้ผู้เข้าร่วมงานที่หา Event Pass ไม่พบ ใครมีลิงก์ก็เปิด Event Pass ได้
+                    จึงควรส่งให้เจ้าของเท่านั้น
+                  </p>
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-muted-foreground">อีเมล Event Pass</dt>
+                <dd>
+                  <DetailEventPassEmail
+                    registrationId={registration.id}
+                    email={registration.email}
+                    emailSentCount={registration.emailSentCount}
+                    lastEmailSentAt={registration.lastEmailSentAt?.toISOString() ?? null}
+                  />
+                </dd>
+              </div>
+            </dl>
+          </Section>
 
-        <Section title="การเช็คอิน">
-          <CheckIns checkIns={registration.checkIns} />
-        </Section>
+          <Section title="การเช็คอิน">
+            <CheckIns checkIns={registration.checkIns} />
+          </Section>
 
-        <Section title="ลบการลงทะเบียน">
-          <p className="mb-4 text-sm leading-normal text-muted-foreground">
-            สำหรับการลงทะเบียนที่เป็นสแปมหรือการลงทะเบียนซ้ำ การเช็คอินของการลงทะเบียนนี้จะถูกลบไปด้วย
-          </p>
-          <DeleteRegistration
-            registrationId={registration.id}
-            attendeeName={attendeeName}
-            passCode={registration.passCode}
-            listHref={listHref}
-            afterDeleteHref={registrationListHref(listParams, registration.passCode)}
-          />
-        </Section>
-      </div>
+          <Section title="ลบการลงทะเบียน">
+            <p className="mb-4 text-sm leading-normal text-muted-foreground">
+              สำหรับการลงทะเบียนที่เป็นสแปมหรือการลงทะเบียนซ้ำ การเช็คอินของการลงทะเบียนนี้จะถูกลบไปด้วย
+            </p>
+            <DeleteRegistration
+              registrationId={registration.id}
+              attendeeName={attendeeName}
+              passCode={registration.passCode}
+              listHref={listHref}
+              afterDeleteHref={registrationListHref(listParams, registration.passCode)}
+            />
+          </Section>
+        </div>
+      </PageContent>
     </>
   );
 }
