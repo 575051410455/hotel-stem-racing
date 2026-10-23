@@ -128,10 +128,23 @@ describe("Registration module: detail and delete", () => {
     assert.deepEqual(everyone.rows.map((row) => row.passCode), [kept.pass.passCode]);
     assert.equal(everyone.total, 1);
     assert.equal((await registrations.search({ q: spam.pass.passCode, page: 1, pageSize: 10 })).total, 0);
-    assert.deepEqual(await registrations.countByEventDayAndRole(), {
+    // The database stamps created_at with the real time, so today's count isn't fixed here.
+    const { registeredToday, ...counts } = await registrations.headCounts();
+    void registeredToday;
+    assert.deepEqual(counts, {
       eventDays: [
-        { eventDay: OCT_31, byRole: { parent: 1, teacher: 0, student: 0, sponsor: 0, other: 0 }, total: 1 },
-        { eventDay: NOV_01, byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 }, total: 0 },
+        {
+          eventDay: OCT_31,
+          byRole: { parent: 1, teacher: 0, student: 0, sponsor: 0, other: 0 },
+          total: 1,
+          checkIns: { total: 1, outsideRegisteredDay: 0 },
+        },
+        {
+          eventDay: NOV_01,
+          byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 },
+          total: 0,
+          checkIns: { total: 0, outsideRegisteredDay: 0 },
+        },
       ],
       registrations: 1,
     });
