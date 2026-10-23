@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  type Column,
   columnFilteringFeature,
+  columnVisibilityFeature,
   createColumnHelper,
   type FilterFn,
   globalFilteringFeature,
+  type ReactTable,
   rowPaginationFeature,
   rowSortingFeature,
   tableFeatures,
@@ -19,16 +22,21 @@ import { RegistrationDetailLink } from "./registration-detail-link";
 /**
  * TanStack Table v9 features for the Registration list. Searching, filtering, sorting and
  * pagination all happen on the server (the table runs in manual mode), so no client-side row
- * models or sort/filter function registries are registered.
+ * models or sort/filter function registries are registered. Column visibility is the only
+ * state that stays in the browser: the "คอลัมน์" menu hides columns on screen, never in the
+ * data or the CSV export.
  */
 export const registrationListFeatures = tableFeatures({
   columnFilteringFeature,
+  columnVisibilityFeature,
   globalFilteringFeature,
   rowSortingFeature,
   rowPaginationFeature,
 });
 
 type Features = typeof registrationListFeatures;
+
+export type RegistrationListTable = ReactTable<Features, RegistrationListItem>;
 
 /** The database does the filtering; the table only holds each filter's value. */
 const filteredOnTheServer: FilterFn<Features, RegistrationListItem> = () => true;
@@ -46,6 +54,8 @@ export const registrationListColumns = column.columns([
     id: "detail",
     header: () => <span className="sr-only">รายละเอียด</span>,
     cell: ({ row }) => <RegistrationDetailLink registration={row.original} />,
+    // The way into a Registration; hiding it would leave rows Staff can't open.
+    enableHiding: false,
   }),
   column.accessor("createdAt", {
     header: "ลงทะเบียนเมื่อ",
@@ -107,3 +117,9 @@ export const registrationListColumns = column.columns([
     enableColumnFilter: false,
   }),
 ]);
+
+/** What the "คอลัมน์" menu calls a column: its header text. */
+export function columnLabel(column: Column<Features, RegistrationListItem, unknown>): string {
+  const { header } = column.columnDef;
+  return typeof header === "string" ? header : column.id;
+}

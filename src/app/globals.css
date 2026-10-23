@@ -186,6 +186,8 @@
     --color-accent: var(--accent);
 
     color: var(--foreground);
+    /* A portaled menu or sheet's own border; the rule below reaches only what is inside it. */
+    border-color: var(--border);
   }
 
   :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) *,
