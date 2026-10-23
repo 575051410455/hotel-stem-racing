@@ -1,12 +1,14 @@
 "use client";
 
-import { EllipsisVerticalIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
+import { EllipsisVerticalIcon, KeyRoundIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
+import Link from "next/link";
 import { useTransition } from "react";
 import { signOut } from "@/app/admin/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -18,9 +20,9 @@ import type { CurrentStaff } from "@/lib/auth/session";
 /** Who the menu shows: only what the browser needs from the session. */
 type SignedInAccount = Pick<CurrentStaff, "name" | "email">;
 
-/** The Staff account menu's button and dropdown; `StaffAccountMenu` passes in who is signed in. */
+/** The Staff account menu's button and dropdown (change password, sign out); `StaffAccountMenu` passes in who is signed in. */
 export function StaffAccountDropdown({ account }: { account: SignedInAccount }) {
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [signingOut, startSignOut] = useTransition();
 
   return (
@@ -48,6 +50,16 @@ export function StaffAccountDropdown({ account }: { account: SignedInAccount }) 
                 <AccountSummary account={account} />
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                {/* On a phone the sidebar is a sheet over the page: close it, as the page links do. */}
+                <Link href="/admin/password" onClick={() => setOpenMobile(false)}>
+                  <KeyRoundIcon aria-hidden="true" />
+                  เปลี่ยนรหัสผ่าน
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {/* signOut redirects to the sign-in page, so the menu never needs to close itself. */}
             <DropdownMenuItem disabled={signingOut} onSelect={() => startSignOut(() => signOut())}>
