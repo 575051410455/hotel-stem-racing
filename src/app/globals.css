@@ -100,6 +100,9 @@
    the content of the shadcn/ui primitives Radix portals straight into <body> (Sheet, Dropdown
    Menu, Tooltip), matched by their data-slot. Public pages use no shadcn/ui, so they and the
    @theme tokens and base layer above are unchanged. A new portaled primitive joins the list.
+   - The mobile sidebar is a Sheet, but the sidebar replaces its data-slot with "sidebar", so it is
+     matched as `[data-slot="sidebar"][data-mobile="true"]`. Without it the sheet has no
+     --sidebar and shows the page through it.
    - New shadcn colour tokens (primary, card, border, ring, ...) are mapped with `@theme inline`
      and read variables that exist only inside `.back-office`.
    - shadcn's `muted` and `accent` clash with the public tokens of the same name, so they are
@@ -145,7 +148,7 @@
 }
 
 @layer base {
-  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) {
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="sidebar"][data-mobile="true"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) {
     /* shadcn "neutral" palette, with contrast fixes: muted-foreground is darker so small text passes
        AA on the warm page background; input borders reach 3:1; ring uses the site's ink so keyboard
        focus stays visible; destructive uses the site's accent red (white text passes AA). */
@@ -190,9 +193,9 @@
     border-color: var(--border);
   }
 
-  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) *,
-  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::before,
-  :is(.back-office, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::after {
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="sidebar"][data-mobile="true"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) *,
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="sidebar"][data-mobile="true"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::before,
+  :is(.back-office, [data-slot="sheet-content"], [data-slot="sidebar"][data-mobile="true"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="tooltip-content"]) ::after {
     border-color: var(--border);
   }
 }
