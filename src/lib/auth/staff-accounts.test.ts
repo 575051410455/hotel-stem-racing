@@ -27,6 +27,14 @@ function signIn(auth: StaffAuth, email: string, password: string, clientIp = nex
   return post(auth, "/sign-in/email", { email, password }, clientIp);
 }
 
+/** Signs in and reads the session back the way Back Office pages do, from the session cookie. */
+async function signInAndGetSession(auth: StaffAuth, email: string, password: string) {
+  const response = await signIn(auth, email, password);
+  assert.equal(response.status, 200);
+  const cookie = response.headers.get("set-cookie")!.split(";")[0];
+  return auth.api.getSession({ headers: new Headers({ cookie }) });
+}
+
 describe("Staff Accounts", () => {
   let database: Awaited<ReturnType<typeof createTestDatabase>>;
   let auth: StaffAuth;
@@ -60,6 +68,47 @@ describe("Staff Accounts", () => {
     const body = await response.json();
     assert.equal(body.user.name, "สมชาย ใจดี");
     assert.equal(body.user.email, "somchai@example.org");
+  });
+
+  test("a created Kiosk Account signs in as a Kiosk Account", async () => {
+    const created = await staffAccounts.create({
+      email: "Kiosk-1@Example.org",
+      name: "Kiosk 1",
+      password,
+      kind: "kiosk",
+    });
+    assert.equal(created.status, "created");
+
+    const session = await signInAndGetSession(auth, "kiosk-1@example.org", password);
+
+    assert.equal(session?.user.kind, "kiosk");
+    assert.equal(session?.user.name, "Kiosk 1");
+  });
+
+  test("a Staff Account signs in as a Staff Account", async () => {
+    await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+
+    const session = await signInAndGetSession(auth, "staff@example.org", password);
+
+    assert.equal(session?.user.kind, "staff");
+  });
+
+  test("a signed-in Kiosk Account can't make itself a Staff Account through the public API", async () => {
+    await staffAccounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    const signedIn = await signIn(auth, "kiosk@example.org", password);
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+
+    const response = await auth.handler(
+      new Request(`${baseURL}/api/auth/update-user`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: baseURL, "x-real-ip": nextClientIp(), cookie },
+        body: JSON.stringify({ kind: "staff" }),
+      }),
+    );
+
+    assert.equal(response.status, 400);
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    assert.equal(session?.user.kind, "kiosk");
   });
 
   test("signing in with a wrong password fails", async () => {
@@ -148,6 +197,17 @@ describe("Staff Accounts", () => {
     assert.equal((await signIn(auth, "staff@example.org", "a brand new password")).status, 200);
     const session = await auth.api.getSession({ headers: new Headers({ cookie: sessionCookie }) });
     assert.equal(session, null);
+  });
+
+  test("resetting a Kiosk Account's password keeps it a Kiosk Account", async () => {
+    const created = await staffAccounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    assert.equal(created.status, "created");
+
+    const result = await staffAccounts.resetPassword({ email: "kiosk@example.org", password: "a brand new password" });
+
+    assert.deepEqual(result, { status: "password-reset", accountId: created.accountId, kind: "kiosk" });
+    const session = await signInAndGetSession(auth, "kiosk@example.org", "a brand new password");
+    assert.equal(session?.user.kind, "kiosk");
   });
 
   test("resetting to a password under 12 characters is rejected", async () => {

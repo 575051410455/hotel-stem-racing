@@ -4,9 +4,11 @@ import { NextResponse, type NextRequest } from "next/server";
 const SIGN_IN_PATH = "/admin/login";
 
 /**
- * Optimistic Back Office gate: sends visitors without a session cookie to the sign-in page with a
- * real redirect. It only checks that the cookie exists. Pages, Server Actions and Route Handlers
- * still validate the session themselves (`requireStaff` / `getCurrentStaff` in src/lib/auth/session.ts).
+ * Optimistic gate for the Back Office and the Kiosk page: sends visitors without a session cookie
+ * to the sign-in page with a real redirect. It only checks that the cookie exists, not whose it is
+ * or what kind of Account it belongs to. Pages, Server Actions and Route Handlers still validate
+ * the session themselves (`requireStaff` / `getCurrentStaff` / `requireCheckInAccount` in
+ * src/lib/auth/session.ts), and they are what refuses a Kiosk Account outside the Kiosk page.
  */
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === SIGN_IN_PATH || getSessionCookie(request)) {
@@ -19,5 +21,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  // `:path*` also matches the bare path, so /kiosk itself is covered.
+  matcher: ["/admin/:path*", "/kiosk/:path*"],
 };

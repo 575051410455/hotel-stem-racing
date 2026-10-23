@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
+import { ACCOUNT_KINDS } from "./access";
 
 /** Staff passwords: at least 12 characters, no composition rules (spec: Back Office → Staff Accounts). */
 export const MIN_PASSWORD_LENGTH = 12;
@@ -24,7 +25,7 @@ export type StaffAuthConfig = {
 };
 
 /**
- * Builds the Better Auth instance for Staff sign-in on the given database.
+ * Builds the Better Auth instance for Account sign-in (Staff and Kiosk Accounts) on the given database.
  * The app builds one from env in `src/lib/auth/server.ts`; tests and `scripts/staff.ts` build their own.
  */
 export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
@@ -35,10 +36,17 @@ export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
     database: drizzleAdapter(db, { provider: "pg", schema: authSchema, usePlural: true }),
     emailAndPassword: {
       enabled: true,
-      // Staff Accounts are created only by the server command (ADR 0001).
+      // Accounts are created only by the server command (ADR 0001).
       disableSignUp: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
+    },
+    user: {
+      additionalFields: {
+        // Staff Account or Kiosk Account (`users.kind`, ADR 0003), returned on every session.
+        // `input: false`: no request can set it, not even /update-user from a signed-in Kiosk.
+        kind: { type: [...ACCOUNT_KINDS], required: true, defaultValue: "staff", input: false },
+      },
     },
     session: {
       expiresIn: SESSION_LIFETIME_SECONDS,

@@ -1,5 +1,7 @@
-import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { boolean, check, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+// Relative, not "@/…", so drizzle-kit needs no path aliases to load this file.
+import { ACCOUNT_KINDS } from "../auth/access";
 
 // Better Auth's own tables for Staff sign-in (ticket 04). The shape follows
 // `npx auth@1.7.12 generate --adapter drizzle --dialect postgresql`, with these changes:
@@ -8,22 +10,34 @@ import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 // - timestamps with time zone, as in schema.ts
 // Re-run the generator after upgrading Better Auth or adding a plugin, and port any new fields here.
 //
-// Vocabulary: a `users` row is a Staff Account (GLOSSARY.md). An `accounts` row is Better Auth's
-// sign-in method for it; Staff only have the `credential` one, which holds the password hash.
+// - `users.kind`, our own field (ticket 23), declared to Better Auth as a user `additionalFields`
+//
+// Vocabulary: a `users` row is an Account (GLOSSARY.md): a Staff Account or a Kiosk Account, by its
+// `kind`. An `accounts` row is Better Auth's sign-in method for it; Accounts only have the
+// `credential` one, which holds the password hash.
 
-export const users = pgTable("users", {
-  id: text().primaryKey(),
-  /** The Staff member's display name. */
-  name: text().notNull(),
-  email: text().notNull().unique(),
-  emailVerified: boolean().notNull().default(false),
-  image: text(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp({ withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: text().primaryKey(),
+    /** The display name: the Staff member's name, or the Kiosk's, such as "Kiosk 1". */
+    name: text().notNull(),
+    email: text().notNull().unique(),
+    emailVerified: boolean().notNull().default(false),
+    image: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    /**
+     * Staff Account or Kiosk Account (ADR 0003); what each may do is in src/lib/auth/access.ts.
+     * Set only by `npm run staff`. Better Auth refuses it from requests (`input: false`).
+     */
+    kind: text({ enum: ACCOUNT_KINDS }).notNull().default("staff"),
+  },
+  (table) => [check("users_kind_check", sql`${table.kind} in ('staff', 'kiosk')`)],
+);
 
 export const sessions = pgTable(
   "sessions",
