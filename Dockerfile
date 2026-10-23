@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# App image: Next.js standalone server plus the operator scripts (migrate, staff, email:test).
+# App image: Next.js standalone server plus the operator scripts (migrate, staff, seed, email:test).
 # Built by `docker compose up -d --build`; see docs/deploy.md.
 
 # Node 24 LTS on Debian (glibc) to match local development. Bump deliberately.
