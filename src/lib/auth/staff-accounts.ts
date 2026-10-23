@@ -36,11 +36,11 @@ const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
 /**
  * Creates Accounts, Staff or Kiosk, and resets their passwords. This is the code path behind
- * `npm run staff` and `npm run seed`. Public sign-up is disabled (ADR 0001), so this writes through Better Auth's
- * server-side context (`auth.$context`), with the same steps as its sign-up endpoint: hash, create
- * user, link credential. It is also the only way to set an Account's kind, which Better Auth
- * refuses from requests. Password length limits come from the auth config, so the command and
- * sign-in always agree, for both kinds.
+ * `npm run staff` and `npm run seed`. Public sign-up is disabled (ADR 0001), so this writes
+ * through Better Auth's server-side context (`auth.$context`), with the same steps as its sign-up
+ * endpoint: hash, create user, link credential. It is also the only way to set an Account's kind,
+ * which Better Auth refuses from requests. Password length limits come from the auth config, so
+ * the commands and sign-in always agree, for both kinds.
  */
 export function createStaffAccounts(auth: StaffAuth) {
   async function checkPassword(password: string): Promise<PasswordProblem | null> {

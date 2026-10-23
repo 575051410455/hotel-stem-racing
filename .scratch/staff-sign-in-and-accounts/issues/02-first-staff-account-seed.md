@@ -82,3 +82,17 @@ Done on branch `staff-02-seed`.
   - `SEED_STAFF_NAME` of only spaces falls back to เจ้าหน้าที่.
 - **Headless Chrome against `next start`** (port 3142, the scratch database): signing in at `/admin/login` with the printed password lands on `/admin`, and the sidebar shows เจ้าหน้าที่ · organiser@example.org.
 - **Not checked:** the command inside the Docker image. It uses only what `npm run staff` already uses in the image (tsx, the `@/` alias, `drizzle-orm`, `postgres`, `better-auth`), and imports no `server-only` code.
+
+## Comments
+
+- **2026-10-23, review follow-up (no Docker on the dev machine):** the image's runtime was simulated instead.
+  - **Setup:**
+    - `git archive HEAD` of the files the runner stage copies: `package.json`, the lockfile, `tsconfig.json`, `drizzle/`, `scripts/` and `src/`
+    - `npm ci --omit=dev`, with `@next/swc-*` removed as the Dockerfile does
+    - `NODE_ENV=production`, and no `.env`
+  - **Results:**
+    - `npm run migrate` applied 3 migrations.
+    - `npm run seed` with no email: message, exit 2.
+    - With `SEED_STAFF_EMAIL`: it printed ".env not found. Continuing without it." (as `docs/deploy.md` says), created the Account and printed the password.
+    - Run again: skipped.
+  - **Still to do on the server:** run `docker compose exec app npm run seed` once against the real image, and check that the password is not in `docker compose logs app`.

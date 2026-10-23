@@ -115,3 +115,11 @@ Done on branch `staff-03-change-password`.
   - 375 px with errors
   - the account menu at 375 px once the sheet had finished opening
 - **Found, not caused here:** the mobile sidebar sheet has a transparent background. `sidebar.tsx` gives its `SheetContent` `data-slot="sidebar"`, replacing `sheet-content`. The theme block in `globals.css` then doesn't match it, so `--sidebar` is empty, and the computed background reads `rgba(0, 0, 0, 0)`. This has been the case since redesign 01 (`c42e4e6`) and is reported separately.
+
+## Comments
+
+- **2026-10-23, review follow-up:**
+  - **Kiosk Accounts and the endpoint:** Better Auth let a signed-in Kiosk Account call `/api/auth/change-password` directly (ADR 0003, story 25). A `hooks.before` in `staff-auth.ts` now refuses it with 403 `PASSWORD_CHANGE_NOT_ALLOWED` unless `canChangeOwnPassword(kind)`, which is Staff only and fails closed.
+  - **Tests:** two module tests, one for a Kiosk Account refused and one for a Staff Account still allowed, through the public endpoint. A mutation check confirmed them.
+  - **Browser:** a Kiosk session's `fetch` gets `403:PASSWORD_CHANGE_NOT_ALLOWED` and stays signed in. Check 01 (30/30) and check 03 (38/38) pass again after the change.
+- **The mobile sheet background** found here is fixed in `globals.css`; see redesign ticket 01.

@@ -29,6 +29,14 @@ export function canChooseCheckInDay(kind: AccountKind): boolean {
   return canUseBackOffice(kind);
 }
 
+/**
+ * Changing the Account's own password, at /admin/password or through Better Auth's endpoint. A Kiosk
+ * Account's password is changed only with the server command (`npm run staff -- reset-password`).
+ */
+export function canChangeOwnPassword(kind: AccountKind): boolean {
+  return canUseBackOffice(kind);
+}
+
 /** The sign-in page for every Account, Staff or Kiosk. */
 export const SIGN_IN_PATH = "/admin/login";
 

@@ -20,7 +20,10 @@ import type { CurrentStaff } from "@/lib/auth/session";
 /** Who the menu shows: only what the browser needs from the session. */
 type SignedInAccount = Pick<CurrentStaff, "name" | "email">;
 
-/** The Staff account menu's button and dropdown (change password, sign out); `StaffAccountMenu` passes in who is signed in. */
+/**
+ * The Staff account menu's button and dropdown (change password, sign out); `StaffAccountMenu`
+ * passes in who is signed in.
+ */
 export function StaffAccountDropdown({ account }: { account: SignedInAccount }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const [signingOut, startSignOut] = useTransition();

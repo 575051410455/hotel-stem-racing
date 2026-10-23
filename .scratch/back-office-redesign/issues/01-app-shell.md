@@ -144,3 +144,11 @@ Kept: `chart.tsx` and `recharts`, which ticket 03 needs and the spec lists. Also
   - home at 768
   - the sheet at 375
   - public `/`
+
+## Comments
+
+- **2026-10-23, found during staff-sign-in-and-accounts ticket 03:** the mobile sheet had no background at phone widths.
+  - **Cause:** `sidebar.tsx` gives its `SheetContent` `data-slot="sidebar"`, replacing `sheet-content`. The portal theme block in `globals.css` didn't match it, so `--sidebar` was empty and the computed background was `rgba(0, 0, 0, 0)`. The page showed through the menu.
+  - **Fix:** the block also matches `[data-slot="sidebar"][data-mobile="true"]`.
+  - **Checked:** at 375 px the sheet's background is the sidebar colour; at 1280 px the desktop sidebar is unchanged.
+  - **Not checked:** closing the sheet with Escape. CDP key events didn't close Radix layers in this headless run (tried only after the fix, which is CSS only). Check it on a real device.

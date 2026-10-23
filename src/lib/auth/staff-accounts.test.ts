@@ -111,6 +111,50 @@ describe("Staff Accounts", () => {
     assert.equal(session?.user.kind, "kiosk");
   });
 
+  test("a signed-in Staff Account changes its own password through the public API, signing out its other devices", async () => {
+    await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+    const otherDevice = (await signIn(auth, "staff@example.org", password)).headers.get("set-cookie")!.split(";")[0];
+    const thisDevice = (await signIn(auth, "staff@example.org", password)).headers.get("set-cookie")!.split(";")[0];
+
+    const response = await auth.handler(
+      new Request(`${baseURL}/api/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: baseURL,
+          "x-real-ip": nextClientIp(),
+          cookie: thisDevice,
+        },
+        body: JSON.stringify({ currentPassword: password, newPassword: "a brand new password", revokeOtherSessions: true }),
+      }),
+    );
+
+    assert.equal(response.status, 200);
+    const freshCookie = response.headers.get("set-cookie")!.split(";")[0];
+    assert.equal((await auth.api.getSession({ headers: new Headers({ cookie: freshCookie }) }))?.user.email, "staff@example.org");
+    assert.equal(await auth.api.getSession({ headers: new Headers({ cookie: otherDevice }) }), null);
+    assert.equal((await signIn(auth, "staff@example.org", password)).status, 401);
+    assert.equal((await signIn(auth, "staff@example.org", "a brand new password")).status, 200);
+  });
+
+  test("a signed-in Kiosk Account can't change its own password through the public API", async () => {
+    await staffAccounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    const signedIn = await signIn(auth, "kiosk@example.org", password);
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+
+    const response = await auth.handler(
+      new Request(`${baseURL}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: baseURL, "x-real-ip": nextClientIp(), cookie },
+        body: JSON.stringify({ currentPassword: password, newPassword: "a brand new password", revokeOtherSessions: true }),
+      }),
+    );
+
+    assert.equal(response.status, 403);
+    assert.equal((await signIn(auth, "kiosk@example.org", password)).status, 200);
+    assert.equal((await signIn(auth, "kiosk@example.org", "a brand new password")).status, 401);
+  });
+
   test("signing in with a wrong password fails", async () => {
     await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
 
