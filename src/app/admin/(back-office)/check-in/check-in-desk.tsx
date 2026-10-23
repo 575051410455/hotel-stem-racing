@@ -1,21 +1,35 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { isKioskMode, kioskUrl } from "@/lib/check-in/kiosk-mode";
 import { event } from "@/lib/event";
 import { cn } from "@/lib/utils";
 import { checkInScan } from "./actions";
 import { CameraScanner } from "./camera-scanner";
 import { type CheckInAttempt, CheckInResultPanel } from "./check-in-result";
+import { KioskScreen } from "./kiosk-screen";
 
 /** Results that say nothing about the pass: the text goes back in the box so Staff can resubmit. */
 const KEEPS_SCAN = new Set<CheckInAttempt["result"]["status"]>(["not-an-event-day", "signed-out", "failed"]);
 
 /**
- * The entrance desk: the Event Day being checked in, the Pass Code box and the latest result.
+ * Kiosk mode lives in the address (`?kiosk=1`). Replacing the entry, rather than pushing one, means
+ * Back never just turns the Kiosk off while staying on this page.
+ */
+function setKioskMode(on: boolean) {
+  window.history.replaceState(null, "", kioskUrl(window.location, on));
+}
+
+/**
+ * The entrance desk: the Event Day being checked in, the Pass Code box and the latest result, or
+ * the Kiosk (ticket 19) when the address says so. Both check in through the same `submitScan`, so
+ * the Event Day chosen at the desk still applies in the Kiosk.
  * `today` is today's Event Day when the page was rendered (Bangkok), or null when today isn't one.
  */
 export function CheckInDesk({ today: renderedToday }: { today: string | null }) {
+  const kiosk = isKioskMode(useSearchParams());
   const [today, setToday] = useState(renderedToday);
   // An Event Day Staff picked explicitly. Null follows today, so a desk left open overnight
   // moves on to the next Event Day by itself (the server decides which day "today" is).
@@ -25,7 +39,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
   const latestAttempt = useRef(0);
   const selectedDay = chosenDay ?? today;
 
-  /** Checks in scanned or typed text. The camera scanner (ticket 18) calls this as well. */
+  /** Checks in scanned or typed text. The camera scanner (ticket 18) and the Kiosk call this as well. */
   async function submitScan(scan: string) {
     const id = ++latestAttempt.current;
     // Replace the previous result at once, so nobody is waved through on the last Attendee's green.
@@ -52,6 +66,20 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
     input.value = "";
     input.focus();
     if (scan.trim()) void submitScan(scan);
+  }
+
+  if (kiosk) {
+    return (
+      <KioskScreen
+        attempt={attempt}
+        onPass={(scan) => void submitScan(scan)}
+        onLeave={() => setKioskMode(false)}
+        checkInDay={{
+          label: event.eventDays.find((day) => day.date === selectedDay)?.label ?? null,
+          chosenByStaff: chosenDay !== null,
+        }}
+      />
+    );
   }
 
   return (
@@ -139,6 +167,23 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
           พิมพ์ Pass Code ตัวพิมพ์เล็กหรือใหญ่ มีขีดหรือเว้นวรรคก็ได้ หรือวางลิงก์ Event Pass แล้วกด Enter
         </p>
       </form>
+
+      <section aria-labelledby="kiosk-mode-heading" className="mt-10 border-t pt-6">
+        <h2 id="kiosk-mode-heading" className="text-base leading-normal font-semibold">
+          โหมด Kiosk: จุดเช็คอินด้วยตนเอง
+        </h2>
+        <p className="mt-1 text-sm leading-normal text-muted-foreground">
+          สำหรับ iPad ที่ผู้เข้าร่วมงานแสดง Event Pass ที่กล้องหน้าเอง เต็มหน้าจอ มีคำแนะนำภาษาไทยและอังกฤษ
+          และไม่มีเมนู ช่องพิมพ์ Pass Code หรือการเลือกวัน การเช็คอินบันทึกเป็นวันที่เลือกไว้ด้านบน
+          ออกจากโหมดนี้ได้ที่ปุ่ม “เจ้าหน้าที่” มุมขวาบน
+        </p>
+        <Button type="button" size="lg" variant="outline" className="mt-3" onClick={() => setKioskMode(true)}>
+          เปิดโหมด Kiosk
+        </Button>
+        <p className="mt-2 text-sm leading-normal text-muted-foreground">
+          บุ๊กมาร์กหน้านี้โดยเติม <code className="font-mono">?kiosk=1</code> ท้ายลิงก์ เพื่อเปิดเข้าโหมด Kiosk โดยตรง
+        </p>
+      </section>
     </div>
   );
 }
