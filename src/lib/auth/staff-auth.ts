@@ -4,11 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
 import { ACCOUNT_KINDS } from "./access";
-
-/** Staff passwords: at least 12 characters, no composition rules (spec: Back Office → Staff Accounts). */
-export const MIN_PASSWORD_LENGTH = 12;
-/** Better Auth's own default upper bound, stated here so the command can check it before hashing. */
-export const MAX_PASSWORD_LENGTH = 128;
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./password-rules";
 
 /**
  * 30 days. The spec asks for at least 7. A Kiosk signed in during setup has to stay signed in through
