@@ -47,6 +47,8 @@ RUN npm run build
 # ---- Runtime ----
 FROM base AS runner
 # Docker sets HOSTNAME to the container id; server.js would then bind to that address only.
+# Keep 0.0.0.0: on a specific address Next treats Proxy rewrites (src/proxy.ts) as external, and
+# an unknown Event Pass link then fails with a 500 instead of a 404.
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0

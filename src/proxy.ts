@@ -1,7 +1,29 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
+import { registrations } from "@/lib/server/registrations";
 
 const SIGN_IN_PATH = "/admin/login";
+const EVENT_PASS_PREFIX = "/p/";
+const UNKNOWN_EVENT_PASS_PATH = "/p/unknown";
+
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname.startsWith(EVENT_PASS_PREFIX)) {
+    return requireEventPass(request, pathname.slice(EVENT_PASS_PREFIX.length));
+  }
+  return requireSessionCookie(request);
+}
+
+/**
+ * Gives an unknown or malformed Event Pass token a real 404. The page's own notFound() comes too
+ * late: its 200 has already been sent. So this looks the token up first and rewrites misses to a
+ * route prerendered as 404, and a real token pays one extra indexed read.
+ */
+async function requireEventPass(request: NextRequest, token: string) {
+  const lookup = await registrations().getEventPass(token);
+  if (lookup.status === "found") return NextResponse.next();
+  return NextResponse.rewrite(new URL(UNKNOWN_EVENT_PASS_PATH, request.url));
+}
 
 /**
  * Optimistic gate for the Back Office and the Kiosk page: sends visitors without a session cookie
@@ -10,7 +32,7 @@ const SIGN_IN_PATH = "/admin/login";
  * the session themselves (`requireStaff` / `getCurrentStaff` / `requireCheckInAccount` in
  * src/lib/auth/session.ts), and they are what refuses a Kiosk Account outside the Kiosk page.
  */
-export function proxy(request: NextRequest) {
+function requireSessionCookie(request: NextRequest) {
   if (request.nextUrl.pathname === SIGN_IN_PATH || getSessionCookie(request)) {
     return NextResponse.next();
   }
@@ -21,6 +43,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // `:path*` also matches the bare path, so /kiosk itself is covered.
-  matcher: ["/admin/:path*", "/kiosk/:path*"],
+  // `:path*` also matches the bare path, so /kiosk itself is covered. `/p/:token` is one segment.
+  matcher: ["/admin/:path*", "/kiosk/:path*", "/p/:token"],
 };
