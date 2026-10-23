@@ -8,18 +8,21 @@ export type CreateStaffAccountInput = {
   /** A Staff Account (the default) or a check-in-only Kiosk Account (ADR 0003). */
   kind?: AccountKind;
 };
+export type CreateFirstStaffAccountInput = Omit<CreateStaffAccountInput, "kind">;
 export type ResetStaffPasswordInput = { email: string; password: string };
 
 type PasswordProblem =
   | { status: "password-too-short"; minLength: number }
   | { status: "password-too-long"; maxLength: number };
 
+type NewAccountProblem = { status: "invalid-email" } | { status: "invalid-name" } | PasswordProblem;
+
 export type CreateStaffAccountResult =
   | { status: "created"; accountId: string; email: string; kind: AccountKind }
-  | { status: "invalid-email" }
-  | { status: "invalid-name" }
   | { status: "email-taken" }
-  | PasswordProblem;
+  | NewAccountProblem;
+
+export type CreateFirstStaffAccountResult = CreateStaffAccountResult | { status: "staff-account-exists" };
 
 export type ResetStaffPasswordResult =
   | { status: "password-reset"; accountId: string; kind: AccountKind }
@@ -33,7 +36,7 @@ const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
 /**
  * Creates Accounts, Staff or Kiosk, and resets their passwords. This is the code path behind
- * `npm run staff`. Public sign-up is disabled (ADR 0001), so this writes through Better Auth's
+ * `npm run staff` and `npm run seed`. Public sign-up is disabled (ADR 0001), so this writes through Better Auth's
  * server-side context (`auth.$context`), with the same steps as its sign-up endpoint: hash, create
  * user, link credential. It is also the only way to set an Account's kind, which Better Auth
  * refuses from requests. Password length limits come from the auth config, so the command and
@@ -51,15 +54,36 @@ export function createStaffAccounts(auth: StaffAuth) {
     return null;
   }
 
-  return {
+  async function checkNewAccount(input: CreateStaffAccountInput): Promise<NewAccountProblem | null> {
+    if (!EMAIL_PATTERN.test(normaliseEmail(input.email))) return { status: "invalid-email" };
+    if (!input.name.trim()) return { status: "invalid-name" };
+    return checkPassword(input.password);
+  }
+
+  const staffAccounts = {
+    /**
+     * Creates a Staff Account only while none exists, for `npm run seed` on a fresh deploy. Kiosk
+     * Accounts don't count, so a database with only Kiosks still gets one. Never changes an Account.
+     */
+    async createFirst(input: CreateFirstStaffAccountInput): Promise<CreateFirstStaffAccountResult> {
+      const account = { ...input, kind: "staff" } satisfies CreateStaffAccountInput;
+      // Checked first, so a wrong `.env` is reported even when there is nothing to create.
+      const problem = await checkNewAccount(account);
+      if (problem) return problem;
+
+      const ctx = await auth.$context;
+      if ((await ctx.internalAdapter.countTotalUsers([{ field: "kind", value: account.kind }])) > 0) {
+        return { status: "staff-account-exists" };
+      }
+      return staffAccounts.create(account);
+    },
+
     async create(input: CreateStaffAccountInput): Promise<CreateStaffAccountResult> {
+      const problem = await checkNewAccount(input);
+      if (problem) return problem;
       const email = normaliseEmail(input.email);
       const name = input.name.trim();
       const kind = input.kind ?? "staff";
-      if (!EMAIL_PATTERN.test(email)) return { status: "invalid-email" };
-      if (!name) return { status: "invalid-name" };
-      const passwordProblem = await checkPassword(input.password);
-      if (passwordProblem) return passwordProblem;
 
       const ctx = await auth.$context;
       if (await ctx.internalAdapter.findUserByEmail(email)) return { status: "email-taken" };
@@ -109,6 +133,7 @@ export function createStaffAccounts(auth: StaffAuth) {
       return { status: "password-reset", accountId: userId, kind };
     },
   };
+  return staffAccounts;
 }
 
 export type StaffAccounts = ReturnType<typeof createStaffAccounts>;
