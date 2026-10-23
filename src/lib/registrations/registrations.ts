@@ -11,6 +11,7 @@ import { bulkSendSummary, type EventPassBatchRequest, sendEventPassBatch } from 
 import type { BulkSendMode } from "./bulk-send-params";
 import { createCheckIn } from "./check-in";
 import { countByEventDayAndRole } from "./counts";
+import { deleteRegistration, getRegistrationDetail } from "./detail";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
 import { generatePassCode } from "./event-pass-codec";
@@ -216,6 +217,12 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
       return row ? { status: "found", pass: row } : { status: "not-found" };
     },
+
+    /** Everything about one Registration (by id), with its Check-Ins; see ./detail.ts. */
+    getRegistrationDetail: (id: number) => getRegistrationDetail(deps.db, id),
+
+    /** Deletes one Registration (by id) and its Check-Ins: spam or a Duplicate Registration. */
+    deleteRegistration: (id: number) => deleteRegistration(deps.db, id),
 
     /** Head counts per Event Day by Attendee Role, plus totals (see counts.ts). */
     countByEventDayAndRole: () => countByEventDayAndRole(deps.db),

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireStaff } from "@/lib/auth/session";
+import { RegistrationDeletedNotice } from "./_registration-list/registration-deleted-notice";
 import { RegistrationListSection } from "./_registration-list/registration-list-section";
 import { CountsPanel } from "./counts-panel";
 
@@ -23,6 +24,7 @@ async function BackOfficeHome() {
     <>
       <h1 className="text-2xl leading-normal font-semibold">ระบบหลังบ้าน</h1>
       <p className="mt-2 leading-normal text-muted-foreground">ยินดีต้อนรับ {staff.name}</p>
+      <RegistrationDeletedNotice />
     </>
   );
 }

@@ -80,7 +80,16 @@ async function requestResend(registrationId: number): Promise<ResendOutcome> {
  * registered address, then refreshes the list so the row's count and time update. Every outcome
  * is shown in Thai beside the button; nothing here throws into the page.
  */
-export function ResendEventPass({ registrationId, email }: { registrationId: number; email: string }) {
+export function ResendEventPass({
+  registrationId,
+  email,
+  onSent,
+}: {
+  registrationId: number;
+  email: string;
+  /** Also runs after a send, e.g. to refresh a server-rendered status (the detail page). */
+  onSent?: () => void;
+}) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const resend = useMutation({
@@ -88,7 +97,9 @@ export function ResendEventPass({ registrationId, email }: { registrationId: num
     onSuccess: (outcome) => {
       // The row's email status changed: refresh every cached page. A not-found row is left in
       // place, so its explanation doesn't vanish with it; the list drops it on its next refresh.
-      if (outcome.status === "sent") void queryClient.invalidateQueries({ queryKey: registrationListKey });
+      if (outcome.status !== "sent") return;
+      void queryClient.invalidateQueries({ queryKey: registrationListKey });
+      onSent?.();
     },
   });
 
