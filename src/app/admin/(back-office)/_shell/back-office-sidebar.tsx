@@ -1,0 +1,34 @@
+import { FlagIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
+import { event } from "@/lib/event";
+import { BackOfficeNav } from "./back-office-nav";
+
+/**
+ * The Back Office sidebar: its name and the Event, the page links, and `accountMenu` (the signed-in
+ * Staff member's menu, which the layout streams in) at the foot. Inset, as in dashboard-01.
+ */
+export function BackOfficeSidebar({ accountMenu }: { accountMenu: ReactNode }) {
+  return (
+    <Sidebar variant="inset" collapsible="offcanvas">
+      {/* A landmark, so the name and the account menu aren't stranded outside one. */}
+      <aside aria-label="แถบเมนูระบบหลังบ้าน" className="flex min-h-0 flex-1 flex-col">
+        <SidebarHeader>
+          <div className="flex items-center gap-2 p-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <FlagIcon aria-hidden="true" className="size-4" />
+            </span>
+            <p className="grid min-w-0 flex-1 text-sm leading-tight">
+              <span className="truncate font-semibold">ระบบหลังบ้าน</span>
+              <span className="truncate text-xs text-muted-foreground">{event.name}</span>
+            </p>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <BackOfficeNav />
+        </SidebarContent>
+        <SidebarFooter>{accountMenu}</SidebarFooter>
+      </aside>
+    </Sidebar>
+  );
+}

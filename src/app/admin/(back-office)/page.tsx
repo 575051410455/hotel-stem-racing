@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireStaff } from "@/lib/auth/session";
+import { PageContent, PageHeader, PageTitle } from "./_shell/page-header";
 import { RegistrationDeletedNotice } from "./_registration-list/registration-deleted-notice";
 import { RegistrationListSection } from "./_registration-list/registration-list-section";
 import { CountsPanel } from "./counts-panel";
@@ -7,24 +8,23 @@ import { CountsPanel } from "./counts-panel";
 // /admin: counts (12) and the Registration list (11). Each section checks the session itself.
 export default function BackOfficeHomePage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8">
-      <Suspense fallback={<p className="text-sm text-muted-foreground">กำลังโหลด…</p>}>
-        <BackOfficeHome />
-      </Suspense>
-      <CountsPanel />
-      <RegistrationListSection />
-    </main>
+    <>
+      <PageHeader>
+        <PageTitle>ผู้ลงทะเบียน</PageTitle>
+      </PageHeader>
+      <PageContent>
+        <CountsPanel />
+        {/* After the counts, not first: a boundary that resolves to nothing would shift the page. */}
+        <Suspense fallback={null}>
+          <StaffOnlyDeletedNotice />
+        </Suspense>
+        <RegistrationListSection />
+      </PageContent>
+    </>
   );
 }
 
-async function BackOfficeHome() {
-  const staff = await requireStaff();
-
-  return (
-    <>
-      <h1 className="text-2xl leading-normal font-semibold">ระบบหลังบ้าน</h1>
-      <p className="mt-2 leading-normal text-muted-foreground">ยินดีต้อนรับ {staff.name}</p>
-      <RegistrationDeletedNotice />
-    </>
-  );
+async function StaffOnlyDeletedNotice() {
+  await requireStaff();
+  return <RegistrationDeletedNotice />;
 }

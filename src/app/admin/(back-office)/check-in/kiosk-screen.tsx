@@ -77,7 +77,8 @@ export function KioskScreen({
   const signedOut = attempt?.result.status === "signed-out";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-brand-deep text-white select-none">
+    // z-[60]: above the Back Office shell, including the mobile sidebar sheet (z-50).
+    <div className="fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-brand-deep text-white select-none">
       <div aria-hidden="true" className="h-2 shrink-0 bg-brand-gradient" />
       <div className="flex shrink-0 items-center justify-between gap-4 px-4 py-3 tab:px-6">
         {/* One line whatever shows on the right, so the preview's box never changes height. */}
