@@ -19,7 +19,7 @@ export type CheckInAttempt = {
 };
 
 // BACK_OFFICE_SIGN_IN_PATH, which lives in a server-only module; this file also renders in the browser.
-const SIGN_IN_PATH = "/admin/login";
+export const SIGN_IN_PATH = "/admin/login";
 
 // The form's label for "Other" asks the Attendee to specify; at the door it is just "Other".
 const roleLabels: Record<AttendeeRole, string> = { ...attendeeRoleLabels, other: "อื่น ๆ" };
@@ -37,9 +37,10 @@ export function bangkokTime(instant: Date): string {
   }).format(instant);
 }
 
-type Tone = "success" | "repeat" | "warning" | "neutral";
+/** Shared with the Kiosk, so its results read in the same colours. */
+export type Tone = "success" | "repeat" | "warning" | "neutral";
 
-const tones: Record<Tone, string> = {
+export const tones: Record<Tone, string> = {
   success: "border-green-800 bg-green-700 text-white",
   repeat: "border-amber-500 bg-amber-300 text-neutral-950",
   warning: "border-orange-800 bg-orange-700 text-white",
@@ -173,8 +174,8 @@ function ScannedText({ scan }: { scan: string }) {
   );
 }
 
-// Icons (24px, lucide shapes), decorative: the headline says it all.
-function Icon({ children }: { children: ReactNode }) {
+// Icons (lucide shapes, 36px unless sized), decorative: the headline says it all.
+function Icon({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -184,37 +185,37 @@ function Icon({ children }: { children: ReactNode }) {
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-9 shrink-0"
+      className={cn("size-9 shrink-0", className)}
     >
       {children}
     </svg>
   );
 }
 
-const CheckIcon = () => (
-  <Icon>
+export const CheckIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
     <circle cx="12" cy="12" r="10" />
     <path d="m8 12 3 3 5-6" />
   </Icon>
 );
 
-const ClockIcon = () => (
-  <Icon>
+export const ClockIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
     <circle cx="12" cy="12" r="10" />
     <path d="M12 6v6l4 2" />
   </Icon>
 );
 
-const AlertIcon = () => (
-  <Icon>
+export const AlertIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
     <path d="M12 9v4" />
     <path d="M12 17h.01" />
   </Icon>
 );
 
-const CrossIcon = () => (
-  <Icon>
+export const CrossIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
     <circle cx="12" cy="12" r="10" />
     <path d="m15 9-6 6" />
     <path d="m9 9 6 6" />

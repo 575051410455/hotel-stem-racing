@@ -1,11 +1,12 @@
 "use client";
 
 // The camera scanner at the entrance. It reads QR codes anywhere in the frame with html5-qrcode,
-// which loads only in the browser, when Staff open the camera, so it never touches the server
+// which loads only in the browser, when the camera first opens, so it never touches the server
 // render or the build. Event Passes go to `onPass`, which checks them in through the desk; any
-// other QR gets a brief orange notice and scanning carries on.
+// other QR gets a brief orange notice and scanning carries on. In Kiosk mode (ticket 19) the same
+// scanner opens the front camera by itself and fills the Kiosk's preview box.
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type CameraFacing, deviceCameraPreference } from "@/lib/check-in/camera-preference";
 import { looksLikeEventPass } from "@/lib/check-in/pass-recogniser";
@@ -26,6 +27,15 @@ const STRAY_QUIET_MS = 10_000;
  * from turning the result amber while its owner is still standing there.
  */
 const SAME_PASS_QUIET_MS = 5_000;
+/** How long the preview's size must stay put after a change before the camera is refitted to it. */
+const REFIT_SETTLE_MS = 500;
+
+/**
+ * The Kiosk preview's width, inside its box (a size container): as wide as the box allows while a
+ * 4:3 stream in landscape, or a 3:4 one in portrait (iPad Safari turns the stream with the
+ * device), still fits its height. Any other shape is letterboxed or trimmed, never squashed.
+ */
+const KIOSK_READER_WIDTH = "w-[min(100cqw,calc(100cqh*4/3))] portrait:w-[min(100cqw,calc(100cqh*3/4))]";
 
 type Camera = {
   open(facing: CameraFacing): Promise<void>;
@@ -52,17 +62,39 @@ async function loadCamera(elementId: string, onDecoded: (text: string) => void):
 }
 
 /**
- * Runs camera operations strictly one after another. html5-qrcode throws if one starts while
+ * Camera operations run strictly one after another: html5-qrcode throws if one starts while
  * another is under way, and iPhone and iPad need a stream fully stopped before the next starts.
+ * The queue is shared by every scanner on the page, so a scanner that mounts (the Kiosk's) waits
+ * for the one that just unmounted (the desk's) to let go of the camera.
  */
-function inTurn(queue: { current: Promise<void> }, operation: () => Promise<void>): Promise<void> {
-  const run = queue.current.then(operation);
-  queue.current = run.catch(() => {});
+const cameraQueue = { current: Promise.resolve() };
+
+function inTurn(operation: () => Promise<void>): Promise<void> {
+  const run = cameraQueue.current.then(operation);
+  cameraQueue.current = run.catch(() => {});
   return run;
 }
 
 /** Resolves after the browser has laid out the latest render, so the preview has its width. */
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/**
+ * Whether the preview no longer matches the geometry html5-qrcode set up when the camera opened:
+ * it fixes the video's width to the reader element's width, and sizes its scan canvas to the
+ * video as it first played. A rotated iPad, a resized window or a stream that turned with the
+ * device each break one of these. False while no camera is open or it is still starting.
+ */
+function previewOutOfShape(reader: HTMLElement): boolean {
+  const video = reader.querySelector("video");
+  const canvas = reader.querySelector("canvas");
+  if (!video || !canvas) return false;
+  const differs = (a: number, b: number) => Math.abs(a - b) > 1;
+  return (
+    differs(video.clientWidth, reader.clientWidth) ||
+    differs(canvas.width, video.clientWidth) ||
+    differs(canvas.height, video.clientHeight)
+  );
+}
 
 /** What went wrong opening a camera, in words Staff can act on. */
 function cameraProblem(failure: unknown): string {
@@ -87,19 +119,37 @@ type Status = "off" | "starting" | "on" | "stopping";
  * looks like an Event Pass, at most once per presentation of a pass.
  *
  * `mirrorPreview` flips the preview like a mirror, with CSS only (what is scanned is unaffected).
- * It defaults to mirroring while the front camera is open; Kiosk mode can set it explicitly.
+ * It defaults to mirroring while the front camera is open.
+ *
+ * `kiosk` (fixed for the scanner's lifetime) sets it up for a Kiosk: it opens the front camera as
+ * soon as it mounts, without reading or saving the device's camera choice; it has no switch or
+ * stop control, only a retry when the camera couldn't open; its notices are in Thai and English;
+ * and it pauses the camera while the page is hidden. The preview fills the section, which
+ * `className` sizes.
  */
-export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string) => void; mirrorPreview?: boolean }) {
+export function CameraScanner({
+  onPass,
+  mirrorPreview,
+  kiosk = false,
+  className,
+}: {
+  onPass: (text: string) => void;
+  mirrorPreview?: boolean;
+  kiosk?: boolean;
+  className?: string;
+}) {
   const previewId = useId();
-  const [status, setStatus] = useState<Status>("off");
+  const [status, setStatus] = useState<Status>(kiosk ? "starting" : "off");
   // The camera that is open, or being reopened after a failed switch.
-  const [facing, setFacing] = useState<CameraFacing>("back");
+  const [facing, setFacing] = useState<CameraFacing>(kiosk ? "front" : "back");
   const [error, setError] = useState<string | null>(null);
   const [noticeShown, setNoticeShown] = useState(false);
 
+  const readerRef = useRef<HTMLDivElement>(null);
   const cameraRef = useRef<Promise<Camera> | null>(null);
-  const queueRef = useRef<Promise<void>>(Promise.resolve());
   const mountedRef = useRef(false);
+  // The camera was closed because the page went out of sight (Kiosk only).
+  const pausedRef = useRef(false);
   const onPassRef = useRef(onPass);
   const lastPassRef = useRef<{ text: string; seenAt: number } | null>(null);
   const strayWarnedAtRef = useRef(new Map<string, number>());
@@ -111,20 +161,69 @@ export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string
     onPassRef.current = onPass;
   });
 
+  const startOnMount = useEffectEvent(() => {
+    if (kiosk) start();
+  });
+
   useEffect(() => {
     mountedRef.current = true;
-    const queue = queueRef;
     const camera = cameraRef;
     const noticeTimer = noticeTimerRef;
+    startOnMount();
     return () => {
       mountedRef.current = false;
       clearTimeout(noticeTimer.current);
       // Leaving the page turns the camera off, after any start or switch under way.
-      void inTurn(queue, async () => {
+      void inTurn(async () => {
         await (await camera.current)?.close();
-      });
+      }).catch((failure) => console.error("Closing the camera failed", failure));
     };
   }, []);
+
+  // html5-qrcode sizes the video and its scan canvas once, when the camera opens. When the preview
+  // changes shape afterwards, reopen the same camera so the whole frame is still read in proportion.
+  const refitIfOutOfShape = useEffectEvent(() => {
+    const reader = readerRef.current;
+    if (status === "on" && reader && previewOutOfShape(reader)) openCamera(facing);
+  });
+
+  useEffect(() => {
+    const reader = readerRef.current;
+    if (!reader || typeof ResizeObserver === "undefined") return;
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    // The reader's width follows its box and its height follows the video, so this sees both.
+    const observer = new ResizeObserver(() => {
+      clearTimeout(settle);
+      settle = setTimeout(() => refitIfOutOfShape(), REFIT_SETTLE_MS);
+    });
+    observer.observe(reader);
+    return () => {
+      observer.disconnect();
+      clearTimeout(settle);
+    };
+  }, []);
+
+  // A Kiosk lets go of the camera while the page is out of sight (iPad locked, another app or tab
+  // in front) and opens it again on return, rather than risk a frozen preview nobody can restart.
+  const pauseWhileHidden = useEffectEvent(() => {
+    if (document.visibilityState === "hidden") {
+      if (status === "off" || pausedRef.current) return;
+      pausedRef.current = true;
+      void inTurn(async () => {
+        await (await camera()).close();
+      }).catch((failure) => console.error("Pausing the camera failed", failure));
+    } else if (pausedRef.current) {
+      pausedRef.current = false;
+      openCamera(facing);
+    }
+  });
+
+  useEffect(() => {
+    if (!kiosk) return;
+    const onVisibilityChange = () => pauseWhileHidden();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [kiosk]);
 
   function showStrayNotice() {
     setNoticeShown(true);
@@ -161,23 +260,29 @@ export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string
     }
   }
 
-  function start() {
-    const preferred = deviceCameraPreference.read();
+  /** Opens the `next` camera, closing any camera that is open first. Doesn't save the choice. */
+  function openCamera(next: CameraFacing) {
     setError(null);
-    setFacing(preferred);
+    setFacing(next);
     setStatus("starting");
-    void inTurn(queueRef, async () => {
+    void inTurn(async () => {
       try {
+        const scanner = await camera();
+        await scanner.close();
         await nextFrame(); // the preview is showing, so the video is sized to its width
-        await (await camera()).open(preferred);
+        await scanner.open(next);
         if (mountedRef.current) setStatus("on");
       } catch (failure) {
-        console.error("Opening the camera failed", failure);
+        console.error(`Opening the ${next} camera failed`, failure);
         if (!mountedRef.current) return;
         setStatus("off");
-        setError(`เปิด${CAMERA_NAMES[preferred]}ไม่ได้: ${cameraProblem(failure)}`);
+        setError(`เปิด${CAMERA_NAMES[next]}ไม่ได้: ${cameraProblem(failure)}`);
       }
     });
+  }
+
+  function start() {
+    openCamera(kiosk ? "front" : deviceCameraPreference.read());
   }
 
   function switchCamera() {
@@ -185,7 +290,7 @@ export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string
     const next: CameraFacing = previous === "back" ? "front" : "back";
     setError(null);
     setStatus("starting");
-    void inTurn(queueRef, async () => {
+    void inTurn(async () => {
       try {
         const scanner = await camera();
         // Always wait for the current stream to stop before starting the next one: otherwise
@@ -220,7 +325,7 @@ export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string
   function stop() {
     setError(null);
     setStatus("stopping");
-    void inTurn(queueRef, async () => {
+    void inTurn(async () => {
       try {
         await (await camera()).close();
         if (mountedRef.current) setStatus("off");
@@ -237,62 +342,100 @@ export function CameraScanner({ onPass, mirrorPreview }: { onPass: (text: string
   const mirrored = mirrorPreview ?? facing === "front";
 
   return (
-    <section aria-labelledby={`${previewId}-heading`} className="mt-6">
-      <h2 id={`${previewId}-heading`} className="text-sm leading-normal font-medium">
+    <section
+      aria-labelledby={`${previewId}-heading`}
+      className={cn(kiosk ? "flex min-h-0 flex-col" : "mt-6", className)}
+    >
+      <h2 id={`${previewId}-heading`} className={kiosk ? "sr-only" : "text-sm leading-normal font-medium"}>
         สแกน QR ด้วยกล้อง
       </h2>
 
       <div
         className={cn(
-          "relative mt-2 w-full max-w-md overflow-hidden rounded-xl bg-neutral-950",
-          status === "off" && "hidden",
-          status === "starting" && "min-h-48",
+          "relative overflow-hidden bg-neutral-950",
+          kiosk
+            ? // A size container, so the reader can be sized to fit both ways (KIOSK_READER_WIDTH).
+              "grid min-h-0 flex-1 place-content-center rounded-2xl [container-type:size]"
+            : ["mt-2 w-full max-w-md rounded-xl", status === "off" && "hidden", status === "starting" && "min-h-48"],
         )}
       >
         {/* html5-qrcode owns this element's children (video and canvas), so React renders none.
             The mirror is CSS only: frames are decoded from the camera, not from this element. */}
-        <div id={previewId} aria-hidden="true" className={cn(mirrored && "-scale-x-100")} />
+        <div
+          ref={readerRef}
+          id={previewId}
+          aria-hidden="true"
+          className={cn(kiosk && KIOSK_READER_WIDTH, mirrored && "-scale-x-100")}
+        />
         {status === "starting" && (
-          <p className="absolute inset-0 grid place-items-center p-4 text-center text-base leading-normal font-medium text-white">
+          <p
+            className={cn(
+              "absolute inset-0 grid place-content-center p-4 text-center leading-normal font-medium text-white",
+              kiosk ? "text-2xl" : "text-base",
+            )}
+          >
             กำลังเปิดกล้อง…
+            {kiosk && <span className="block text-xl font-normal text-white/80">Starting the camera…</span>}
           </p>
         )}
-        {/* A toast over the preview, unlike the result panels below it; outside the mirrored
-            element so its text reads the right way round. No sound, no vibration. */}
+        {kiosk && status === "off" && (
+          <div className="absolute inset-0 grid place-content-center justify-items-center gap-5 p-6 text-center">
+            {error && (
+              <p role="alert" className="max-w-md text-lg leading-normal font-medium text-white">
+                {error}
+              </p>
+            )}
+            <Button type="button" size="lg" variant="secondary" className="h-14 px-8 text-lg" onClick={start}>
+              เปิดกล้องอีกครั้ง
+            </Button>
+          </div>
+        )}
+        {/* A toast over the preview, unlike the result panels; outside the mirrored element so its
+            text reads the right way round. No sound, no vibration. */}
         <div
           role="status"
           aria-live="polite"
           className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center"
         >
           {noticeShown && (
-            <p className="rounded-full bg-orange-500 px-4 py-2 text-center text-base leading-normal font-semibold text-neutral-950 shadow-lg">
+            <p
+              className={cn(
+                "rounded-full bg-orange-500 text-center leading-normal font-semibold text-neutral-950 shadow-lg",
+                kiosk ? "px-8 py-3 text-2xl" : "px-4 py-2 text-base",
+              )}
+            >
               QR นี้ไม่ใช่ Event Pass
+              {kiosk && <span className="block text-lg font-medium">This QR isn’t an Event Pass</span>}
             </p>
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {status === "off" ? (
-          <Button type="button" size="lg" onClick={start}>
-            เปิดกล้องสแกน QR
-          </Button>
-        ) : (
-          <>
-            <Button type="button" size="lg" variant="outline" disabled={busy} onClick={switchCamera}>
-              สลับเป็น{CAMERA_NAMES[facing === "back" ? "front" : "back"]}
-            </Button>
-            <Button type="button" size="lg" variant="outline" disabled={busy} onClick={stop}>
-              ปิดกล้อง
-            </Button>
-          </>
-        )}
-      </div>
+      {!kiosk && (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {status === "off" ? (
+              <Button type="button" size="lg" onClick={start}>
+                เปิดกล้องสแกน QR
+              </Button>
+            ) : (
+              <>
+                <Button type="button" size="lg" variant="outline" disabled={busy} onClick={switchCamera}>
+                  สลับเป็น{CAMERA_NAMES[facing === "back" ? "front" : "back"]}
+                </Button>
+                <Button type="button" size="lg" variant="outline" disabled={busy} onClick={stop}>
+                  ปิดกล้อง
+                </Button>
+              </>
+            )}
+          </div>
 
-      {error && (
-        <p role="alert" className="mt-2 text-sm leading-normal font-medium text-destructive">
-          {error}
-        </p>
+          {error && (
+            <p role="alert" className="mt-2 text-sm leading-normal font-medium text-destructive">
+              {error}
+            </p>
+          )}
+        </>
       )}
     </section>
   );
