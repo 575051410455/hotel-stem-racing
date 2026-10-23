@@ -24,6 +24,9 @@ export default function SignedInBackOfficeLayout({ children }: LayoutProps<"/adm
               <Link href="/admin/check-in" className="underline underline-offset-4">
                 เช็คอิน
               </Link>
+              <Link href="/admin/email" className="underline underline-offset-4">
+                ส่งอีเมล
+              </Link>
             </nav>
           </div>
           <Suspense fallback={null}>
