@@ -16,6 +16,9 @@ export type SubmissionContext = {
 // Generous on purpose: Turnstile is the bot defence, and many real Attendees share one IP
 // (the venue's Wi-Fi at the door, Thai mobile carriers' CGNAT). This only stops floods.
 export const SUBMISSIONS_PER_WINDOW = 60;
+// Every attempt, before the bot check, counts against this looser cap. It bounds how many
+// Turnstile siteverify calls one IP can trigger with junk tokens.
+export const ATTEMPTS_PER_WINDOW = 300;
 export const SUBMISSION_WINDOW_MINUTES = 10;
 
 export interface SubmissionRateLimiter {

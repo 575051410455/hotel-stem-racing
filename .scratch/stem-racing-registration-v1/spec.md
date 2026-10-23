@@ -373,6 +373,13 @@ Decision-level, not final column names:
   - **Event Pass codec:** Pass Codes use only the allowed alphabet; normalisation; resolving bare token, Pass Code and URL forms; links built from the configured domain with the trailing slash trimmed.
   - **Event Pass email builder:** HTML-escapes Attendee-entered text; includes the plain-text part, Pass Code and raw link; formats dates and times in Bangkok time.
   - **Camera preference:** defaults to back; only "front" selects front; storage that throws falls back to back.
+- **Seams added later through tickets.** Each was agreed in its ticket; recorded here so the list stays complete.
+  - Event Day availability (07): open days at given Bangkok instants.
+  - CSV builder (15): BOM, quoting and the formula guard, checked against literal strings.
+  - Turnstile siteverify response parsing (08).
+  - Loose pass recogniser (18) and Kiosk-mode parameter (19).
+  - Staff Accounts (04), against a real database: create, sign in, wrong password, short password, no public sign-up.
+- Pass Code generation is injectable (`generatePassCode`) only so collisions can be tested; treat it as a boundary like the clock.
 - **Runner:** Node's built-in test runner executed through tsx, which handles TypeScript and path aliases.
 - **Prior art:** none in the repo; it is greenfield. The organisers' notes established the patterns to follow: pure email builders returning subject/HTML/text, a sender that never throws, and a camera-preference module kept apart from React.
 - **No browser end-to-end tests in v1** because of the deadline. Public pages get a manual check at 320, 734, 735, 1280 and 1600+ px widths, plus keyboard-only and screen-reader passes.

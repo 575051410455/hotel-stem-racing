@@ -47,6 +47,16 @@ describe("Field validation: names", () => {
     }
   });
 
+  test("ignores invisible zero-width characters pasted inside a name, and saves the name without them", () => {
+    const pasted = "ณัฐ​พล‌";
+    assert.equal(validateField("givenName", withValues({ givenName: pasted })), undefined);
+
+    const parsed = parseRegistration(withValues({ givenName: pasted, familyName: "﻿ใจดี" }));
+    assert.ok(parsed.ok);
+    assert.equal(parsed.registration.givenName, "ณัฐพล");
+    assert.equal(parsed.registration.familyName, "ใจดี");
+  });
+
   test("asks for a missing name in Thai", () => {
     assert.equal(validateField("givenName", withValues({ givenName: "   " })), "กรุณากรอกชื่อ");
     assert.equal(validateField("familyName", withValues({ familyName: "" })), "กรุณากรอกนามสกุล");

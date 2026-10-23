@@ -35,17 +35,8 @@ describe("Event Pass codec", () => {
     assert.equal(passLink(token, "http://localhost:3000//"), `http://localhost:3000/p/${token}`);
   });
 
-  test("reads APP_URL when no domain is passed, and refuses to build a link without one", () => {
-    const original = process.env.APP_URL;
-    try {
-      process.env.APP_URL = "https://passes.example.org/";
-      assert.equal(passLink(token), `https://passes.example.org/p/${token}`);
-
-      delete process.env.APP_URL;
-      assert.throws(() => passLink(token), /APP_URL/);
-    } finally {
-      if (original === undefined) delete process.env.APP_URL;
-      else process.env.APP_URL = original;
-    }
+  test("refuses to build a link without a configured domain", () => {
+    assert.throws(() => passLink(token, undefined), /APP_URL/);
+    assert.throws(() => passLink(token, "  "), /APP_URL/);
   });
 });

@@ -8,6 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { createSmtpEmailSender } from "../src/lib/email/smtp-sender";
 import { event } from "../src/lib/event";
+import { passLink } from "../src/lib/registrations/event-pass-codec";
 
 async function main(): Promise<number> {
   const to = process.argv[2]?.trim();
@@ -29,13 +30,12 @@ async function main(): Promise<number> {
   }
 
   const token = randomUUID();
-  const passLink = `${appUrl.replace(/\/+$/, "")}/p/${token}`;
   const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
   console.log(`Sending a sample Event Pass email to ${to} through ${host}...`);
 
   const result = await sender.send({
     to,
-    passLink,
+    passLink: passLink(token, appUrl),
     pass: {
       token,
       passCode: "EP-TEST2345",

@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { createTurnstileBotCheck } from "@/lib/bot-check/turnstile";
 import { createDatabase } from "@/lib/db/client";
 import { createSmtpEmailSender } from "@/lib/email/smtp-sender";
+import { passLink } from "@/lib/registrations/event-pass-codec";
 import { createRegistrations, type Registrations } from "@/lib/registrations/registrations";
 
 // Composition root: the one place that turns environment variables into real collaborators.
@@ -28,4 +29,9 @@ export function registrations(): Registrations {
     });
   }
   return globalForRegistrations.registrations;
+}
+
+/** The Event Pass link for a token, on the configured domain (APP_URL). Call at render time. */
+export function eventPassLink(token: string): string {
+  return passLink(token, process.env.APP_URL);
 }

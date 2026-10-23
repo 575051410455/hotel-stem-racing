@@ -136,10 +136,19 @@ export const maxLengths = {
 // Letter-or-mark groups joined by one space, apostrophe (typed or smart) or hyphen.
 // Marks matter: Thai vowels and tone marks such as ิ ั ่ are combining marks, not letters.
 const NAME_PATTERN = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
+
+// Zero-width space/non-joiner/joiner, word joiner and BOM: invisible, and common in Thai text
+// pasted from LINE or the web, where they mark word breaks.
+const INVISIBLE_CHARACTERS = /[\u200B-\u200D\u2060\uFEFF]/g;
+
+/** A name as entered, without invisible characters, trimmed and NFC-normalised. */
+function cleanName(raw: string): string {
+  return raw.replace(INVISIBLE_CHARACTERS, "").trim().normalize("NFC");
+}
 const NAME_CHARACTER = /[\p{L}\p{M}]/gu;
 
 function validateName(raw: string, label: "ชื่อ" | "นามสกุล", maxLength: number) {
-  const value = raw.trim().normalize("NFC");
+  const value = cleanName(raw);
   if (!value) return `กรุณากรอก${label}`;
   if (value.length > maxLength) return `${label}ยาวได้ไม่เกิน ${maxLength} ตัวอักษร`;
   if (!NAME_PATTERN.test(value)) {
@@ -327,7 +336,7 @@ export type ParseResult =
   | { ok: false; fieldErrors: FieldErrors };
 
 const optionalText = (raw: string) => raw.trim() || null;
-const nameText = (raw: string) => raw.trim().normalize("NFC");
+const nameText = cleanName;
 
 /** Validates, then normalises: trimmed text, E.164 phone, empty optionals as null. */
 export function parseRegistration(form: RegistrationForm): ParseResult {

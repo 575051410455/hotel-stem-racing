@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
 import {
+  ATTEMPTS_PER_WINDOW,
   createInMemoryRateLimiter,
   type SubmissionContext,
   type SubmissionRateLimiter,
@@ -44,7 +45,7 @@ export type RegistrationDependencies = {
   botCheck?: BotCheckVerifier;
   /** Source of new Pass Codes; tests pass a fixed sequence to exercise collisions. */
   generatePassCode?: () => string;
-  /** Base of Event Pass links in emails (APP_URL). When unset, `passLink` reads APP_URL itself. */
+  /** Base of Event Pass links in emails (APP_URL). Without it, sending an Event Pass email fails (recorded, never thrown). */
   appUrl?: string;
   /**
    * Runs work that must not hold up the Attendee's response, such as the Event Pass email.
@@ -52,8 +53,10 @@ export type RegistrationDependencies = {
    * callers without a response to protect (and tests) see its effect straight away.
    */
   afterResponse?: (task: () => Promise<unknown>) => void | Promise<void>;
-  /** Per-IP submission limit; defaults to 10 per 10 minutes, in memory. */
+  /** Per-IP submission limit; defaults to SUBMISSIONS_PER_WINDOW (60) per 10 minutes, in memory. */
   rateLimiter?: SubmissionRateLimiter;
+  /** Per-IP cap on every attempt before the bot check; defaults to ATTEMPTS_PER_WINDOW. */
+  attemptLimiter?: SubmissionRateLimiter;
 };
 
 export type EventPass = {
@@ -143,6 +146,8 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
     ...dependencies,
   };
   const rateLimiter = dependencies.rateLimiter ?? createInMemoryRateLimiter();
+  const attemptLimiter =
+    dependencies.attemptLimiter ?? createInMemoryRateLimiter({ limit: ATTEMPTS_PER_WINDOW });
 
   /** Saves a new Registration, or resolves to undefined when it is a Duplicate Registration. */
   async function save(registration: ValidRegistration): Promise<EventPass | undefined> {
@@ -180,8 +185,13 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
       const now = deps.clock();
       if (isRegistrationClosed(now)) return { status: "closed" };
 
-      // Bot check before the rate limit, so only verified submissions use up an IP's allowance:
-      // bots on a shared IP (venue Wi-Fi, mobile carrier NAT) can't lock real Attendees out.
+      // A loose cap on every attempt, verified or not, so junk tokens can't make unbounded
+      // siteverify calls. Then the bot check before the tighter rate limit, so only verified
+      // submissions use up an IP's allowance: bots on a shared IP (venue Wi-Fi, carrier NAT)
+      // can't lock real Attendees out.
+      if (context.remoteIp !== undefined && !attemptLimiter.tryAcquire(context.remoteIp, now)) {
+        return { status: "rate-limited" };
+      }
       if (!(await deps.botCheck.verify(context.botCheckToken, context.remoteIp))) {
         return { status: "bot-check-failed" };
       }

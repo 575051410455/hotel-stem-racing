@@ -62,9 +62,12 @@ export function createSmtpEmailSender(env: SmtpEnv): EventPassEmailSender {
     auth: { user, pass: env.SMTP_PASS ?? "" },
     // Fail fast instead of nodemailer's minutes-long defaults, so a stuck SMTP server
     // can't hold a Registration request open.
+    // These are per phase and socketTimeout restarts on every SMTP command, so they don't cap a
+    // whole send: SEND_DEADLINE_MS does.
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 30_000,
+    dnsTimeout: 5_000,
   });
 
   return createEventPassEmailSender(transport, {
@@ -84,14 +87,17 @@ export function createEventPassEmailSender(
     async send(message: EventPassMessage): Promise<SendResult> {
       try {
         const email = await buildEventPassEmail(message, { banner: await banner() });
-        const info = await transport.sendMail({
-          from: options.from,
-          to: message.to,
-          subject: email.subject,
-          html: email.html,
-          text: email.text,
-          attachments: email.attachments,
-        });
+        const info = await withDeadline(
+          transport.sendMail({
+            from: options.from,
+            to: message.to,
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+            attachments: email.attachments,
+          }),
+          SEND_DEADLINE_MS,
+        );
         if (info.rejected?.length) {
           return { success: false, error: `Recipient rejected: ${info.rejected.join(", ")}` };
         }
@@ -101,6 +107,21 @@ export function createEventPassEmailSender(
       }
     },
   };
+}
+
+/**
+ * The most one send may take before it is reported as failed. Bulk-send batches (40 s budget)
+ * and the Duplicate Registration re-send both rely on it to stay under Cloudflare's 100 s.
+ * A send that times out may still be delivered later; it is recorded as unsent.
+ */
+export const SEND_DEADLINE_MS = 20_000;
+
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`SMTP send timed out after ${ms / 1000} s`)), ms);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
 
 /** A bare address gets the Event name as its display name; "Name <address>" is kept as is. */

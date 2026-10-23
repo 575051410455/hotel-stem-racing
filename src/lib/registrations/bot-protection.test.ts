@@ -47,6 +47,32 @@ describe("Bot protection on submitting a Registration", () => {
     assert.equal(await savedRegistrations(), 0);
   });
 
+  test("a flood of junk bot-check tokens from one IP is cut off after 300 attempts in 10 minutes", async () => {
+    let checks = 0;
+    const failingBotCheck: BotCheckVerifier = {
+      async verify() {
+        checks++;
+        return false;
+      },
+    };
+    const registrations = createRegistrations({ db: database.db, clock: beforeTheEvent, botCheck: failingBotCheck });
+
+    for (let n = 0; n < 300; n++) {
+      const result = await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "203.0.113.7" });
+      assert.deepEqual(result, { status: "bot-check-failed" }, `attempt ${n + 1}`);
+    }
+    assert.deepEqual(
+      await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "203.0.113.7" }),
+      { status: "rate-limited" },
+    );
+    assert.equal(checks, 300);
+    assert.deepEqual(
+      await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "198.51.100.20" }),
+      { status: "bot-check-failed" },
+    );
+    assert.equal(await savedRegistrations(), 0);
+  });
+
   test("a passed bot check lets the Registration through", async () => {
     const tokens: (string | undefined)[] = [];
     const passingBotCheck: BotCheckVerifier = {

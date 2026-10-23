@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth/session";
 import { event } from "@/lib/event";
 import { type RegistrationDetail, registrationIdFromPath } from "@/lib/registrations/detail";
-import { passLink } from "@/lib/registrations/event-pass-codec";
 import { organisationLabel, type ReferralSource, referralSourceLabels } from "@/lib/registrations/fields";
-import { registrations } from "@/lib/server/registrations";
+import { eventPassLink, registrations } from "@/lib/server/registrations";
 import { attendeeRoleListLabels, formatCreatedAt, formatPhone } from "../../_registration-list/format";
 import { registrationListHref } from "../../_registration-list/list-links";
 import { DeleteRegistration } from "./delete-registration";
@@ -240,7 +239,7 @@ function Lines({ items }: { items: string[] }) {
 function EventPassLinkOrNotice({ token }: { token: string }) {
   let link: string;
   try {
-    link = passLink(token);
+    link = eventPassLink(token);
   } catch {
     return <p className="leading-normal text-destructive">สร้างลิงก์ไม่ได้ เพราะยังไม่ได้ตั้งค่า APP_URL</p>;
   }

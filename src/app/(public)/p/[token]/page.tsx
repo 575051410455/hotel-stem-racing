@@ -4,8 +4,7 @@ import { Suspense } from "react";
 import { EventPassCard } from "@/components/registration/EventPassCard";
 import { Container } from "@/components/site/Container";
 import { event } from "@/lib/event";
-import { passLink } from "@/lib/registrations/event-pass-codec";
-import { registrations } from "@/lib/server/registrations";
+import { eventPassLink, registrations } from "@/lib/server/registrations";
 
 export const metadata: Metadata = {
   title: `บัตรเข้างาน ${event.name}`,
@@ -39,7 +38,7 @@ async function EventPass({ params }: Pick<PageProps<"/p/[token]">, "params">) {
   const lookup = await registrations().getEventPass(token);
   if (lookup.status === "not-found") notFound();
 
-  return <EventPassCard pass={lookup.pass} link={passLink(lookup.pass.token)} />;
+  return <EventPassCard pass={lookup.pass} link={eventPassLink(lookup.pass.token)} />;
 }
 
 function EventPassPlaceholder() {

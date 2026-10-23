@@ -14,7 +14,7 @@ export type EventPassEmailDependencies = {
   emailSender: EventPassEmailSender;
   /** Stamps `last_email_sent_at`. */
   clock: Clock;
-  /** Base of the Event Pass link. When undefined, `passLink` falls back to APP_URL. */
+  /** Base of the Event Pass link. When undefined, the send fails and is recorded as unsent. */
   appUrl?: string;
 };
 

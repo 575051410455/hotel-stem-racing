@@ -29,9 +29,9 @@ export function normalisePassCode(input: string): string | null {
 /**
  * The Event Pass link a QR encodes: `{APP_URL}/p/{token}`, trailing slashes trimmed.
  * Build it at render or send time and never store it, so changing the domain breaks nothing.
- * `appUrl` defaults to the server's APP_URL; pass it explicitly anywhere else.
+ * Pages get the configured domain from the composition root's `eventPassLink`.
  */
-export function passLink(token: string, appUrl: string | undefined = process.env.APP_URL): string {
+export function passLink(token: string, appUrl: string | undefined): string {
   const base = appUrl?.trim().replace(/\/+$/, "");
   if (!base) throw new Error("APP_URL is not set, so Event Pass links cannot be built");
   return `${base}/p/${token}`;

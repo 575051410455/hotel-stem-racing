@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { rejectUnlessSameOrigin } from "@/app/api/back-office/same-origin";
 import { getCurrentStaff } from "@/lib/auth/session";
 import { type DeleteRegistrationResult, registrationIdFromPath } from "@/lib/registrations/detail";
 import { registrations } from "@/lib/server/registrations";
@@ -14,8 +15,10 @@ import { registrations } from "@/lib/server/registrations";
 /** Attendees' personal data: never store it in a shared or browser cache. */
 const noStore = { "Cache-Control": "private, no-store" };
 
-export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/back-office/registrations/[id]">) {
+export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/back-office/registrations/[id]">) {
   // Before reading the request or the database (see getCurrentStaff).
+  const crossSite = rejectUnlessSameOrigin(request);
+  if (crossSite) return crossSite;
   const staff = await getCurrentStaff();
   if (!staff) return Response.json({ error: "unauthorized" }, { status: 401, headers: noStore });
 
