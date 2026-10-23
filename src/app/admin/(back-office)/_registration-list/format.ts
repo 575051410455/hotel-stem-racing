@@ -1,17 +1,7 @@
 // How the Back Office Registration list shows stored values. Pure; safe in browser and server.
 
 import { event } from "@/lib/event";
-import {
-  type AttendeeRole,
-  attendeeRoleLabels,
-  formatPhoneAsYouType,
-} from "@/lib/registrations/fields";
-
-/** The form's "Other" label asks the Attendee to specify; in a list it is just "Other". */
-export const attendeeRoleListLabels: Record<AttendeeRole, string> = {
-  ...attendeeRoleLabels,
-  other: "อื่น ๆ",
-};
+import { formatPhoneAsYouType } from "@/lib/registrations/fields";
 
 /** "22 ต.ค. 2569 14:05": always Bangkok time, whatever the browser's zone. */
 const createdAtFormat = new Intl.DateTimeFormat("th-TH", {

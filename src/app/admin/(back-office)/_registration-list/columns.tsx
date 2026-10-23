@@ -10,8 +10,9 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { attendeeRoleShortLabels } from "@/lib/registrations/fields";
 import { EventPassEmailCell } from "./event-pass-email";
-import { attendeeRoleListLabels, formatCreatedAt, formatEventDay, formatPhone } from "./format";
+import { formatCreatedAt, formatEventDay, formatPhone } from "./format";
 import type { RegistrationListItem } from "./query";
 import { RegistrationDetailLink } from "./registration-detail-link";
 
@@ -62,10 +63,10 @@ export const registrationListColumns = column.columns([
     header: "ฐานะ",
     cell: ({ row }) => {
       const { role, roleOther } = row.original;
-      if (role !== "other" || !roleOther) return attendeeRoleListLabels[role];
+      if (role !== "other" || !roleOther) return attendeeRoleShortLabels[role];
       return (
         <span className="block max-w-48 truncate" title={roleOther}>
-          อื่น ๆ: {roleOther}
+          {attendeeRoleShortLabels.other}: {roleOther}
         </span>
       );
     },

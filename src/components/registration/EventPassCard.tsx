@@ -1,10 +1,7 @@
 import QRCode from "react-qr-code";
-import { event } from "@/lib/event";
+import { event, eventDayLabel } from "@/lib/event";
 import type { EventPass } from "@/lib/registrations/registrations";
 import { DownloadEventPass } from "./DownloadEventPass";
-
-const eventDayLabel = (date: string) =>
-  event.eventDays.find((day) => day.date === date)?.label ?? date;
 
 /** The download button redraws this QR onto the card image, so both encode the same link. */
 const qrId = "event-pass-qr";

@@ -379,6 +379,7 @@ Decision-level, not final column names:
   - Turnstile siteverify response parsing (08).
   - Loose pass recogniser (18) and Kiosk-mode parameter (19).
   - Staff Accounts (04), against a real database: create, sign in, wrong password, short password, no public sign-up.
+  - Bangkok time (22): the calendar date and clock time either side of midnight in Bangkok, and the instant of a Bangkok date and wall-clock time. The redesign spec (`.scratch/back-office-redesign/`) builds its "today" and daily counts on it.
 - Pass Code generation is injectable (`generatePassCode`) only so collisions can be tested; treat it as a boundary like the clock.
 - **Runner:** Node's built-in test runner executed through tsx, which handles TypeScript and path aliases.
 - **Prior art:** none in the repo; it is greenfield. The organisers' notes established the patterns to follow: pure email builders returning subject/HTML/text, a sender that never throws, and a camera-preference module kept apart from React.

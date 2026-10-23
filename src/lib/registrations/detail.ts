@@ -7,6 +7,7 @@ import { asc, eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { checkIns as checkInsTable, registrations as registrationsTable } from "@/lib/db/schema";
 import type { AttendeeRole, ReferralSource } from "./fields";
+import { isRegistrationId } from "./registration-id";
 
 /** One Check-In of the Registration, as Staff see it. */
 export type RegistrationCheckIn = {
@@ -54,19 +55,6 @@ export type RegistrationDetailLookup =
   | { status: "not-found" };
 
 const notFound = { status: "not-found" } as const;
-
-/** Registration ids are a Postgres `integer` identity: 1 to 2^31 − 1. */
-const MAX_REGISTRATION_ID = 2 ** 31 - 1;
-
-/** False for anything that can't be a Registration id, which Postgres would reject or overflow on. */
-export function isRegistrationId(id: number): boolean {
-  return Number.isSafeInteger(id) && id >= 1 && id <= MAX_REGISTRATION_ID;
-}
-
-/** A Registration id as it appears in a URL path ("12"); NaN, which matches nothing, otherwise. */
-export function registrationIdFromPath(segment: string): number {
-  return /^[1-9]\d{0,9}$/.test(segment) ? Number(segment) : Number.NaN;
-}
 
 const detailColumns = {
   id: registrationsTable.id,

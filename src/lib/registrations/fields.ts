@@ -73,6 +73,9 @@ export const attendeeRoleLabels: Record<AttendeeRole, string> = {
   other: "อื่น ๆ โปรดระบุ",
 };
 
+/** The form's "Other" asks the Attendee to specify; as a stored answer (counts, lists, CSV, at the door) it is just "Other". */
+export const attendeeRoleShortLabels: Record<AttendeeRole, string> = { ...attendeeRoleLabels, other: "อื่น ๆ" };
+
 const isAttendeeRole = (value: string): value is AttendeeRole =>
   (attendeeRoles as readonly string[]).includes(value);
 
@@ -102,6 +105,9 @@ export const referralSourceLabels: Record<ReferralSource, string> = {
   competing_team: "ทีมที่เข้าร่วมการแข่งขัน",
   other: "อื่น ๆ โปรดระบุ",
 };
+
+/** As `attendeeRoleShortLabels`: "Other" as an answer, not a prompt. */
+export const referralSourceShortLabels: Record<ReferralSource, string> = { ...referralSourceLabels, other: "อื่น ๆ" };
 
 const isReferralSource = (value: string): value is ReferralSource =>
   (referralSources as readonly string[]).includes(value);

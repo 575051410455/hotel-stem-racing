@@ -1,14 +1,9 @@
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth/session";
-import { event } from "@/lib/event";
-import { type AttendeeRole, attendeeRoleLabels, attendeeRoles } from "@/lib/registrations/fields";
+import { event, eventDayLabel } from "@/lib/event";
+import { attendeeRoleShortLabels, attendeeRoles } from "@/lib/registrations/fields";
 import { registrations } from "@/lib/server/registrations";
-
-// The form's label for "Other" asks the Attendee to specify; as a count it is just "Other".
-const roleLabels: Record<AttendeeRole, string> = { ...attendeeRoleLabels, other: "อื่น ๆ" };
-
-const eventDayLabels = new Map<string, string>(event.eventDays.map(({ date, label }) => [date, label]));
 
 const formatCount = new Intl.NumberFormat("th-TH").format;
 
@@ -43,7 +38,7 @@ async function Counts() {
           <Card key={day.eventDay} className="gap-4">
             <CardHeader>
               <CardTitle>
-                <h3 className="leading-normal">{eventDayLabels.get(day.eventDay) ?? day.eventDay}</h3>
+                <h3 className="leading-normal">{eventDayLabel(day.eventDay)}</h3>
               </CardTitle>
               <p className="leading-normal">
                 <span className="text-3xl font-semibold tabular-nums">{formatCount(day.total)}</span>{" "}
@@ -54,7 +49,7 @@ async function Counts() {
               <dl className="divide-y border-t">
                 {attendeeRoles.map((role) => (
                   <div key={role} className="flex items-baseline justify-between gap-4 py-2 text-sm leading-normal">
-                    <dt>{roleLabels[role]}</dt>
+                    <dt>{attendeeRoleShortLabels[role]}</dt>
                     <dd className="font-medium tabular-nums">{formatCount(day.byRole[role])}</dd>
                   </div>
                 ))}

@@ -5,6 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import { isRegistrationId } from "./registration-id";
 import {
   type EventPassEmailDependencies,
   type EventPassEmailRecipient,
@@ -22,9 +23,6 @@ export type ResendEventPassResult =
   /** No Registration has this id, for example because it was deleted. */
   | { status: "not-found" };
 
-/** Registration ids are a Postgres `integer` identity: 1 to 2^31 − 1. */
-const MAX_REGISTRATION_ID = 2 ** 31 - 1;
-
 export function createResendEventPass(deps: EventPassEmailDependencies) {
   /**
    * Emails the Registration with this id its Event Pass, at the address it was registered with.
@@ -32,7 +30,7 @@ export function createResendEventPass(deps: EventPassEmailDependencies) {
    */
   return async function resendEventPass(id: number): Promise<ResendEventPassResult> {
     // Anything else would make Postgres throw (out of range) or can't be a Registration anyway.
-    if (!Number.isSafeInteger(id) || id < 1 || id > MAX_REGISTRATION_ID) return { status: "not-found" };
+    if (!isRegistrationId(id)) return { status: "not-found" };
 
     let recipient: EventPassEmailRecipient | undefined;
     try {

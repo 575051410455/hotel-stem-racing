@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { isKioskMode, kioskUrl } from "@/lib/check-in/kiosk-mode";
-import { event } from "@/lib/event";
+import { event, findEventDay } from "@/lib/event";
 import { cn } from "@/lib/utils";
 import { checkInScan } from "./actions";
 import { CameraScanner } from "./camera-scanner";
@@ -75,7 +75,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         onPass={(scan) => void submitScan(scan)}
         exit={{ kind: "leave-kiosk-mode", onLeave: () => setKioskMode(false) }}
         checkInDay={{
-          label: event.eventDays.find((day) => day.date === selectedDay)?.label ?? null,
+          label: findEventDay(selectedDay)?.label ?? null,
           chosenByStaff: chosenDay !== null,
         }}
       />
@@ -117,7 +117,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         {chosenDay !== null && (
           <p className="mt-2 text-sm leading-normal font-medium text-orange-800">
             {today === null ? "วันนี้ไม่ใช่วันจัดงาน" : "ไม่ใช่วันนี้"}: การเช็คอินจะบันทึกเป็น
-            {event.eventDays.find((day) => day.date === chosenDay)?.label}
+            {findEventDay(chosenDay)?.label}
           </p>
         )}
       </fieldset>

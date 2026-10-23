@@ -2,7 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { type AccountKind, canCheckIn, canUseBackOffice, homePath } from "./access";
+import { type AccountKind, canCheckIn, canUseBackOffice, homePath, SIGN_IN_PATH } from "./access";
 import { staffAuth } from "./server";
 
 /** The signed-in Staff member, narrowed to what Back Office pages need. */
@@ -15,8 +15,6 @@ export type CurrentStaff = {
 
 /** The signed-in Account on the Check-In path: a Staff Account or a Kiosk Account. */
 export type CurrentCheckInAccount = CurrentStaff & { kind: AccountKind };
-
-export const BACK_OFFICE_SIGN_IN_PATH = "/admin/login";
 
 /**
  * Reads and validates the session from the request cookies (a database lookup, no cookie cache),
@@ -53,7 +51,7 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
  */
 export async function requireStaff(): Promise<CurrentStaff> {
   const account = await getSignedInAccount();
-  if (!account) redirect(BACK_OFFICE_SIGN_IN_PATH);
+  if (!account) redirect(SIGN_IN_PATH);
   if (!canUseBackOffice(account.kind)) redirect(homePath(account.kind));
   return { id: account.id, name: account.name, email: account.email };
 }
@@ -70,6 +68,6 @@ export async function getCurrentCheckInAccount(): Promise<CurrentCheckInAccount 
 /** Like `getCurrentCheckInAccount`, but redirects to the sign-in page when there's none. */
 export async function requireCheckInAccount(): Promise<CurrentCheckInAccount> {
   const account = await getCurrentCheckInAccount();
-  if (!account) redirect(BACK_OFFICE_SIGN_IN_PATH);
+  if (!account) redirect(SIGN_IN_PATH);
   return account;
 }

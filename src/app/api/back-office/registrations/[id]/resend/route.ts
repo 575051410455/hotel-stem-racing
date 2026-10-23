@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
-import { rejectUnlessSameOrigin } from "@/app/api/back-office/same-origin";
+import { noStoreJson, rejectUnlessSameOrigin, unauthorized } from "@/app/api/back-office/route-helpers";
 import { getCurrentStaff } from "@/lib/auth/session";
+import { registrationIdFromPath } from "@/lib/registrations/registration-id";
 import type { ResendEventPassResult } from "@/lib/registrations/resend-event-pass";
 import { registrations } from "@/lib/server/registrations";
 
@@ -12,14 +13,6 @@ import { registrations } from "@/lib/server/registrations";
 // proxy's error page before the Back Office sees the reason.
 // CSRF: rejectUnlessSameOrigin, since SameSite=Lax alone lets sibling subdomains post.
 
-/** Attendees' personal data: never store it in a shared or browser cache. */
-const noStore = { "Cache-Control": "private, no-store" };
-
-/** A Registration id as it appears in the path; anything else matches no Registration. */
-function registrationId(segment: string): number {
-  return /^[1-9]\d{0,9}$/.test(segment) ? Number(segment) : Number.NaN;
-}
-
 export async function POST(
   request: NextRequest,
   ctx: RouteContext<"/api/back-office/registrations/[id]/resend">,
@@ -28,9 +21,9 @@ export async function POST(
   if (crossSite) return crossSite;
   // Before reading the request or the database (see getCurrentStaff).
   const staff = await getCurrentStaff();
-  if (!staff) return Response.json({ error: "unauthorized" }, { status: 401, headers: noStore });
+  if (!staff) return unauthorized();
 
   const { id } = await ctx.params;
-  const result: ResendEventPassResult = await registrations().resendEventPass(registrationId(id));
-  return Response.json(result, { status: result.status === "not-found" ? 404 : 200, headers: noStore });
+  const result: ResendEventPassResult = await registrations().resendEventPass(registrationIdFromPath(id));
+  return noStoreJson(result, { status: result.status === "not-found" ? 404 : 200 });
 }

@@ -5,11 +5,12 @@ import { type ReactNode, Suspense } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth/session";
-import { event } from "@/lib/event";
-import { type RegistrationDetail, registrationIdFromPath } from "@/lib/registrations/detail";
-import { organisationLabel, type ReferralSource, referralSourceLabels } from "@/lib/registrations/fields";
+import { eventDayLabel } from "@/lib/event";
+import type { RegistrationDetail } from "@/lib/registrations/detail";
+import { attendeeRoleShortLabels, organisationLabel, referralSourceShortLabels } from "@/lib/registrations/fields";
+import { registrationIdFromPath } from "@/lib/registrations/registration-id";
 import { eventPassLink, registrations } from "@/lib/server/registrations";
-import { attendeeRoleListLabels, formatCreatedAt, formatPhone } from "../../_registration-list/format";
+import { formatCreatedAt, formatPhone } from "../../_registration-list/format";
 import { registrationListHref } from "../../_registration-list/list-links";
 import { DeleteRegistration } from "./delete-registration";
 import { DetailEventPassEmail, EventPassLink } from "./detail-actions";
@@ -158,12 +159,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const eventDayLabels = new Map<string, string>(event.eventDays.map(({ date, label }) => [date, label]));
-const eventDayLabel = (date: string) => eventDayLabels.get(date) ?? date;
-
-/** In a list, "Other" is just "Other"; what the Attendee typed follows it. */
-const referralLabels: Record<ReferralSource, string> = { ...referralSourceLabels, other: "อื่น ๆ" };
-
 const withOther = (label: string, other: string | null) => (other ? `${label}: ${other}` : label);
 
 /** Every answer from the registration form, in the form's order, with its Thai label. */
@@ -189,7 +184,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
     },
     {
       label: "ฐานะการเข้าร่วมงาน",
-      value: withOther(attendeeRoleListLabels[registration.role], registration.roleOther),
+      value: withOther(attendeeRoleShortLabels[registration.role], registration.roleOther),
     },
     { label: organisationLabel(registration.role), value: registration.organisation },
     {
@@ -201,7 +196,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       value: (
         <Lines
           items={registration.referralSources.map((source) =>
-            source === "other" ? withOther(referralLabels.other, registration.referralOther) : referralLabels[source],
+            withOther(referralSourceShortLabels[source], source === "other" ? registration.referralOther : null),
           )}
         />
       ),
