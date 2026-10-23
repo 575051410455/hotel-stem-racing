@@ -2,8 +2,9 @@ import { type ReactNode, useEffect } from "react";
 import { type ExternalToast, toast } from "sonner";
 
 // Back Office action feedback (spec "Toasts"): the results of resending an Event Pass email, of a
-// bulk send and of a delete, shown by the Toaster the Back Office layout mounts. Check-In results,
-// form validation errors and the list's load errors stay on the page, never in a toast.
+// bulk send, of a delete and of changing a password, shown by the Toaster the Back Office layout
+// mounts. Check-In results, form validation errors and the list's load errors stay on the page,
+// never in a toast.
 
 /** About as long as it takes to read a short line; success needs no action. */
 const SUCCESS_MS = 4_000;

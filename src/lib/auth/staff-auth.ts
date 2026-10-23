@@ -23,7 +23,8 @@ export type StaffAuthConfig = {
 
 /**
  * Builds the Better Auth instance for Account sign-in (Staff and Kiosk Accounts) on the given database.
- * The app builds one from env in `src/lib/auth/server.ts`; tests and `scripts/staff.ts` build their own.
+ * The app builds one from env in `src/lib/auth/server.ts`; tests, `scripts/staff.ts` and
+ * `scripts/seed.ts` build their own.
  */
 export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
   return betterAuth({
@@ -64,9 +65,10 @@ export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
       },
     },
     hooks: {
-      // Better Auth lets any signed-in Account change its password. A Kiosk Account may not (ADR 0003):
-      // its /admin/password page already sends it back to the Kiosk, and this refuses the endpoint.
-      // Fails closed: an unknown kind is refused too. Signed-out requests fall through to the endpoint's 401.
+      // Better Auth lets any signed-in Account change its password. A Kiosk Account may not
+      // (ADR 0003): /admin/password already sends it back to the Kiosk, and this refuses the
+      // endpoint. Fails closed: an unknown kind is refused too. A signed-out request falls through
+      // to the endpoint's own 401.
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== "/change-password") return;
         const session = await getSessionFromCtx(ctx, { disableRefresh: true });

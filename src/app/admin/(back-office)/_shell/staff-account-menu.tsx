@@ -3,8 +3,8 @@ import { getCurrentStaff } from "@/lib/auth/session";
 import { StaffAccountDropdown } from "./staff-account-dropdown";
 
 /**
- * The signed-in Staff member at the foot of the sidebar, with change password and sign-out. Reads the session, so
- * render it below a <Suspense> boundary (`StaffAccountMenuSkeleton` is the fallback).
+ * The signed-in Staff member at the foot of the sidebar, with change password and sign-out. Reads
+ * the session, so render it below a <Suspense> boundary (`StaffAccountMenuSkeleton` is the fallback).
  */
 export async function StaffAccountMenu() {
   const staff = await getCurrentStaff();
