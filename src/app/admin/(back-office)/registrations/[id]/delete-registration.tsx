@@ -46,7 +46,7 @@ export function DeleteRegistration({
   registrationId: number;
   attendeeName: string;
   passCode: string;
-  /** The list view the detail was opened from, plus its "deleted" notice. */
+  /** The list view the detail was opened from, plus `?deleted=` for the list's toast. */
   afterDeleteHref: string;
   listHref: string;
 }) {

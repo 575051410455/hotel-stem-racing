@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { isKioskMode, kioskUrl } from "@/lib/check-in/kiosk-mode";
 import { event, findEventDay } from "@/lib/event";
 import { cn } from "@/lib/utils";
+import { useNoToasts } from "../_shell/toasts";
 import { checkInScan } from "./actions";
 import { CameraScanner } from "./camera-scanner";
 import { type CheckInAttempt, CheckInResultPanel } from "./check-in-result";
@@ -25,11 +26,13 @@ function setKioskMode(on: boolean) {
 /**
  * The entrance desk: the Event Day being checked in, the Pass Code box and the latest result, or
  * the Kiosk (ticket 19) when the address says so. Both check in through the same `submitScan`, so
- * the Event Day chosen at the desk still applies in the Kiosk.
+ * the Event Day chosen at the desk still applies in the Kiosk. Check-In results show in the large
+ * panel only, never in a toast; Kiosk mode clears and holds back the Back Office's toasts.
  * `today` is today's Event Day when the page was rendered (Bangkok), or null when today isn't one.
  */
 export function CheckInDesk({ today: renderedToday }: { today: string | null }) {
   const kiosk = isKioskMode(useSearchParams());
+  useNoToasts(kiosk);
   const [today, setToday] = useState(renderedToday);
   // An Event Day Staff picked explicitly. Null follows today, so a desk left open overnight
   // moves on to the next Event Day by itself (the server decides which day "today" is).

@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { EventPassEmailStatus, ResendEventPass } from "../../_registration-list/event-pass-email";
@@ -51,8 +50,8 @@ export function EventPassLink({ link }: { link: string }) {
 }
 
 /**
- * Ticket 16's email status and "ส่งอีกครั้ง", as on the list. The status here is server-rendered,
- * so a successful send refreshes the page to show the new count and time.
+ * Ticket 16's email status and "ส่งอีกครั้ง", as on the list. The status here is server-rendered:
+ * a successful send refreshes the page's server data (in ResendEventPass) to show the new count.
  */
 export function DetailEventPassEmail({
   registrationId,
@@ -65,11 +64,10 @@ export function DetailEventPassEmail({
   emailSentCount: number;
   lastEmailSentAt: string | null;
 }) {
-  const router = useRouter();
   return (
     <div className="flex flex-col items-start gap-3 text-sm">
       <EventPassEmailStatus emailSentCount={emailSentCount} lastEmailSentAt={lastEmailSentAt} />
-      <ResendEventPass registrationId={registrationId} email={email} onSent={() => router.refresh()} />
+      <ResendEventPass registrationId={registrationId} email={email} />
     </div>
   );
 }
