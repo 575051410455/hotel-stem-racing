@@ -202,11 +202,11 @@ describe("bulk send of Event Pass emails", () => {
     assert.equal(again.status === "processed" && again.results.length, 0);
   });
 
-  test("a slow SMTP server ends the batch early, once 60 seconds have passed, with a cursor to go on from", async () => {
+  test("a slow SMTP server ends the batch early, once 40 seconds have passed, with a cursor to go on from", async () => {
     const passes = [];
     for (let i = 0; i < 10; i++) passes.push(await register([OCT_31]));
     const clock = fakeClock(START);
-    // Sends start at 0, 25 and 50 s; at 75 s the budget is spent, so no fourth send starts.
+    // Sends start at 0 and 25 s; at 50 s the budget is spent, so no third send starts.
     const email = fakeEmailSender(clock, { sendMs: 25_000 });
     const registrations = bulkSendModule(email.sender, clock);
 
@@ -220,11 +220,11 @@ describe("bulk send of Event Pass emails", () => {
       timeBudgetMs: 20_000,
     });
 
-    assert.deepEqual(first.results.map(({ passCode }) => passCode), passes.slice(0, 3).map(({ passCode }) => passCode));
+    assert.deepEqual(first.results.map(({ passCode }) => passCode), passes.slice(0, 2).map(({ passCode }) => passCode));
     assert.equal(first.done, false);
-    assert.deepEqual(second.results.map(({ passCode }) => passCode), passes.slice(3, 6).map(({ passCode }) => passCode));
+    assert.deepEqual(second.results.map(({ passCode }) => passCode), passes.slice(2, 4).map(({ passCode }) => passCode));
     assert.equal(shorter.status === "processed" && shorter.results.length, 1);
-    assert.equal(email.messages.length, 7);
+    assert.equal(email.messages.length, 5);
   });
 
   test("a batch always tries at least one email, so the cursor moves even when the budget is already spent", async () => {

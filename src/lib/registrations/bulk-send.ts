@@ -12,9 +12,10 @@ export const MAX_BATCH_MESSAGES = 25;
 
 /**
  * No new send starts once a batch has run this long. Cloudflare ends a request at 100 s (ticket
- * 03), and one send to a stuck SMTP server can take about 30 s more (its socket timeout).
+ * 03), and one send to a stuck SMTP server can take up to ~50 s more (connection 10 s + greeting
+ * 10 s + socket 30 s timeouts), so 40 s keeps the worst case near 90 s.
  */
-export const BATCH_TIME_BUDGET_MS = 60_000;
+export const BATCH_TIME_BUDGET_MS = 40_000;
 
 export type BulkSendSummary = {
   mode: BulkSendMode;
