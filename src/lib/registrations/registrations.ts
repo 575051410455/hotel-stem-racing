@@ -12,6 +12,7 @@ import { bulkSendSummary, type EventPassBatchRequest, sendEventPassBatch } from 
 import type { BulkSendMode } from "./bulk-send-params";
 import { createCheckIn } from "./check-in";
 import { headCounts } from "./counts";
+import { newRegistrationsPerDay } from "./daily-registrations";
 import { deleteRegistration, getRegistrationDetail } from "./detail";
 import { respondToDuplicate } from "./duplicates";
 import { endedEventDayErrors, isRegistrationClosed } from "./event-day-availability";
@@ -251,6 +252,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /** Sends the next batch of a bulk send and returns its results and cursor; see ./bulk-send.ts. */
     sendEventPassBatch: (request: EventPassBatchRequest) => sendEventPassBatch(deps, request),
+
+    /** New Registrations per Bangkok day, for the Back Office chart; see ./daily-registrations.ts. */
+    newRegistrationsPerDay: () => newRegistrationsPerDay(deps),
   };
 }
 

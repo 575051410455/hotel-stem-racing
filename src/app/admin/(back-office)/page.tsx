@@ -5,7 +5,7 @@ import { PageContent, PageHeader, PageTitle } from "./_shell/page-header";
 import { RegistrationDeletedNotice } from "./_registration-list/registration-deleted-notice";
 import { RegistrationListSection } from "./_registration-list/registration-list-section";
 
-// /admin: the overview (cards, role table; redesign 02) and the Registration list (11). Each
+// /admin: the overview (cards, role table, daily chart; redesign 02–03) and the Registration list (11). Each
 // section checks the session itself.
 export default function BackOfficeHomePage() {
   return (
