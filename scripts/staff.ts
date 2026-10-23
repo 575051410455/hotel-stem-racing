@@ -1,39 +1,47 @@
-// Staff management command: creates Staff Accounts and resets their passwords (ticket 04).
+// Account management command: creates Staff Accounts (ticket 04) and check-in-only Kiosk Accounts
+// (ticket 23, ADR 0003), and resets the password of either kind.
 //
 //   npm run staff -- create <email> <display name>
+//   npm run staff -- create-kiosk <email> <display name>
 //   npm run staff -- reset-password <email>
 //
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
-// 12 characters; there are no other rules. A reset signs that Staff member out everywhere.
+// 12 characters for both kinds; there are no other rules. A reset signs that Account out everywhere.
+// An Account's kind is fixed when it is created.
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
 
 import { createDatabase } from "@/lib/db/client";
+import type { AccountKind } from "@/lib/auth/access";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { createStaffAccounts } from "@/lib/auth/staff-accounts";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
-  npm run staff -- create <email> <display name>
-  npm run staff -- reset-password <email>
+  npm run staff -- create <email> <display name>          a Staff Account (full Back Office)
+  npm run staff -- create-kiosk <email> <display name>    a Kiosk Account (Kiosk and Check-In only)
+  npm run staff -- reset-password <email>                 either kind
 
 The password is prompted for (hidden), or read from STAFF_PASSWORD if set.`;
+
+const KIND_LABELS: Record<AccountKind, string> = { staff: "Staff Account", kiosk: "Kiosk Account" };
 
 class UsageError extends Error {}
 
 type Command =
-  | { kind: "create"; email: string; name: string }
-  | { kind: "reset-password"; email: string };
+  | { action: "create"; accountKind: AccountKind; email: string; name: string }
+  | { action: "reset-password"; email: string };
 
 function parseCommand(args: string[]): Command {
   const [subcommand, email, ...nameParts] = args;
-  if (subcommand === "create" && email && nameParts.length > 0) {
-    return { kind: "create", email, name: nameParts.join(" ") };
+  if ((subcommand === "create" || subcommand === "create-kiosk") && email && nameParts.length > 0) {
+    const accountKind = subcommand === "create-kiosk" ? "kiosk" : "staff";
+    return { action: "create", accountKind, email, name: nameParts.join(" ") };
   }
   if (subcommand === "reset-password" && email && nameParts.length === 0) {
-    return { kind: "reset-password", email };
+    return { action: "reset-password", email };
   }
   throw new UsageError(USAGE);
 }
@@ -102,11 +110,21 @@ async function main(): Promise<number> {
   try {
     const staffAccounts = createStaffAccounts(createStaffAuth({ db, secret, baseURL }));
 
-    if (command.kind === "create") {
-      const result = await staffAccounts.create({ email: command.email, name: command.name, password });
+    if (command.action === "create") {
+      const result = await staffAccounts.create({
+        email: command.email,
+        name: command.name,
+        password,
+        kind: command.accountKind,
+      });
       switch (result.status) {
         case "created":
-          console.log(`Created the Staff Account ${result.email}. They can sign in at ${baseURL}/admin/login`);
+          console.log(
+            result.kind === "kiosk"
+              ? `Created the Kiosk Account ${result.email}. Sign a Kiosk iPad in with it at ${baseURL}/admin/login: ` +
+                  `it opens only ${baseURL}/kiosk and records Check-Ins.`
+              : `Created the Staff Account ${result.email}. They can sign in at ${baseURL}/admin/login`,
+          );
           return 0;
         case "invalid-email":
           console.error(`"${command.email}" is not a valid email address. Nothing was changed.`);
@@ -116,7 +134,8 @@ async function main(): Promise<number> {
           return 1;
         case "email-taken":
           console.error(
-            `A Staff Account for ${command.email} already exists. Use reset-password to change its password.`,
+            `An Account for ${command.email} already exists. Use reset-password to change its password, ` +
+              "or another email for a new Account. Nothing was changed.",
           );
           return 1;
         default:
@@ -128,10 +147,12 @@ async function main(): Promise<number> {
     const result = await staffAccounts.resetPassword({ email: command.email, password });
     switch (result.status) {
       case "password-reset":
-        console.log(`Reset the password for ${command.email} and signed them out of every device.`);
+        console.log(
+          `Reset the password for the ${KIND_LABELS[result.kind]} ${command.email} and signed it out of every device.`,
+        );
         return 0;
       case "not-found":
-        console.error(`There is no Staff Account for ${command.email}. Nothing was changed.`);
+        console.error(`There is no Account for ${command.email}. Nothing was changed.`);
         return 1;
       default:
         console.error(passwordProblemMessage(result));

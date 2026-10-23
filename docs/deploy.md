@@ -82,7 +82,7 @@ All commands below run from the repo checkout on the server.
   ```
   If it prints nothing, everything else works but sorting the Registration list by name fails.
 
-## 6. First Staff Account and test email
+## 6. First Staff Account, Kiosk Accounts and test email
 
 Operator commands run inside the running `app` container, exactly like `npm run …` locally. The container gets its environment from `.env` through Compose, so no `.env` file is needed inside it. The "`.env` not found. Continuing without it." line in the output is harmless.
 
@@ -91,8 +91,25 @@ Operator commands run inside the running `app` container, exactly like `npm run 
   docker compose exec -it app npm run staff -- create staff@example.com "ชื่อเจ้าหน้าที่"
   docker compose exec -it app npm run staff -- reset-password staff@example.com   # later, if needed
   ```
-  Resetting a password signs that Staff member out everywhere, Kiosks included.
+  Resetting a password signs that Account out everywhere.
 - [ ] Sign in at `https://<registration domain>/admin/login`.
+
+### Kiosk iPads
+
+An unattended Kiosk iPad signs in with a **Kiosk Account**, never a Staff Account. A Kiosk Account can open only the Kiosk page (`/kiosk`) and record Check-Ins. Every other Back Office page sends it back to the Kiosk, and the Back Office API refuses it, so an Attendee who leaves the Kiosk, or uses the address bar or Back, reaches no Registration data (ADR 0003).
+
+- [ ] Create the Kiosk Accounts. The command, password prompt and 12-character minimum are the same as for Staff, and `reset-password` works for both kinds. The command prints which kind it created or reset.
+  ```sh
+  docker compose exec -it app npm run staff -- create-kiosk kiosk-1@example.com "Kiosk 1"
+  docker compose exec -it app npm run staff -- create-kiosk kiosk-2@example.com "Kiosk 2"
+  ```
+  - **One Kiosk Account per iPad (recommended).** Each Check-In records the Account that took it, so you can tell the Kiosks apart. If an iPad goes missing, `reset-password` on its Account signs out that iPad only.
+  - **One shared Kiosk Account** is simpler, but a reset signs out every iPad that uses it.
+  - The email only identifies the Account; nothing is sent to it. An Account's kind can't be changed later: create a new Account with another email instead.
+- [ ] Sign each iPad in during Event week, because sessions last 30 days. Open `https://<registration domain>/admin/login` in Safari and sign in with that iPad's Kiosk Account. The iPad goes straight to the Kiosk at `/kiosk`, with the front camera and today's Event Day, and allow the camera when asked.
+  - The Kiosk page always records today's Event Day. Before the Event, a scan shows "วันนี้ไม่ใช่วันจัดงาน / Today isn't an Event Day", which shows that the camera and connection work. To rehearse real Check-Ins on a chosen day, use the Staff desk's Kiosk mode (`/admin/check-in?kiosk=1`) with a Staff Account on an iPad that Staff are watching.
+  - The small "เจ้าหน้าที่" button in the corner signs the Kiosk out after an in-page confirmation. There is no way from the Kiosk to the Back Office.
+- [ ] Set up **Guided Access** on each iPad as a second layer (Settings → Accessibility → Guided Access, then triple-click the side or top button in Safari). The Kiosk Account already keeps Registration data out of reach; Guided Access keeps the Kiosk itself working, because an Attendee can't leave Safari or browse away from the Kiosk and leave it unusable until Staff come back. Consider circling the address bar and the left edge as disabled areas. Also set Auto-Lock to Never if the Kiosk's Staff panel says it can't keep the screen on.
 - [ ] Send a test Event Pass email to yourself, then check it arrives, including in the spam folder:
   ```sh
   docker compose exec app npm run email:test -- you@example.com

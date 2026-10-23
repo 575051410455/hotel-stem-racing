@@ -5,6 +5,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { homePath, isAccountKind } from "@/lib/auth/access";
 import { staffAuthClient } from "@/lib/auth/client";
 
 type SignInFailure = { status: number; code?: string; retryAfterSeconds?: number };
@@ -42,6 +43,7 @@ export function SignInForm() {
     setError(null);
     let retryAfterSeconds: number | undefined;
     let failure: SignInFailure | null = null;
+    let home = "/admin";
     try {
       const result = await staffAuthClient.signIn.email(
         { email, password },
@@ -54,6 +56,12 @@ export function SignInForm() {
       );
       if (result.error) {
         failure = { status: result.error.status, code: result.error.code, retryAfterSeconds };
+      } else {
+        // A Kiosk Account goes straight to the Kiosk page. This only saves a hop: /admin would
+        // send it there too, because the server decides what each Account may open. (Better Auth
+        // types this user loosely, so the kind is checked rather than trusted.)
+        const { kind } = result.data.user as { kind?: unknown };
+        if (isAccountKind(kind)) home = homePath(kind);
       }
     } catch {
       failure = { status: 0 };
@@ -65,7 +73,7 @@ export function SignInForm() {
       passwordRef.current?.select();
       return;
     }
-    router.replace("/admin");
+    router.replace(home);
   }
 
   return (

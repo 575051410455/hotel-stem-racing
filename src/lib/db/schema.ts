@@ -72,7 +72,8 @@ export const checkIns = pgTable(
       .references(() => registrations.id, { onDelete: "cascade" }),
     eventDay: date({ mode: "string" }).notNull(),
     checkedInAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-    // Id of the signed-in Staff Account (Better Auth's user id; auth tables arrive in ticket 04).
+    // Id of the signed-in Account that recorded it: a Staff Account, or a Kiosk Account (ticket 23).
+    // Better Auth's user id (`users.id`); the name predates Kiosk Accounts.
     staffAccountId: text(),
     // The Attendee did not choose this Event Day when registering.
     outsideRegisteredDay: boolean().notNull().default(false),

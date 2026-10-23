@@ -1,14 +1,18 @@
 "use client";
 
-// Kiosk mode (ticket 19): /admin/check-in?kiosk=1 on an iPad that Attendees use by themselves.
-// The Kiosk takes the whole screen, covering the Back Office header (navigation and sign-out);
-// the desk's Pass Code box and Event Day picker aren't rendered, though the day Staff chose still
-// applies. Attendees see the front camera with a mirrored preview, the instruction in Thai and
-// English, and big results that clear themselves. Staff leave through a small corner button and
-// an in-page confirmation.
+// The Kiosk: an iPad that Attendees use by themselves. Two places render it:
+// - /kiosk (ticket 23), signed in with a Kiosk Account. Always the Kiosk, recording today's Event
+//   Day; the Staff corner only signs the Kiosk out.
+// - Kiosk mode at /admin/check-in?kiosk=1 (ticket 19), signed in as Staff. It covers the Back Office
+//   header (navigation and sign-out); the desk's Pass Code box and Event Day picker aren't
+//   rendered, though the day Staff chose still applies. The Staff corner returns to the desk.
+// Attendees see the front camera with a mirrored preview, the instruction in Thai and English, and
+// big results that clear themselves. Staff use a small corner button and an in-page confirmation.
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { signOut } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { event } from "@/lib/event";
 import type { CheckedInAttendee } from "@/lib/registrations/check-in";
@@ -48,16 +52,22 @@ const STAFF_PANEL_MS = 15_000;
 /** The Event Day Check-Ins are recorded for: its label, or null when today isn't one and none was chosen. */
 export type KioskCheckInDay = { label: string | null; chosenByStaff: boolean };
 
+/**
+ * What the Staff corner offers. At the desk's Kiosk mode, leaving it for the desk. On the Kiosk
+ * page, only signing out: a Kiosk Account has no desk to go back to.
+ */
+export type KioskExit = { kind: "leave-kiosk-mode"; onLeave: () => void } | { kind: "sign-out"; accountName: string };
+
 export function KioskScreen({
   attempt,
   onPass,
-  onLeave,
+  exit,
   checkInDay,
 }: {
-  /** The desk's latest scan; a new one replaces the result on screen. */
+  /** The latest scan; a new one replaces the result on screen. */
   attempt: CheckInAttempt | null;
   onPass: (scan: string) => void;
-  onLeave: () => void;
+  exit: KioskExit;
   checkInDay: KioskCheckInDay;
 }) {
   // The result already on the desk when the Kiosk opened counts as seen, so the Kiosk opens idle.
@@ -90,12 +100,12 @@ export function KioskScreen({
               บันทึกเป็น{checkInDay.label}
             </p>
           )}
-          <StaffCorner onLeave={onLeave} checkInDay={checkInDay} wakeLockHeld={wakeLockHeld} />
+          <StaffCorner exit={exit} checkInDay={checkInDay} wakeLockHeld={wakeLockHeld} />
         </div>
       </div>
 
       {signedOut ? (
-        <SignedOutNotice />
+        <SignedOutNotice exit={exit} />
       ) : (
         <div
           className={cn(
@@ -261,7 +271,7 @@ function Note({ thai, english }: { thai: string; english: string }) {
   );
 }
 
-function SignedOutNotice() {
+function SignedOutNotice({ exit }: { exit: KioskExit }) {
   return (
     <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 px-6 pb-10 text-center tab:gap-6">
       <CrossIcon className={ICON} />
@@ -279,22 +289,26 @@ function SignedOutNotice() {
         <Link href={SIGN_IN_PATH}>เข้าสู่ระบบอีกครั้ง</Link>
       </Button>
       <p className="text-base leading-normal text-white/70">
-        หลังเข้าสู่ระบบ เปิดหน้าเช็คอินแล้วเปิดโหมด Kiosk อีกครั้ง ยังไม่ได้บันทึกการเช็คอินที่สแกนล่าสุด
+        {exit.kind === "sign-out"
+          ? "เข้าสู่ระบบด้วยบัญชี Kiosk แล้วหน้านี้จะเปิดขึ้นเอง"
+          : "หลังเข้าสู่ระบบ เปิดหน้าเช็คอินแล้วเปิดโหมด Kiosk อีกครั้ง"}{" "}
+        ยังไม่ได้บันทึกการเช็คอินที่สแกนล่าสุด
       </p>
     </div>
   );
 }
 
 /**
- * The Staff corner: a small, low-key button that opens an in-page panel to leave Kiosk mode. Two
- * deliberate taps, so an Attendee won't leave it by accident; no browser dialogs.
+ * The Staff corner: a small, low-key button that opens an in-page panel to leave Kiosk mode, or on
+ * the Kiosk page to sign the Kiosk out. Two deliberate taps, so an Attendee won't do it by accident;
+ * no browser dialogs.
  */
 function StaffCorner({
-  onLeave,
+  exit,
   checkInDay,
   wakeLockHeld,
 }: {
-  onLeave: () => void;
+  exit: KioskExit;
   checkInDay: KioskCheckInDay;
   wakeLockHeld: boolean;
 }) {
@@ -327,14 +341,32 @@ function StaffCorner({
           className="absolute top-full right-0 z-10 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl bg-white p-5 text-neutral-950 shadow-2xl select-text"
           onKeyDown={(keyEvent) => keyEvent.key === "Escape" && setOpen(false)}
         >
-          <p className="text-lg leading-normal font-semibold">ออกจากโหมด Kiosk?</p>
-          <p className="mt-1 text-sm leading-normal">
-            กลับไปหน้าเช็คอินของเจ้าหน้าที่ ที่มีช่องพิมพ์ Pass Code การเลือกวัน และเมนู
-          </p>
+          {exit.kind === "sign-out" ? (
+            <>
+              <p className="text-lg leading-normal font-semibold">ออกจากระบบ Kiosk นี้?</p>
+              <p className="mt-1 text-sm leading-normal">
+                หลังออกจากระบบ จุดนี้จะเช็คอินไม่ได้จนกว่าจะเข้าสู่ระบบด้วยบัญชี Kiosk อีกครั้ง
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg leading-normal font-semibold">ออกจากโหมด Kiosk?</p>
+              <p className="mt-1 text-sm leading-normal">
+                กลับไปหน้าเช็คอินของเจ้าหน้าที่ ที่มีช่องพิมพ์ Pass Code การเลือกวัน และเมนู
+              </p>
+            </>
+          )}
           <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-sm leading-normal">
+            {exit.kind === "sign-out" && (
+              <li>
+                เข้าสู่ระบบในชื่อ <span className="font-medium break-words">{exit.accountName}</span>
+              </li>
+            )}
             <li className={cn(checkInDay.chosenByStaff && "font-medium text-orange-800")}>
               {checkInDay.label === null
-                ? "วันนี้ไม่ใช่วันจัดงาน การเช็คอินจะไม่สำเร็จ ออกจากโหมดนี้แล้วเลือกวันเข้าร่วมงานเพื่อทดสอบ"
+                ? exit.kind === "sign-out"
+                  ? "วันนี้ไม่ใช่วันจัดงาน จุดนี้จะเช็คอินได้ในวันจัดงานเท่านั้น"
+                  : "วันนี้ไม่ใช่วันจัดงาน การเช็คอินจะไม่สำเร็จ ออกจากโหมดนี้แล้วเลือกวันเข้าร่วมงานเพื่อทดสอบ"
                 : checkInDay.chosenByStaff
                   ? `บันทึกการเช็คอินเป็น${checkInDay.label} (ไม่ใช่วันนี้)`
                   : `เช็คอินสำหรับ${checkInDay.label} (วันนี้)`}
@@ -346,9 +378,15 @@ function StaffCorner({
             </li>
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" onClick={onLeave}>
-              ออกจากโหมด Kiosk
-            </Button>
+            {exit.kind === "sign-out" ? (
+              <form action={signOut}>
+                <SignOutButton />
+              </form>
+            ) : (
+              <Button type="button" onClick={exit.onLeave}>
+                ออกจากโหมด Kiosk
+              </Button>
+            )}
             <Button type="button" variant="outline" autoFocus onClick={() => setOpen(false)}>
               ยกเลิก
             </Button>
@@ -356,6 +394,16 @@ function StaffCorner({
         </div>
       )}
     </div>
+  );
+}
+
+/** Ends the Kiosk's session; `signOut` then goes to the sign-in page. */
+function SignOutButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? "กำลังออกจากระบบ…" : "ออกจากระบบ"}
+    </Button>
   );
 }
 

@@ -73,7 +73,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
       <KioskScreen
         attempt={attempt}
         onPass={(scan) => void submitScan(scan)}
-        onLeave={() => setKioskMode(false)}
+        exit={{ kind: "leave-kiosk-mode", onLeave: () => setKioskMode(false) }}
         checkInDay={{
           label: event.eventDays.find((day) => day.date === selectedDay)?.label ?? null,
           chosenByStaff: chosenDay !== null,
@@ -182,6 +182,10 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         </Button>
         <p className="mt-2 text-sm leading-normal text-muted-foreground">
           บุ๊กมาร์กหน้านี้โดยเติม <code className="font-mono">?kiosk=1</code> ท้ายลิงก์ เพื่อเปิดเข้าโหมด Kiosk โดยตรง
+        </p>
+        <p className="mt-2 text-sm leading-normal font-medium">
+          iPad ที่วางไว้ให้ผู้เข้าร่วมงานใช้เองโดยไม่มีเจ้าหน้าที่อยู่ ให้เข้าสู่ระบบด้วยบัญชี Kiosk แทน
+          บัญชีนี้เปิดได้เฉพาะหน้า Kiosk และไม่เห็นข้อมูลผู้ลงทะเบียน
         </p>
       </section>
     </div>
