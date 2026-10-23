@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { homePath, isAccountKind } from "@/lib/auth/access";
 import { staffAuthClient } from "@/lib/auth/client";
 
@@ -77,41 +77,48 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="staff-email">อีเมล</Label>
-        <Input
-          id="staff-email"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          required
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="staff-password">รหัสผ่าน</Label>
-        <Input
-          ref={passwordRef}
-          id="staff-password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-        />
-      </div>
-      <p id={errorId} role="alert" className="min-h-5 text-sm leading-normal text-destructive">
-        {error}
-      </p>
-      <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
-      </Button>
+    <form onSubmit={handleSubmit} noValidate>
+      <FieldGroup>
+        <Field data-invalid={error ? true : undefined}>
+          <FieldLabel htmlFor="staff-email">อีเมล</FieldLabel>
+          <Input
+            id="staff-email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+          />
+        </Field>
+        <Field data-invalid={error ? true : undefined}>
+          <FieldLabel htmlFor="staff-password">รหัสผ่าน</FieldLabel>
+          <Input
+            ref={passwordRef}
+            id="staff-password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+          />
+        </Field>
+        <Field>
+          {/* Always rendered, even empty, so screen readers announce each new message. */}
+          <p id={errorId} role="alert" className="text-sm leading-normal text-destructive">
+            {error}
+          </p>
+          <Button type="submit" disabled={pending}>
+            {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+          </Button>
+          {/* There is no self-service reset: the operator sets a new password with `npm run staff`. */}
+          <FieldDescription className="text-center">ลืมรหัสผ่าน? ติดต่อผู้จัดงานเพื่อตั้งรหัสผ่านใหม่</FieldDescription>
+        </Field>
+      </FieldGroup>
     </form>
   );
 }

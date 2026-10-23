@@ -6,20 +6,23 @@ import { SignInForm } from "./sign-in-form";
 export const metadata: Metadata = { title: "เข้าสู่ระบบ" };
 
 // Static page: the form signs in from the browser through /api/auth, where Better Auth rate-limits.
+// Layout from shadcn/ui's login-01 block: a centred card on a full-height page.
 export default function StaffSignInPage() {
   return (
-    <main className="flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>
-            <h1 className="text-xl leading-normal">เข้าสู่ระบบหลังบ้าน</h1>
-          </CardTitle>
-          <CardDescription>สำหรับเจ้าหน้าที่ {event.name}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SignInForm />
-        </CardContent>
-      </Card>
+    <main className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+      <div className="w-full max-w-sm">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h1 className="text-xl leading-normal">เข้าสู่ระบบหลังบ้าน</h1>
+            </CardTitle>
+            <CardDescription>สำหรับเจ้าหน้าที่ {event.name}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SignInForm />
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }
