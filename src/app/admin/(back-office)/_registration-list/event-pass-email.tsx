@@ -5,6 +5,7 @@ import { LoaderCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
 import type { ResendEventPassResult } from "@/lib/registrations/resend-event-pass";
 import { formatCreatedAt } from "./format";
 import { REGISTRATION_LIST_ENDPOINT, type RegistrationListItem, registrationListKey } from "./query";
@@ -12,8 +13,6 @@ import { REGISTRATION_LIST_ENDPOINT, type RegistrationListItem, registrationList
 // The Event Pass email status of one Registration, and Staff's "send again" action. Shown in
 // the Registration list's "อีเมล Event Pass" column; the detail view can reuse both parts.
 
-/** BACK_OFFICE_SIGN_IN_PATH; session.ts is server-only, so it can't be imported here. */
-const SIGN_IN_PATH = "/admin/login";
 const formatCount = new Intl.NumberFormat("th-TH").format;
 
 type EmailStatus = Pick<RegistrationListItem, "emailSentCount" | "lastEmailSentAt">;

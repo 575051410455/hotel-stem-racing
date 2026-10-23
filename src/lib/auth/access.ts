@@ -29,6 +29,9 @@ export function canChooseCheckInDay(kind: AccountKind): boolean {
   return canUseBackOffice(kind);
 }
 
+/** The sign-in page for every Account, Staff or Kiosk. */
+export const SIGN_IN_PATH = "/admin/login";
+
 /** The Kiosk page: the whole of what a Kiosk Account can open. Staff Accounts may open it too. */
 export const KIOSK_PATH = "/kiosk";
 

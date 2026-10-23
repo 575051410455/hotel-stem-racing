@@ -14,21 +14,12 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signOut } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { event } from "@/lib/event";
 import type { CheckedInAttendee } from "@/lib/registrations/check-in";
 import { cn } from "@/lib/utils";
 import { CameraScanner } from "./camera-scanner";
-import {
-  AlertIcon,
-  bangkokTime,
-  CheckIcon,
-  type CheckInAttempt,
-  ClockIcon,
-  CrossIcon,
-  SIGN_IN_PATH,
-  type Tone,
-  tones,
-} from "./check-in-result";
+import { type CheckInAttempt, type CheckInHeading, CrossIcon, checkInHeading, tones } from "./check-in-result";
 
 type ResultStatus = CheckInAttempt["result"]["status"];
 
@@ -146,93 +137,54 @@ function Instruction() {
 
 function KioskResult({ attempt }: { attempt: CheckInAttempt }) {
   const { result } = attempt;
+  return <ResultCard heading={checkInHeading(result)}>{kioskDetails(result)}</ResultCard>;
+}
+
+/** What Attendees need under the headline: their name, and what to do next. */
+function kioskDetails(result: CheckInAttempt["result"]): ReactNode {
   switch (result.status) {
-    case "pending":
-      return <ResultCard tone="neutral" icon={null} thai="กำลังตรวจสอบ…" english="Checking…" />;
     case "checked-in":
       return (
-        <ResultCard tone="success" icon={<CheckIcon className={ICON} />} thai="เช็คอินสำเร็จ" english="You’re checked in">
+        <>
           <AttendeeName attendee={result.attendee} />
           <Note thai="ยินดีต้อนรับ" english="Welcome!" />
-        </ResultCard>
+        </>
       );
-    case "already-checked-in": {
-      const time = bangkokTime(result.checkedInAt);
-      return (
-        <ResultCard
-          tone="repeat"
-          icon={<ClockIcon className={ICON} />}
-          thai={`เช็คอินแล้วเมื่อ ${time}`}
-          english={`Already checked in at ${time}`}
-        >
-          <AttendeeName attendee={result.attendee} />
-        </ResultCard>
-      );
-    }
+    case "already-checked-in":
+      return <AttendeeName attendee={result.attendee} />;
     case "checked-in-outside-registered-day":
       return (
-        <ResultCard
-          tone="warning"
-          icon={<AlertIcon className={ICON} />}
-          thai="ไม่ได้ลงทะเบียนวันนี้"
-          english="Not registered for today"
-        >
+        <>
           <AttendeeName attendee={result.attendee} />
           <Note thai="บันทึกการเช็คอินแล้ว โปรดแจ้งเจ้าหน้าที่" english="Your check-in is recorded. Please see a staff member." />
-        </ResultCard>
+        </>
       );
     case "not-an-event-pass":
       return (
-        <ResultCard tone="neutral" icon={<CrossIcon className={ICON} />} thai="ไม่ใช่ Event Pass" english="Not an Event Pass">
-          <Note
-            thai="โปรดแสดง QR จากอีเมลหรือหน้า Event Pass ของท่าน"
-            english="Please show the QR from your Event Pass email or page."
-          />
-        </ResultCard>
+        <Note
+          thai="โปรดแสดง QR จากอีเมลหรือหน้า Event Pass ของท่าน"
+          english="Please show the QR from your Event Pass email or page."
+        />
       );
     case "not-an-event-day":
-      return (
-        <ResultCard
-          tone="neutral"
-          icon={<CrossIcon className={ICON} />}
-          thai="วันนี้ไม่ใช่วันจัดงาน"
-          english="Today isn’t an Event Day"
-        >
-          <Note thai="โปรดติดต่อเจ้าหน้าที่" english="Please see a staff member." />
-        </ResultCard>
-      );
+      return <Note thai="โปรดติดต่อเจ้าหน้าที่" english="Please see a staff member." />;
     case "failed":
-      return (
-        <ResultCard
-          tone="neutral"
-          icon={<CrossIcon className={ICON} />}
-          thai="เช็คอินไม่สำเร็จ"
-          english="Check-in didn’t go through"
-        >
-          <Note thai="โปรดลองอีกครั้งในอีกสักครู่" english="Please try again in a moment." />
-        </ResultCard>
-      );
+      return <Note thai="โปรดลองอีกครั้งในอีกสักครู่" english="Please try again in a moment." />;
+    case "pending":
+      return null;
     case "signed-out":
-      // Shown as the whole-screen notice instead; kept here so every result has words.
-      return (
-        <ResultCard tone="neutral" icon={<CrossIcon className={ICON} />} thai="เจ้าหน้าที่ต้องเข้าสู่ระบบอีกครั้ง" english="Staff must sign in again" />
-      );
+      // Never shown: a signed-out Kiosk replaces its results with SignedOutNotice.
+      return null;
   }
 }
 
 const ICON = "size-12 tab:size-16 landscape:tab:size-20";
 
 function ResultCard({
-  tone,
-  icon,
-  thai,
-  english,
+  heading: { tone, Icon, thai, english },
   children,
 }: {
-  tone: Tone;
-  icon: ReactNode;
-  thai: string;
-  english: string;
+  heading: CheckInHeading;
   children?: ReactNode;
 }) {
   return (
@@ -242,7 +194,7 @@ function ResultCard({
         tones[tone],
       )}
     >
-      {icon}
+      {Icon && <Icon className={ICON} />}
       <p className="text-4xl leading-snug font-bold tab:text-5xl landscape:tab:text-6xl">{thai}</p>
       <p lang="en" className="text-2xl leading-snug font-semibold opacity-90 landscape:tab:text-3xl">
         {english}

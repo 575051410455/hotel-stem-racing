@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { event } from "@/lib/event";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
+import { eventDayLabel } from "@/lib/event";
 import type { BulkSendMessageResult, BulkSendSummary } from "@/lib/registrations/bulk-send";
 import type { BulkSendMode } from "@/lib/registrations/bulk-send-params";
 import { cn } from "@/lib/utils";
@@ -12,9 +13,6 @@ import { sendFailureMessage } from "../_registration-list/event-pass-email";
 import { registrationListKey } from "../_registration-list/query";
 import { BackOfficeRequestError } from "../query-provider";
 import { bulkSendSummaryKey, bulkSendSummaryQuery, postEventPassBatch } from "./bulk-send-api";
-
-// BACK_OFFICE_SIGN_IN_PATH lives in a server-only module; this file renders in the browser.
-const SIGN_IN_PATH = "/admin/login";
 
 const formatCount = new Intl.NumberFormat("th-TH").format;
 
@@ -277,7 +275,7 @@ function SummaryPanel({
       <dl className="mt-1 divide-y border-y">
         {shown.eventDays.map((day) => (
           <div key={day.eventDay} className="flex items-baseline justify-between gap-4 py-2 text-sm leading-normal">
-            <dt>{event.eventDays.find(({ date }) => date === day.eventDay)?.label ?? day.eventDay}</dt>
+            <dt>{eventDayLabel(day.eventDay)}</dt>
             <dd className="font-medium tabular-nums">{formatCount(day.registrations)} คน</dd>
           </div>
         ))}

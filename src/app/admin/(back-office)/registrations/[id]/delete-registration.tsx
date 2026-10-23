@@ -6,11 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
 import type { DeleteRegistrationResult } from "@/lib/registrations/detail";
 import { REGISTRATION_LIST_ENDPOINT, registrationListKey } from "../../_registration-list/query";
-
-/** BACK_OFFICE_SIGN_IN_PATH; session.ts is server-only, so it can't be imported here. */
-const SIGN_IN_PATH = "/admin/login";
 
 /** What a delete can come back with, as the browser sees it. */
 type DeleteOutcome = DeleteRegistrationResult | { status: "signed-out" } | { status: "error" };

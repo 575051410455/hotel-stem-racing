@@ -34,8 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { event } from "@/lib/event";
-import { attendeeRoles } from "@/lib/registrations/fields";
+import { attendeeRoleShortLabels, attendeeRoles } from "@/lib/registrations/fields";
 import {
   DEFAULT_REGISTRATION_SORT,
   type EventDayDate,
@@ -47,13 +48,10 @@ import { cn } from "@/lib/utils";
 import { BackOfficeRequestError } from "../query-provider";
 import { registrationListColumns, registrationListFeatures } from "./columns";
 import { ExportCsvLink } from "./export-csv-link";
-import { attendeeRoleListLabels } from "./format";
 import { type RegistrationListItem, registrationListQuery } from "./query";
 import { useRegistrationView } from "./use-registration-view";
 
 const SEARCH_DEBOUNCE_MS = 300;
-/** BACK_OFFICE_SIGN_IN_PATH; session.ts is server-only, so it can't be imported here. */
-const SIGN_IN_PATH = "/admin/login";
 const noRows: RegistrationListItem[] = [];
 const formatCount = new Intl.NumberFormat("th-TH").format;
 const eventDayDates: readonly string[] = event.eventDays.map((day) => day.date);
@@ -225,7 +223,7 @@ export function RegistrationList() {
               <NativeSelectOption value="">ทุกฐานะ</NativeSelectOption>
               {attendeeRoles.map((role) => (
                 <NativeSelectOption key={role} value={role}>
-                  {attendeeRoleListLabels[role]}
+                  {attendeeRoleShortLabels[role]}
                 </NativeSelectOption>
               ))}
             </NativeSelect>

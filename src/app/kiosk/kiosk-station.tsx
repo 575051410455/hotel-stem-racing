@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { checkInScan } from "@/app/admin/(back-office)/check-in/actions";
 import type { CheckInAttempt } from "@/app/admin/(back-office)/check-in/check-in-result";
 import { KioskScreen } from "@/app/admin/(back-office)/check-in/kiosk-screen";
-import { event } from "@/lib/event";
+import { findEventDay } from "@/lib/event";
 
 /**
  * The Kiosk page's state: always the Kiosk, always today's Event Day (the server decides which day
@@ -38,7 +38,7 @@ export function KioskStation({ today: renderedToday, accountName }: { today: str
       attempt={attempt}
       onPass={(scan) => void submitScan(scan)}
       exit={{ kind: "sign-out", accountName }}
-      checkInDay={{ label: event.eventDays.find((day) => day.date === today)?.label ?? null, chosenByStaff: false }}
+      checkInDay={{ label: findEventDay(today)?.label ?? null, chosenByStaff: false }}
     />
   );
 }

@@ -1,6 +1,7 @@
 // Formats an Attendee's chosen Event Days, in Thai and English, always in the Event's time zone
 // (never the server's).
 
+import { bangkokInstant } from "../bangkok-time";
 import { event } from "../event";
 
 /** Daily opening hours as "HH:mm" in Bangkok time. */
@@ -8,9 +9,6 @@ export type OpeningHours = { opens: string; closes: string };
 
 export type FormattedEventDates = { th: string; en: string };
 
-// Asia/Bangkok has had no daylight saving since 1920, so a fixed offset turns a Bangkok
-// wall-clock time into the right instant.
-const BANGKOK_OFFSET = "+07:00";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const LOCALES = { th: "th-TH", en: "en-GB" } as const;
@@ -33,10 +31,6 @@ function timeFormat(): Intl.DateTimeFormat {
     minute: "2-digit",
     hourCycle: "h23",
   });
-}
-
-function bangkokInstant(isoDate: string, time = "00:00"): Date {
-  return new Date(`${isoDate}T${time}:00${BANGKOK_OFFSET}`);
 }
 
 /** ICU puts thin spaces around range dashes in some locales; plain spaces read the same everywhere. */

@@ -1,58 +1,22 @@
 // The Back Office CSV export as a file: Registrations in, CSV text out. Pure and browser-safe.
 // Written for Excel: UTF-8 with a BOM (or Thai turns into mojibake), RFC 4180 quoting, CRLF.
 
-import { event } from "@/lib/event";
+import { bangkokDate, bangkokTime } from "@/lib/bangkok-time";
+import { eventDayLabel } from "@/lib/event";
 import type { RegistrationExportRow } from "./export";
-import {
-  type AttendeeRole,
-  attendeeRoleLabels,
-  formatPhoneAsYouType,
-  type ReferralSource,
-  referralSourceLabels,
-} from "./fields";
+import { attendeeRoleShortLabels, formatPhoneAsYouType, referralSourceShortLabels } from "./fields";
 
 /** Without it, Excel reads UTF-8 as the system code page and Thai comes out garbled. */
 const BOM = "﻿";
 const CRLF = "\r\n";
 
-/** The form's "Other" labels ask the Attendee to specify; in a file it is just "Other". */
-const roleLabels: Record<AttendeeRole, string> = { ...attendeeRoleLabels, other: "อื่น ๆ" };
-const referralLabels: Record<ReferralSource, string> = { ...referralSourceLabels, other: "อื่น ๆ" };
-
-const eventDayLabels: Record<string, string> = Object.fromEntries(
-  event.eventDays.map((day) => [day.date, day.label]),
-);
-
 /** Several choices in one cell. */
 const joined = (labels: string[]) => labels.join("; ");
-
-const bangkokParts = new Intl.DateTimeFormat("en-US", {
-  timeZone: event.timeZone,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
-
-/** Bangkok calendar date and clock time of `date`, e.g. "2026-10-22" and "14:05:09". */
-function inBangkok(date: Date) {
-  const part = Object.fromEntries(
-    bangkokParts.formatToParts(date).map(({ type, value }) => [type, value]),
-  );
-  return {
-    date: `${part.year}-${part.month}-${part.day}`,
-    time: `${part.hour}:${part.minute}:${part.second}`,
-  };
-}
 
 /** "2026-10-22 14:05:09" in Bangkok time, a form Excel reads as a date and time. */
 function bangkokDateTime(date: Date | null): string {
   if (!date) return "";
-  const { date: day, time } = inBangkok(date);
-  return `${day} ${time}`;
+  return `${bangkokDate(date)} ${bangkokTime(date, { seconds: true })}`;
 }
 
 /** "+66812345678" → "081-234-5678", as Attendees typed it. */
@@ -69,16 +33,16 @@ const columns: { header: string; value: (row: RegistrationExportRow) => string |
   { header: "เบอร์โทรศัพท์", value: (row) => localPhone(row.phone) },
   { header: "เบอร์โทรศัพท์ (E.164)", value: (row) => row.phone },
   { header: "อีเมล", value: (row) => row.email },
-  { header: "ฐานะการเข้าร่วมงาน", value: (row) => roleLabels[row.role] },
+  { header: "ฐานะการเข้าร่วมงาน", value: (row) => attendeeRoleShortLabels[row.role] },
   { header: "ฐานะการเข้าร่วมงาน (ระบุ)", value: (row) => row.roleOther },
   { header: "โรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน", value: (row) => row.organisation },
   {
     header: "วันเข้าร่วมงาน",
-    value: (row) => joined(row.eventDays.map((day) => eventDayLabels[day] ?? day)),
+    value: (row) => joined(row.eventDays.map(eventDayLabel)),
   },
   {
     header: "ช่องทางที่ทราบข่าว",
-    value: (row) => joined(row.referralSources.map((source) => referralLabels[source])),
+    value: (row) => joined(row.referralSources.map((source) => referralSourceShortLabels[source])),
   },
   { header: "ช่องทางที่ทราบข่าว (ระบุ)", value: (row) => row.referralOther },
   { header: "ทีมที่ต้องการมาเชียร์", value: (row) => row.competingTeamCheeredFor },
@@ -120,5 +84,5 @@ export function registrationsCsv(rows: readonly RegistrationExportRow[]): string
 
 /** "stem-racing-registrations-2026-10-25.csv": the Bangkok date of `exportedAt`. */
 export function registrationsCsvFileName(exportedAt: Date): string {
-  return `stem-racing-registrations-${inBangkok(exportedAt).date}.csv`;
+  return `stem-racing-registrations-${bangkokDate(exportedAt)}.csv`;
 }

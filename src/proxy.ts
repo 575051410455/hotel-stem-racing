@@ -1,8 +1,8 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
+import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { registrations } from "@/lib/server/registrations";
 
-const SIGN_IN_PATH = "/admin/login";
 const EVENT_PASS_PREFIX = "/p/";
 const UNKNOWN_EVENT_PASS_PATH = "/p/unknown";
 
