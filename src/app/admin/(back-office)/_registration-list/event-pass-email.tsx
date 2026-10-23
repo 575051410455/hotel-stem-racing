@@ -2,11 +2,12 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
 import type { ResendEventPassResult } from "@/lib/registrations/resend-event-pass";
+import { toastError, toastSuccess } from "../_shell/toasts";
 import { formatCreatedAt } from "./format";
 import { REGISTRATION_LIST_ENDPOINT, type RegistrationListItem, registrationListKey } from "./query";
 
@@ -75,30 +76,23 @@ async function requestResend(registrationId: number): Promise<ResendOutcome> {
 }
 
 /**
- * "ส่งอีกครั้ง": asks in place before sending (no browser dialog), sends one email to the
- * registered address, then refreshes the list so the row's count and time update. Every outcome
- * is shown in Thai beside the button; nothing here throws into the page.
+ * "ส่งอีกครั้ง": asks in place before sending (no browser dialog) and sends one email to the
+ * registered address. Every outcome is a toast in Thai; nothing here throws into the page. After a
+ * send, the list and the page's server data refresh, so the email status (the list row's, or the
+ * detail page's) and the overview numbers update.
  */
-export function ResendEventPass({
-  registrationId,
-  email,
-  onSent,
-}: {
-  registrationId: number;
-  email: string;
-  /** Also runs after a send, e.g. to refresh a server-rendered status (the detail page). */
-  onSent?: () => void;
-}) {
+export function ResendEventPass({ registrationId, email }: { registrationId: number; email: string }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const resend = useMutation({
     mutationFn: () => requestResend(registrationId),
+    // On the mutation rather than on `mutate`, so the toast shows even if Staff have left the page.
     onSuccess: (outcome) => {
-      // The row's email status changed: refresh every cached page. A not-found row is left in
-      // place, so its explanation doesn't vanish with it; the list drops it on its next refresh.
+      toastResendOutcome(outcome, email, () => router.push(SIGN_IN_PATH));
       if (outcome.status !== "sent") return;
       void queryClient.invalidateQueries({ queryKey: registrationListKey });
-      onSent?.();
+      router.refresh();
     },
   });
 
@@ -114,7 +108,6 @@ export function ResendEventPass({
   }, [confirming]);
 
   function ask() {
-    resend.reset();
     setConfirming(true);
   }
 
@@ -156,49 +149,27 @@ export function ResendEventPass({
 
   const sending = resend.isPending;
   return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        ref={openButton}
-        type="button"
-        variant="outline"
-        size="xs"
-        disabled={sending}
-        onClick={ask}
-      >
-        {sending && <LoaderCircleIcon aria-hidden="true" className="animate-spin" />}
-        {sending ? "กำลังส่ง…" : "ส่งอีกครั้ง"}
-      </Button>
-      {resend.data && <ResendFeedback outcome={resend.data} />}
-    </div>
+    <Button ref={openButton} type="button" variant="outline" size="xs" disabled={sending} onClick={ask}>
+      {sending && <LoaderCircleIcon aria-hidden="true" className="animate-spin" />}
+      {sending ? "กำลังส่ง…" : "ส่งอีกครั้ง"}
+    </Button>
   );
 }
 
-function ResendFeedback({ outcome }: { outcome: ResendOutcome }) {
-  const feedback = "text-xs leading-normal whitespace-normal";
-  // A fixed width for longer messages: in a table cell, wrapped text shrinks to the column.
-  const problem = `${feedback} w-56`;
+/** The outcome as a toast. The address is its description: the toast may show on another page. */
+function toastResendOutcome(outcome: ResendOutcome, email: string, signIn: () => void) {
   switch (outcome.status) {
     case "sent":
-      return (
-        <p role="status" className={`${feedback} text-success`}>
-          ส่ง Event Pass แล้ว
-        </p>
-      );
+      toastSuccess("ส่ง Event Pass แล้ว", { description: email });
+      return;
     case "signed-out":
-      return (
-        <p role="alert" className={problem}>
-          หมดเวลาการเข้าสู่ระบบ{" "}
-          <Link href={SIGN_IN_PATH} className="underline underline-offset-2">
-            เข้าสู่ระบบอีกครั้ง
-          </Link>
-        </p>
-      );
+      toastError("หมดเวลาการเข้าสู่ระบบ", {
+        description: email,
+        action: { label: "เข้าสู่ระบบอีกครั้ง", onClick: signIn },
+      });
+      return;
     default:
-      return (
-        <p role="alert" className={`${problem} text-destructive`}>
-          {resendProblem(outcome)}
-        </p>
-      );
+      toastError(resendProblem(outcome), { description: email });
   }
 }
 

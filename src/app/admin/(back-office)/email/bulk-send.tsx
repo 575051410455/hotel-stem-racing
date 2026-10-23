@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
@@ -11,6 +12,7 @@ import type { BulkSendMode } from "@/lib/registrations/bulk-send-params";
 import { cn } from "@/lib/utils";
 import { sendFailureMessage } from "../_registration-list/event-pass-email";
 import { registrationListKey } from "../_registration-list/query";
+import { toastError, toastInfo, toastSuccess } from "../_shell/toasts";
 import { BackOfficeRequestError } from "../query-provider";
 import { bulkSendSummaryKey, bulkSendSummaryQuery, postEventPassBatch } from "./bulk-send-api";
 
@@ -57,9 +59,11 @@ type Run = {
  * Bulk send of Event Pass emails: choose who, read the summary, confirm, then batches of up to 25
  * go out one request at a time until the server says done. Stop takes effect after the batch in
  * flight (its cursor is needed to go on); Resume carries on from there. One loop at a time.
+ * Progress stays on the page while it runs; a toast sums up the run when it ends or stops.
  */
 export function BulkSend() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [mode, setMode] = useState<BulkSendMode>("unsent");
   /** The summary Staff are confirming; its numbers stay put while they decide. */
   const [confirming, setConfirming] = useState<BulkSendSummary | null>(null);
@@ -132,6 +136,9 @@ export function BulkSend() {
       setRun(current);
       void queryClient.invalidateQueries({ queryKey: bulkSendSummaryKey });
       void queryClient.invalidateQueries({ queryKey: registrationListKey });
+      // The overview numbers (ยังไม่ได้ส่งอีเมล Event Pass) are server-rendered.
+      router.refresh();
+      toastRunEnded(current);
     }
   }
 
@@ -346,6 +353,30 @@ const pauseMessages: Record<PauseReason, string> = {
   "signed-out": "หมดเวลาการเข้าสู่ระบบ เข้าสู่ระบบในแท็บใหม่ แล้วกลับมากด “ส่งต่อ”",
   "email-not-configured": "ยังไม่ได้ตั้งค่าการส่งอีเมล (SMTP) จึงส่งไม่ได้",
 };
+
+/**
+ * The run's result once it ends or stops. It may show on another page (leaving this one stops the
+ * run), so the title names the bulk send. A clean finish and a stop (หยุด, or leaving the page)
+ * close by themselves; failed emails and the other pauses need Staff, so they stay.
+ */
+function toastRunEnded(run: Run) {
+  const tally = `ส่งสำเร็จ ${formatCount(run.sent)} ฉบับ · ไม่สำเร็จ ${formatCount(run.failures.length)} ฉบับ`;
+  if (run.state === "done") {
+    const toast = run.failures.length > 0 ? toastError : toastSuccess;
+    toast("ส่งอีเมล Event Pass เสร็จแล้ว", { description: tally });
+    return;
+  }
+  const reason = run.pauseReason ?? "stopped";
+  const toast = reason === "stopped" ? toastInfo : toastError;
+  toast("หยุดการส่งอีเมล Event Pass ไว้", {
+    description: (
+      <>
+        <span className="block">{tally}</span>
+        <span className="block">{pauseMessages[reason]}</span>
+      </>
+    ),
+  });
+}
 
 function RunPanel({
   run,

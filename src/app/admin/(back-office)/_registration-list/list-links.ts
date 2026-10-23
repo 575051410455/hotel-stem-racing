@@ -41,8 +41,8 @@ export function deletedPassCodeIn(params: URLSearchParams): string | null {
   return value ? normalisePassCode(value) : null;
 }
 
-/** The same URL without `?deleted=`, for dismissing the notice. */
-export function withoutDeletedNotice(pathname: string, params: URLSearchParams): string {
+/** The same URL without `?deleted=`, once its toast has shown. */
+export function withoutDeletedParam(pathname: string, params: URLSearchParams): string {
   const rest = new URLSearchParams(params);
   rest.delete(DELETED_PARAM);
   return withQuery(pathname, rest);
