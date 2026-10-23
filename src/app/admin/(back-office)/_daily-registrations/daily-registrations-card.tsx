@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireStaff } from "@/lib/auth/session";
 import { registrations } from "@/lib/server/registrations";
 import { cn } from "@/lib/utils";
-import { DailyRegistrationsChart } from "./daily-registrations-chart";
 import { formatCount, formatSpokenDay } from "./format";
+import { LazyDailyRegistrationsChart } from "./lazy-daily-registrations-chart";
 
 /** The chart's height; the skeleton and the empty state match it, so nothing jumps. */
 const PLOT_HEIGHT = "h-62.5";
@@ -56,7 +56,7 @@ async function DailyRegistrations() {
 
   return (
     <>
-      <DailyRegistrationsChart series={series} />
+      <LazyDailyRegistrationsChart series={series} />
       {/* The chart's text alternative. sr-only sits on a wrapper: a table ignores width and height. */}
       <div className="sr-only">
         <table>

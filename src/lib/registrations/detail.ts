@@ -82,22 +82,20 @@ const detailColumns = {
 export async function getRegistrationDetail(db: Database, id: number): Promise<RegistrationDetailLookup> {
   if (!isRegistrationId(id)) return notFound;
 
-  const [registration] = await db
-    .select(detailColumns)
-    .from(registrationsTable)
-    .where(eq(registrationsTable.id, id))
-    .limit(1);
+  // Both read by id alone, so they run together: one round trip instead of two.
+  const [[registration], checkIns] = await Promise.all([
+    db.select(detailColumns).from(registrationsTable).where(eq(registrationsTable.id, id)).limit(1),
+    db
+      .select({
+        eventDay: checkInsTable.eventDay,
+        checkedInAt: checkInsTable.checkedInAt,
+        outsideRegisteredDay: checkInsTable.outsideRegisteredDay,
+      })
+      .from(checkInsTable)
+      .where(eq(checkInsTable.registrationId, id))
+      .orderBy(asc(checkInsTable.eventDay)),
+  ]);
   if (!registration) return notFound;
-
-  const checkIns = await db
-    .select({
-      eventDay: checkInsTable.eventDay,
-      checkedInAt: checkInsTable.checkedInAt,
-      outsideRegisteredDay: checkInsTable.outsideRegisteredDay,
-    })
-    .from(checkInsTable)
-    .where(eq(checkInsTable.registrationId, id))
-    .orderBy(asc(checkInsTable.eventDay));
 
   return { status: "found", registration: { ...registration, checkIns } };
 }

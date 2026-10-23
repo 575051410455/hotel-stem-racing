@@ -9,7 +9,8 @@ import { SIGN_IN_PATH } from "@/lib/auth/access";
 import type { ResendEventPassResult } from "@/lib/registrations/resend-event-pass";
 import { toastError, toastSuccess } from "../_shell/toasts";
 import { formatCreatedAt } from "./format";
-import { REGISTRATION_LIST_ENDPOINT, type RegistrationListItem, registrationListKey } from "./query";
+import { REGISTRATION_LIST_ENDPOINT, registrationListKey } from "./list-endpoint";
+import type { RegistrationListItem } from "./query";
 
 // The Event Pass email status of one Registration, and Staff's "send again" action. Shown in
 // the Registration list's "อีเมล Event Pass" column; the detail view can reuse both parts.
