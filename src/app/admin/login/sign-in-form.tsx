@@ -77,7 +77,9 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    // method="dialog" makes a submit before hydration a no-op instead of a GET that would put the
+    // email and password in the URL. Once hydrated, handleSubmit handles everything.
+    <form method="dialog" onSubmit={handleSubmit} noValidate>
       <FieldGroup>
         <Field data-invalid={error ? true : undefined}>
           <FieldLabel htmlFor="staff-email">อีเมล</FieldLabel>
