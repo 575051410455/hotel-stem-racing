@@ -32,9 +32,9 @@ async function requestDelete(registrationId: number): Promise<DeleteOutcome> {
 }
 
 /**
- * "ลบการลงทะเบียน": asks in place first (no browser dialog), then deletes the Registration and its
- * Check-Ins and returns to the list (`afterDeleteHref`, which says so). Focus starts on ยกเลิก,
- * so a stray Enter can't delete; Escape cancels too. Every other outcome is shown in Thai here.
+ * "Delete Registration": asks in place first (no browser dialog), then deletes the Registration and
+ * its Check-Ins and returns to the list (`afterDeleteHref`, which says so). Focus starts on Cancel,
+ * so a stray Enter can't delete; Escape cancels too. Every other outcome is shown here.
  */
 export function DeleteRegistration({
   registrationId,
@@ -109,9 +109,9 @@ export function DeleteRegistration({
         }}
       >
         <p id={promptId} className="text-sm leading-normal">
-          ลบการลงทะเบียนของ <span className="font-medium">{attendeeName}</span> (
-          <span className="font-mono">{passCode}</span>) ถาวร? Event Pass นี้จะใช้เช็คอินไม่ได้อีก
-          และกู้คืนไม่ได้
+          Permanently delete <span className="font-medium">{attendeeName}</span>&apos;s Registration (
+          <span className="font-mono">{passCode}</span>)? This Event Pass can no longer be used to check in,
+          and this can&apos;t be undone.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -122,10 +122,10 @@ export function DeleteRegistration({
             onClick={() => remove.mutate()}
           >
             {deleting ? <LoaderCircleIcon aria-hidden="true" className="animate-spin" /> : <Trash2Icon aria-hidden="true" />}
-            {deleting ? "กำลังลบ…" : "ลบถาวร"}
+            {deleting ? "Deleting…" : "Delete permanently"}
           </Button>
           <Button ref={cancelButton} type="button" variant="outline" size="sm" disabled={deleting} onClick={cancel}>
-            ยกเลิก
+            Cancel
           </Button>
         </div>
       </div>
@@ -146,7 +146,7 @@ export function DeleteRegistration({
         }}
       >
         <Trash2Icon aria-hidden="true" />
-        ลบการลงทะเบียน
+        Delete Registration
       </Button>
       {outcome && <DeleteFeedback outcome={outcome} listHref={listHref} />}
     </div>
@@ -161,25 +161,25 @@ function DeleteFeedback({ outcome, listHref }: { outcome: DeleteOutcome; listHre
     case "not-found":
       return (
         <p role="alert" className={feedback}>
-          ไม่พบการลงทะเบียนนี้ อาจถูกลบไปแล้ว{" "}
+          Registration not found. It may have been deleted already.{" "}
           <Link href={listHref} className="underline underline-offset-2">
-            กลับไปรายการลงทะเบียน
+            Back to Registrations
           </Link>
         </p>
       );
     case "signed-out":
       return (
         <p role="alert" className={feedback}>
-          หมดเวลาการเข้าสู่ระบบ ยังไม่ได้ลบ{" "}
+          Session expired. Nothing was deleted.{" "}
           <Link href={SIGN_IN_PATH} className="underline underline-offset-2">
-            เข้าสู่ระบบอีกครั้ง
+            Sign in again
           </Link>
         </p>
       );
     case "error":
       return (
         <p role="alert" className={`${feedback} text-destructive`}>
-          ลบไม่สำเร็จ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง
+          Couldn&apos;t delete. Check your internet connection and try again.
         </p>
       );
   }

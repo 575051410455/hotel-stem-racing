@@ -32,17 +32,17 @@ export function EventPassLink({ link }: { link: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={copy}>
           {copied === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-          คัดลอกลิงก์
+          Copy link
         </Button>
         <Button asChild variant="outline" size="sm">
           <a href={link} target="_blank" rel="noreferrer">
             <ExternalLinkIcon aria-hidden="true" />
-            เปิด Event Pass
+            Open Event Pass
           </a>
         </Button>
         <p role="status" className="text-sm leading-normal">
-          {copied === "copied" && <span className="text-success">คัดลอกลิงก์แล้ว</span>}
-          {copied === "failed" && <span className="text-destructive">คัดลอกไม่ได้ เลือกลิงก์ด้านบนแล้วคัดลอกเอง</span>}
+          {copied === "copied" && <span className="text-success">Link copied</span>}
+          {copied === "failed" && <span className="text-destructive">Couldn&apos;t copy. Select the link above and copy it yourself.</span>}
         </p>
       </div>
     </div>
@@ -50,7 +50,7 @@ export function EventPassLink({ link }: { link: string }) {
 }
 
 /**
- * Ticket 16's email status and "ส่งอีกครั้ง", as on the list. The status here is server-rendered:
+ * Ticket 16's email status and "Resend", as on the list. The status here is server-rendered:
  * a successful send refreshes the page's server data (in ResendEventPass) to show the new count.
  */
 export function DetailEventPassEmail({

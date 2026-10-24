@@ -6,15 +6,16 @@ import type { RegistrationExportRow } from "./export";
 /** The byte order mark Excel needs to read the file as UTF-8 (EF BB BF once encoded). */
 const BOM = "﻿";
 
+/** The headers in copy-back-office.md ("CSV export"), in order. */
 const HEADER =
-  "ลงทะเบียนเมื่อ,รหัส Event Pass,ชื่อ,นามสกุล,เบอร์โทรศัพท์,เบอร์โทรศัพท์ (E.164),อีเมล," +
-  "ฐานะการเข้าร่วมงาน,ฐานะการเข้าร่วมงาน (ระบุ),โรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน," +
-  "วันเข้าร่วมงาน,ช่องทางที่ทราบข่าว,ช่องทางที่ทราบข่าว (ระบุ),ทีมที่ต้องการมาเชียร์," +
-  "ความช่วยเหลือที่ต้องการ,ข้อสอบถามหรือข้อเสนอแนะ,ส่งอีเมล Event Pass แล้ว (ครั้ง)," +
-  "ส่งอีเมล Event Pass ล่าสุดเมื่อ";
+  "Registered (Bangkok time),Pass Code,Given name,Family name,Phone,Phone (E.164),Email," +
+  "Attendee Role,Attendee Role (other),School or organisation," +
+  "Event Days,Referral Sources,Referral Source (other),Team cheering for," +
+  "Help needed,Questions or suggestions,Event Pass emails sent," +
+  "Last Event Pass email (Bangkok time)";
 
 describe("Registration CSV", () => {
-  test("starts with a BOM and a Thai header row, each line ending in CRLF", () => {
+  test("starts with a BOM and an English header row, each line ending in CRLF", () => {
     assert.equal(registrationsCsv([]), `${BOM}${HEADER}\r\n`);
   });
 
@@ -35,7 +36,7 @@ describe("Registration CSV", () => {
       csv,
       `${BOM}${HEADER}\r\n` +
         "2026-10-22 14:05:09,EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
-        "ผู้ปกครอง,ครู-อาจารย์,'=1+2,วันที่ 31 ตุลาคม 2569,Facebook,'@SUM(A1),'+1,'-2,'\tเริ่มด้วยแท็บ,0,\r\n",
+        "Parent,ครู-อาจารย์,'=1+2,Saturday 31 October 2026,Facebook,'@SUM(A1),'+1,'-2,'\tเริ่มด้วยแท็บ,0,\r\n",
     );
   });
 
@@ -55,12 +56,12 @@ describe("Registration CSV", () => {
       csv,
       `${BOM}${HEADER}\r\n` +
         "2026-10-22 14:05:09,EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
-        'ผู้ปกครอง,,"บริษัท ก, จำกัด",วันที่ 31 ตุลาคม 2569,Facebook,"ป้าย ""STEM""","ทีม A\r\nทีม B",' +
+        'Parent,,"บริษัท ก, จำกัด",Saturday 31 October 2026,Facebook,"ป้าย ""STEM""","ทีม A\r\nทีม B",' +
         '"\'=HYPERLINK(""http://x.example"",""y"")","บรรทัดแรก\nบรรทัดสอง",0,\r\n',
     );
   });
 
-  test("writes Thai labels for roles, Event Days and Referral Sources, and Bangkok times, in row order", () => {
+  test("writes English Attendee Roles, Event Days and Referral Sources, Thai names as typed, and Bangkok times, in row order", () => {
     const csv = registrationsCsv([
       {
         ...wichai,
@@ -92,10 +93,44 @@ describe("Registration CSV", () => {
       csv,
       `${BOM}${HEADER}\r\n` +
         "2026-10-22 14:05:09,EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
-        "อื่น ๆ,ศิษย์เก่า,,วันที่ 31 ตุลาคม 2569; วันที่ 1 พฤศจิกายน 2569," +
-        "LINE; ทีมที่เข้าร่วมการแข่งขัน; อื่น ๆ,ป้ายหน้างาน,,,,2,2026-10-23 00:30:00\r\n" +
+        "Other,ศิษย์เก่า,,Saturday 31 October 2026; Sunday 1 November 2026," +
+        "LINE; A Competing Team; Other,ป้ายหน้างาน,,,,2,2026-10-23 00:30:00\r\n" +
         "2026-10-23 09:00:00,EP-ABCDEFGH,Alice,Smith,02-123-4567,'+6621234567,alice@example.com," +
-        "สปอนเซอร์ / ผู้สนับสนุน,,Grand Richmond,วันที่ 1 พฤศจิกายน 2569,เว็บไซต์,,,,,0,\r\n",
+        "Sponsor / Supporter,,Grand Richmond,Sunday 1 November 2026,Website,,,,,0,\r\n",
+    );
+  });
+
+  test("writes every Attendee Role and Referral Source as its English label", () => {
+    const csv = registrationsCsv(
+      (["parent", "teacher", "student", "sponsor", "other"] as const).map((role) => ({
+        ...wichai,
+        role,
+        referralSources: [
+          "facebook",
+          "instagram",
+          "tiktok",
+          "line",
+          "website",
+          "school",
+          "organisation",
+          "friend",
+          "competing_team",
+          "other",
+        ],
+      })),
+    );
+    const rows = csv.split("\r\n").slice(1, -1).map((line) => line.split(","));
+    const roleColumn = 7;
+    const referralSourcesColumn = 11;
+
+    assert.deepEqual(
+      rows.map((cells) => cells[roleColumn]),
+      ["Parent", "Teacher / Lecturer", "Student", "Sponsor / Supporter", "Other"],
+    );
+    assert.equal(
+      rows[0][referralSourcesColumn],
+      "Facebook; Instagram; TikTok; LINE; Website; School or university; Company or organisation; " +
+        "Friend or acquaintance; A Competing Team; Other",
     );
   });
 
