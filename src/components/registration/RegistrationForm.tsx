@@ -385,8 +385,12 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
         <button
           type="submit"
           aria-disabled={!isValid || pending}
-          className="flex h-12 w-full items-center justify-center rounded-pill bg-accent px-6 text-base font-bold text-white transition-colors hover:bg-accent-dark active:shadow-[#000_3px_2px_6px_inset] aria-disabled:opacity-60 aria-disabled:hover:bg-accent aria-disabled:active:shadow-none tab:h-14"
+          // Faded while the form isn't complete; full colour while sending, so its text stays readable.
+          className={`flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-accent px-6 text-base font-bold text-white transition-colors hover:bg-accent-dark active:shadow-[#000_3px_2px_6px_inset] aria-disabled:hover:bg-accent aria-disabled:active:shadow-none tab:h-14 ${
+            pending ? "cursor-progress" : "aria-disabled:opacity-60"
+          }`}
         >
+          {pending && <Spinner />}
           {pending ? text.submitting : text.submit}
         </button>
         <div className="flex flex-col gap-2 text-[0.875rem] text-muted">
@@ -395,5 +399,15 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
         </div>
       </div>
     </form>
+  );
+}
+
+/** Turns while the registration is sent; still (but shown) for reduced motion. The button's text says what's happening. */
+function Spinner() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-5 shrink-0 motion-safe:animate-spin">
+      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeOpacity="0.35" strokeWidth="2.5" />
+      <path d="M18 10a8 8 0 0 0-8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
   );
 }

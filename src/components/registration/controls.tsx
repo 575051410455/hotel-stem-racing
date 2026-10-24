@@ -1,6 +1,8 @@
 // Form controls for the public registration form, on the template's structure: real labels,
-// 48px inputs (56px from `tab:`), a 1px muted border that turns accent on error, and an
-// error line announced politely and tied to its control with aria-describedby.
+// 48px inputs (56px from `tab:`) with 16px text, and an error line announced politely and tied to
+// its control with aria-describedby. States: a grey edge that darkens on hover; on focus (mouse
+// or keyboard) a magenta edge and soft ring; on error a red edge on a pale red fill. Rings are
+// box-shadows and borders never change width, so nothing moves.
 
 import type { ComponentProps, FocusEvent, ReactNode } from "react";
 
@@ -12,9 +14,17 @@ export function describedBy(...ids: (string | false | undefined)[]) {
   return ids.filter(Boolean).join(" ") || undefined;
 }
 
-const controlBase =
-  "w-full rounded-input border bg-surface px-4 text-base text-ink-pure placeholder:text-muted";
-const borderFor = (error?: string) => (error ? "border-accent" : "border-muted");
+const controlBase = [
+  "w-full rounded-field border px-4 text-base text-ink-pure placeholder:text-muted",
+  "transition-[border-color,box-shadow,background-color] duration-150 ease-out motion-reduce:transition-none",
+  // The ring replaces the outline; a transparent outline still shows in Windows' forced colours.
+  "focus:outline-2 focus:outline-transparent focus:ring-3",
+  "disabled:cursor-not-allowed disabled:border-line disabled:bg-field-disabled disabled:text-muted",
+].join(" ");
+const stateFor = (error?: string) =>
+  error
+    ? "border-accent bg-error-tint focus:ring-accent/25"
+    : "border-field-border bg-surface hover:border-field-border-hover focus:border-focus focus:ring-focus/30";
 
 export function RequiredMark() {
   return (
@@ -88,7 +98,7 @@ export function TextField({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(help ? helpId(id) : undefined, error && errorId(id))}
-        className={`${controlBase} ${borderFor(error)} h-12 tab:h-14`}
+        className={`${controlBase} ${stateFor(error)} h-12 tab:h-14`}
         {...input}
       />
       <FieldError id={id} message={error} />
@@ -117,7 +127,7 @@ export function TextAreaField({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(help ? helpId(id) : undefined, error && errorId(id))}
-        className={`${controlBase} ${borderFor(error)} min-h-28 resize-y py-3`}
+        className={`${controlBase} ${stateFor(error)} min-h-28 resize-y py-3`}
         {...textarea}
       />
       <FieldError id={id} message={error} />
@@ -176,9 +186,9 @@ export function ChoiceGroup({
         <span className="font-normal text-muted">{hint}</span>
       </legend>
       <div
-        className={`grid gap-x-4 rounded-input border px-4 py-1 ${borderFor(error)} ${
-          columns === 2 ? "tab:grid-cols-2" : ""
-        }`}
+        className={`grid gap-x-1 gap-y-0.5 rounded-field border bg-surface p-1 ${
+          error ? "border-accent" : "border-field-border"
+        } ${columns === 2 ? "tab:grid-cols-2" : ""}`}
       >
         {options.map((option) => {
           const optionId = `${id}-${option.value}`;
@@ -186,7 +196,8 @@ export function ChoiceGroup({
             <label
               key={option.value}
               htmlFor={optionId}
-              className="flex min-h-12 cursor-pointer items-center gap-3 py-1"
+              // Each option is a row: a pale hover, and the chosen ones tinted like the focus colour.
+              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-input px-3 py-1 transition-colors duration-150 ease-out hover:bg-bg has-checked:bg-selected-tint motion-reduce:transition-none"
             >
               <input
                 id={optionId}
@@ -198,7 +209,7 @@ export function ChoiceGroup({
                 required={type === "radio" ? required : undefined}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId(id) : undefined}
-                className="size-5 shrink-0 accent-accent"
+                className="size-5 shrink-0 accent-focus"
               />
               <span>{option.label}</span>
             </label>
