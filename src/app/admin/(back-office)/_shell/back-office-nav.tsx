@@ -1,10 +1,10 @@
 "use client";
 
-import { type LucideIcon, MailIcon, ScanLineIcon, UsersIcon } from "lucide-react";
+import { type LucideIcon, MailIcon, ScanLineIcon, UsersIcon, UsersRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { type AccountKind, canUseBackOffice, canUseCheckInDesk } from "@/lib/auth/access";
+import { type AccountKind, canManageAccounts, canUseBackOffice, canUseCheckInDesk } from "@/lib/auth/access";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -37,6 +37,14 @@ const navItems: NavItem[] = [
   },
   { href: "/admin/check-in", label: "Check-In", icon: ScanLineIcon, may: canUseCheckInDesk },
   { href: "/admin/email", label: "Email", icon: MailIcon, may: canUseBackOffice },
+  {
+    href: "/admin/accounts",
+    label: "Accounts",
+    icon: UsersRoundIcon,
+    may: canManageAccounts,
+    // Each Account's page, a new Account and the Account History belong to the list.
+    isCurrent: (pathname) => pathname === "/admin/accounts" || pathname.startsWith("/admin/accounts/"),
+  },
 ];
 
 /**
