@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
 import { ACCOUNT_KINDS, canChangeOwnPassword, isAccountKind } from "./access";
+import { recordAccountChange } from "./account-history";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./password-rules";
 
 /**
@@ -121,6 +122,18 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
             code: "PASSWORD_CHANGE_NOT_ALLOWED",
           });
         }
+      }),
+      // The owner's own password change (My Account) is an Account Change like any other: recorded
+      // as `password-changed`, with the owner as actor, once Better Auth has changed it. A refused or
+      // failed change (wrong current password, a Kiosk Account, signed out) returns an error and
+      // records nothing. Never the password.
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password") return;
+        const returned: unknown = ctx.context.returned;
+        if (!returned || isAPIError(returned)) return;
+        const ownerId = (returned as { user?: { id?: unknown } }).user?.id;
+        if (typeof ownerId !== "string") throw new Error("The changed password's Account is unknown, so it isn't recorded");
+        await recordAccountChange(db, ownerId, { action: "password-changed" }, { accountId: ownerId });
       }),
     },
     telemetry: { enabled: false },

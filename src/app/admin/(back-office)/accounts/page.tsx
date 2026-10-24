@@ -1,9 +1,13 @@
+import { HistoryIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
+import { Button } from "@/components/ui/button";
 import { accounts } from "@/lib/auth/server";
 import { requireAdmin } from "@/lib/auth/session";
 import { PageContent, PageHeader, PageTitle } from "../_shell/page-header";
 import { AccountList } from "./account-list";
+import { accountHistoryHref } from "./history/links";
 
 export const metadata: Metadata = { title: "Accounts" };
 
@@ -15,6 +19,12 @@ export default function AccountsPage() {
     <>
       <PageHeader>
         <PageTitle>Accounts</PageTitle>
+        <Button asChild variant="outline" size="sm" className="ml-auto">
+          <Link href={accountHistoryHref()}>
+            <HistoryIcon />
+            History
+          </Link>
+        </Button>
       </PageHeader>
       <PageContent>
         <Suspense

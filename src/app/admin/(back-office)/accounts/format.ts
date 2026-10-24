@@ -1,15 +1,7 @@
 // How the Accounts pages show an Account, in English. Pure; safe in browser and server.
 
-import type { AccountKind } from "@/lib/auth/access";
 import type { Account } from "@/lib/auth/accounts";
 import { bangkokEnglishDate, bangkokEnglishDateTime } from "@/lib/bangkok-time";
-
-/** The kind's name (GLOSSARY: Admin Account, Staff Account, Kiosk Account). */
-export const KIND_LABELS = {
-  admin: "Admin",
-  staff: "Staff",
-  kiosk: "Kiosk",
-} satisfies Record<AccountKind, string>;
 
 /** "Enabled" or "Disabled", then "Must change password" while its owner has to choose their own. */
 export function statusLabels({ disabledAt, mustChangePassword }: Pick<Account, "disabledAt" | "mustChangePassword">) {
