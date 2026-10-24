@@ -1,4 +1,4 @@
-// Random passwords (pure), for the first Staff Account that `npm run seed` creates.
+// Random passwords (pure), for the first Admin Account that `npm run seed` creates.
 
 /**
  * 32 characters with no look-alikes (no o, 0, i or 1), lower-case so it is quick to type on a phone.

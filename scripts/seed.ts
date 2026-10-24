@@ -19,7 +19,7 @@
 import { createDatabase } from "@/lib/db/client";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { randomPassword } from "@/lib/auth/random-password";
-import { createStaffAccounts } from "@/lib/auth/staff-accounts";
+import { createAccounts } from "@/lib/auth/accounts";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const DEFAULT_NAME = "เจ้าหน้าที่";
@@ -30,7 +30,7 @@ function readSeedEnv(env: NodeJS.ProcessEnv = process.env) {
   const email = env.SEED_STAFF_EMAIL?.trim();
   if (!email) {
     throw new UsageError(
-      "SEED_STAFF_EMAIL is not set: add the first Staff Account's email to .env, then run `npm run seed` again.",
+      "SEED_STAFF_EMAIL is not set: add the first Admin Account's email to .env, then run `npm run seed` again.",
     );
   }
   return { email, name: env.SEED_STAFF_NAME?.trim() || DEFAULT_NAME };
@@ -45,7 +45,7 @@ async function main(): Promise<number> {
   const { db, close } = createDatabase(databaseUrl);
   try {
     const password = randomPassword();
-    const result = await createStaffAccounts(createStaffAuth({ db, secret, baseURL })).createFirst({
+    const result = await createAccounts(createStaffAuth({ db, secret, baseURL })).createFirst({
       email,
       name,
       password,

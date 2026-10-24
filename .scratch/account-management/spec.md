@@ -182,7 +182,7 @@ Separately, only someone with shell access to the server can create an Account, 
   - the column default stays `staff`;
   - one migration: `npm run db:generate -- --name admin-accounts`.
   - Existing Accounts keep their kind, so existing Staff Accounts become check-in only.
-- **Accounts module (`src/lib/auth/staff-accounts.ts`, name kept):**
+- **Accounts module (`src/lib/auth/accounts.ts`, `createAccounts`; renamed from `staff-accounts.ts` / `createStaffAccounts` in the Part 1 review):**
   - `create` accepts kind `admin`.
   - `createFirst` creates an **Admin** Account and skips when any Admin Account exists (Staff and Kiosk don't count).
   - **New:** `makeAdmin(email)` sets kind `admin` and deletes the Account's sessions. It reports not-found, already-Admin, or promoted with the previous kind.
@@ -311,7 +311,7 @@ Separately, only someone with shell access to the server can create an Account, 
 - **Pure modules:**
   - `access.ts` rules for all three kinds, every rule in the table above, plus fail-closed for unknown kinds and `homePath` per kind;
   - in Part 2, the Account Change formatter.
-- **Accounts module, against a real database** (prior art: `src/lib/auth/staff-accounts.test.ts`, `reset()` in `beforeEach`).
+- **Accounts module, against a real database** (prior art: `src/lib/auth/accounts.test.ts`, `reset()` in `beforeEach`).
   - **Part 1:**
     - `create` with kind `admin`;
     - `createFirst` creates an Admin when only Staff or Kiosk Accounts exist, and skips when an Admin exists;

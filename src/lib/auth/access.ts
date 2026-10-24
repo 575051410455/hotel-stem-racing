@@ -15,12 +15,12 @@ export function isAccountKind(value: unknown): value is AccountKind {
  * The Back Office beyond the check-in desk: the overview, the Registration list and detail, email,
  * and every `/api/back-office/*` route (export and resend included).
  */
-export function canUseBackOffice(kind: AccountKind): boolean {
+export function canUseBackOffice(kind: AccountKind): kind is "admin" {
   return kind === "admin";
 }
 
 /** The check-in desk (`/admin/check-in`, with Kiosk mode) and the Back Office frame around it. */
-export function canUseCheckInDesk(kind: AccountKind): boolean {
+export function canUseCheckInDesk(kind: AccountKind): kind is "admin" | "staff" {
   return kind === "admin" || kind === "staff";
 }
 
@@ -34,7 +34,7 @@ export function canCheckIn(kind: AccountKind): boolean {
  * A Kiosk always records today's Event Day, by the server's clock.
  */
 export function canChooseCheckInDay(kind: AccountKind): boolean {
-  return kind === "admin" || kind === "staff";
+  return canUseCheckInDesk(kind);
 }
 
 /**
@@ -42,12 +42,12 @@ export function canChooseCheckInDay(kind: AccountKind): boolean {
  * Account's password is changed only with the server command (`npm run staff -- reset-password`).
  */
 export function canChangeOwnPassword(kind: AccountKind): boolean {
-  return kind === "admin" || kind === "staff";
+  return canUseCheckInDesk(kind);
 }
 
 /** Changing the Account's own display name, at My Account. A Kiosk Account's name is set when it is created. */
 export function canEditOwnName(kind: AccountKind): boolean {
-  return kind === "admin" || kind === "staff";
+  return canUseCheckInDesk(kind);
 }
 
 /** Creating, editing, disabling and enabling Accounts, and reading the Account History. */

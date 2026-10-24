@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import type { AccountKind } from "@/lib/auth/access";
-import { requireStaff } from "@/lib/auth/session";
+import { type CurrentStaff, requireStaff } from "@/lib/auth/session";
 import { PageContent, PageHeader, PageTitle } from "../_shell/page-header";
 import { ChangePasswordForm } from "./change-password-form";
 import { RenameForm } from "./rename-form";
 
 export const metadata: Metadata = { title: "My Account" };
 
-/** Each kind as its owner sees it, with what it opens (ADR 0004). A Kiosk Account never gets here. */
+/** Each kind that reaches this page, as its owner sees it, with what it opens (ADR 0004). */
 const KIND_LABELS = {
   admin: "Admin · the whole Back Office",
-  staff: "Staff · the Check-In desk",
-  kiosk: "Kiosk",
-} satisfies Record<AccountKind, string>;
+  staff: "Staff · the check-in desk",
+} satisfies Record<CurrentStaff["kind"], string>;
 
 // Staff (a Staff or Admin Account) see their own Account: email and kind, their name and their
 // password. Reached from the account menu, not the sidebar nav; /admin/password redirects here. The

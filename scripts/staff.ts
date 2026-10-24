@@ -19,7 +19,7 @@
 import { createDatabase } from "@/lib/db/client";
 import type { AccountKind } from "@/lib/auth/access";
 import { readStaffAuthEnv } from "@/lib/auth/env";
-import { createStaffAccounts } from "@/lib/auth/staff-accounts";
+import { type Accounts, createAccounts } from "@/lib/auth/accounts";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
@@ -126,6 +126,93 @@ function passwordProblemMessage(
     : `The password is too long: use at most ${result.maxLength} characters. Nothing was changed.`;
 }
 
+/** Makes an existing Account an Admin Account. Needs no password. */
+async function makeAdmin(accounts: Accounts, email: string): Promise<number> {
+  const result = await accounts.makeAdmin(email);
+  switch (result.status) {
+    case "promoted":
+      console.log(
+        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]}) and signed it out of ` +
+          "every device. It now sees the whole Back Office.",
+      );
+      return 0;
+    case "already-admin":
+      console.log(`${email} is already an Admin Account. Nothing was changed.`);
+      return 0;
+    case "not-found":
+      console.error(`There is no Account for ${email}. Nothing was changed.`);
+      return 1;
+  }
+}
+
+async function create(
+  accounts: Accounts,
+  command: Extract<Command, { action: "create" }>,
+  password: string,
+  baseURL: string,
+): Promise<number> {
+  const result = await accounts.create({
+    email: command.email,
+    name: command.name,
+    password,
+    kind: command.accountKind,
+  });
+  switch (result.status) {
+    case "created":
+      console.log(createdMessage(result.kind, result.email, baseURL));
+      return 0;
+    case "invalid-email":
+      console.error(`"${command.email}" is not a valid email address. Nothing was changed.`);
+      return 1;
+    case "invalid-name":
+      console.error("The display name is empty. Nothing was changed.");
+      return 1;
+    case "email-taken":
+      console.error(
+        `An Account for ${command.email} already exists. Use reset-password to change its password, ` +
+          "or another email for a new Account. Nothing was changed.",
+      );
+      return 1;
+    default:
+      console.error(passwordProblemMessage(result));
+      return 1;
+  }
+}
+
+async function resetPassword(accounts: Accounts, email: string, password: string): Promise<number> {
+  const result = await accounts.resetPassword({ email, password });
+  switch (result.status) {
+    case "password-reset":
+      console.log(`Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.`);
+      return 0;
+    case "not-found":
+      console.error(`There is no Account for ${email}. Nothing was changed.`);
+      return 1;
+    default:
+      console.error(passwordProblemMessage(result));
+      return 1;
+  }
+}
+
+/**
+ * What the command will do with the Accounts module. A command that sets a password asks for it
+ * here, before the database is opened; make-admin asks for nothing.
+ */
+async function prepare(command: Command, baseURL: string): Promise<(accounts: Accounts) => Promise<number>> {
+  switch (command.action) {
+    case "make-admin":
+      return (accounts) => makeAdmin(accounts, command.email);
+    case "create": {
+      const password = await readPassword();
+      return (accounts) => create(accounts, command, password, baseURL);
+    }
+    case "reset-password": {
+      const password = await readPassword();
+      return (accounts) => resetPassword(accounts, command.email, password);
+    }
+  }
+}
+
 async function main(): Promise<number> {
   let command: Command;
   try {
@@ -136,72 +223,10 @@ async function main(): Promise<number> {
   }
 
   const { databaseUrl, secret, baseURL } = readStaffAuthEnv();
-  const password = command.action === "make-admin" ? "" : await readPassword();
+  const run = await prepare(command, baseURL);
   const { db, close } = createDatabase(databaseUrl);
   try {
-    const staffAccounts = createStaffAccounts(createStaffAuth({ db, secret, baseURL }));
-
-    if (command.action === "make-admin") {
-      const result = await staffAccounts.makeAdmin(command.email);
-      switch (result.status) {
-        case "promoted":
-          console.log(
-            `Made ${command.email} an Admin Account (it was a ${KIND_LABELS[result.from]}) and signed it out of ` +
-              "every device. It now sees the whole Back Office.",
-          );
-          return 0;
-        case "already-admin":
-          console.log(`${command.email} is already an Admin Account. Nothing was changed.`);
-          return 0;
-        case "not-found":
-          console.error(`There is no Account for ${command.email}. Nothing was changed.`);
-          return 1;
-      }
-    }
-
-    if (command.action === "create") {
-      const result = await staffAccounts.create({
-        email: command.email,
-        name: command.name,
-        password,
-        kind: command.accountKind,
-      });
-      switch (result.status) {
-        case "created":
-          console.log(createdMessage(result.kind, result.email, baseURL));
-          return 0;
-        case "invalid-email":
-          console.error(`"${command.email}" is not a valid email address. Nothing was changed.`);
-          return 1;
-        case "invalid-name":
-          console.error("The display name is empty. Nothing was changed.");
-          return 1;
-        case "email-taken":
-          console.error(
-            `An Account for ${command.email} already exists. Use reset-password to change its password, ` +
-              "or another email for a new Account. Nothing was changed.",
-          );
-          return 1;
-        default:
-          console.error(passwordProblemMessage(result));
-          return 1;
-      }
-    }
-
-    const result = await staffAccounts.resetPassword({ email: command.email, password });
-    switch (result.status) {
-      case "password-reset":
-        console.log(
-          `Reset the password for the ${KIND_LABELS[result.kind]} ${command.email} and signed it out of every device.`,
-        );
-        return 0;
-      case "not-found":
-        console.error(`There is no Account for ${command.email}. Nothing was changed.`);
-        return 1;
-      default:
-        console.error(passwordProblemMessage(result));
-        return 1;
-    }
+    return await run(createAccounts(createStaffAuth({ db, secret, baseURL })));
   } finally {
     await close();
   }

@@ -1,7 +1,7 @@
 import "server-only";
 import { createDatabase } from "@/lib/db/client";
 import { readStaffAuthEnv } from "./env";
-import { createStaffAccounts, type StaffAccounts } from "./staff-accounts";
+import { createAccounts, type Accounts } from "./accounts";
 import { createStaffAuth, type StaffAuth } from "./staff-auth";
 
 // Composition root for Staff sign-in: the one place in the app that turns env into the auth instance.
@@ -19,6 +19,6 @@ export function staffAuth(): StaffAuth {
 }
 
 /** The Accounts module on the app's auth instance, for Back Office Server Actions. */
-export function staffAccounts(): StaffAccounts {
-  return createStaffAccounts(staffAuth());
+export function accounts(): Accounts {
+  return createAccounts(staffAuth());
 }

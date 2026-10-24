@@ -7,7 +7,7 @@ import { BulkSend } from "./bulk-send";
 export const metadata: Metadata = { title: "ส่งอีเมล Event Pass" };
 
 // Bulk send of Event Pass emails (ticket 17). The header and introduction are the static shell;
-// the controls are Admin-only and every number comes from a Admin-only endpoint, behind the
+// the controls are Admin-only and every number comes from an Admin-only endpoint, behind the
 // session check.
 export default function BulkSendPage() {
   return (
@@ -20,14 +20,14 @@ export default function BulkSendPage() {
           ส่ง Event Pass ทางอีเมลถึงผู้ลงทะเบียนหลายคนพร้อมกัน เช่น หลังระบบอีเมลขัดข้องหรือเกินโควตา
         </p>
         <Suspense fallback={<p className="mt-6 text-sm leading-normal text-muted-foreground">กำลังโหลด…</p>}>
-          <StaffOnlyBulkSend />
+          <AdminOnlyBulkSend />
         </Suspense>
       </PageContent>
     </>
   );
 }
 
-async function StaffOnlyBulkSend() {
+async function AdminOnlyBulkSend() {
   await requireAdmin();
   return <BulkSend />;
 }

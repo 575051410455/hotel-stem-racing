@@ -1,9 +1,9 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { staffAccounts } from "@/lib/auth/server";
+import { accounts } from "@/lib/auth/server";
 import { getCurrentStaff } from "@/lib/auth/session";
-import type { RenameResult } from "@/lib/auth/staff-accounts";
+import type { RenameResult } from "@/lib/auth/accounts";
 
 export type RenameOwnAccountResult = RenameResult | { status: "signed-out" };
 
@@ -16,7 +16,7 @@ export async function renameOwnAccount(name: unknown): Promise<RenameOwnAccountR
   const staff = await getCurrentStaff();
   if (!staff) return { status: "signed-out" };
 
-  const result = await staffAccounts().rename(staff.id, typeof name === "string" ? name : "");
+  const result = await accounts().rename(staff.id, typeof name === "string" ? name : "");
   if (result.status === "renamed") refresh();
   return result;
 }
