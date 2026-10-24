@@ -329,7 +329,7 @@ docker compose exec nginx nginx -t</code></pre>
           <li class="task">
             <label class="check"><input type="checkbox" data-task="admin-signin"><span>Sign in and change the password.</span></label>
             <div class="body">
-              <p>Sign in at <a class="var-link" data-href="https://{{domain}}/admin/login" href="#"><span class="var" data-var="url"></span>/admin/login</a> with the printed password. Then open the account menu at the foot of the sidebar, choose <b>My Account</b>, and change the password.</p>
+              <p>Sign in at <a class="var-link" data-href="https://{{domain}}/admin/login" href="#"><span class="var" data-var="url"></span>/admin/login</a> with the printed password. You land on <b>My Account</b>, which asks you to choose your own password before anything else. Once it's changed, the Back Office opens.</p>
             </div>
           </li>
           <li class="task">
@@ -337,6 +337,7 @@ docker compose exec nginx nginx -t</code></pre>
             <div class="body">
               <p>Use <code>-it</code> so the command can ask for the password: at least 12 characters, typed twice. Change the email and the name in quotes:</p>
               <pre><code>docker compose exec -it app npm run staff -- create-admin organiser2@example.com "Organiser name"</code></pre>
+              <p>Pass the password on to its owner. At their first sign-in they choose their own, as you did.</p>
               <p>Keep at least one Admin at the entrance on Event days: looking an Attendee up by name and re-sending an Event Pass need an Admin Account.</p>
             </div>
           </li>
@@ -345,7 +346,7 @@ docker compose exec nginx nginx -t</code></pre>
             <div class="body">
               <p><code>make-admin</code> turns an existing Account into an Admin Account. It needs no password, and it signs that Account out everywhere so it signs in again with the whole Back Office. It is also the way back in if no Admin can sign in:</p>
               <pre><code>docker compose exec app npm run staff -- make-admin {{adminEmail}}</code></pre>
-              <p>A lost password: <code>reset-password</code> works for every kind of Account. It asks for the new password and signs that Account out everywhere:</p>
+              <p>A lost password: <code>reset-password</code> works for every kind of Account. It asks for the new password and signs that Account out everywhere. A Staff or Admin Account then chooses its own password at its next sign-in; a Kiosk Account just signs in with the new one:</p>
               <pre><code>docker compose exec -it app npm run staff -- reset-password {{adminEmail}}</code></pre>
             </div>
           </li>
@@ -359,6 +360,7 @@ docker compose exec nginx nginx -t</code></pre>
             <label class="check"><input type="checkbox" data-task="staff-create"><span>Create Staff Accounts for helpers at the entrance.</span></label>
             <div class="body">
               <pre><code>docker compose exec -it app npm run staff -- create helper@example.com "Helper name"</code></pre>
+              <p>At their first sign-in, each helper chooses their own password before the desk opens.</p>
             </div>
           </li>
           <li class="task">

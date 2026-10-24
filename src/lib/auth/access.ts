@@ -55,8 +55,21 @@ export function canManageAccounts(kind: AccountKind): boolean {
   return kind === "admin";
 }
 
+/**
+ * Whether the Account must choose its own password before anything else: someone else set it
+ * (`mustChangePassword`, the Account's flag), and its owner can change it. Until then it opens only
+ * My Account. A Kiosk Account can't change its own password, so it is never held back and the
+ * Kiosk keeps working, even if its flag is somehow set.
+ */
+export function mustChooseOwnPassword(kind: AccountKind, mustChangePassword: boolean): boolean {
+  return mustChangePassword && canChangeOwnPassword(kind);
+}
+
 /** The sign-in page for every Account. */
 export const SIGN_IN_PATH = "/admin/login";
+
+/** My Account: the owner's details, password and devices, and all an Account opens while it must choose its own password. */
+export const MY_ACCOUNT_PATH = "/admin/account";
 
 /** The Kiosk page: the whole of what a Kiosk Account can open. Staff and Admin Accounts may open it too. */
 export const KIOSK_PATH = "/kiosk";

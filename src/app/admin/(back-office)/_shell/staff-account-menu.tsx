@@ -1,13 +1,14 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCurrentStaff } from "@/lib/auth/session";
+import { getStaffForOwnAccount } from "@/lib/auth/session";
 import { StaffAccountDropdown } from "./staff-account-dropdown";
 
 /**
- * The signed-in Staff member at the foot of the sidebar, with My Account and sign-out. Reads
- * the session, so render it below a <Suspense> boundary (`StaffAccountMenuSkeleton` is the fallback).
+ * The signed-in Staff member at the foot of the sidebar, with My Account and sign-out. Shown too
+ * while the Account must choose its own password, so its owner can still sign out. Reads the
+ * session, so render it below a <Suspense> boundary (`StaffAccountMenuSkeleton` is the fallback).
  */
 export async function StaffAccountMenu() {
-  const staff = await getCurrentStaff();
+  const staff = await getStaffForOwnAccount();
   if (!staff) return null;
   // Only what the menu shows: the rest of the Account (its id, its session's id) stays on the server.
   return <StaffAccountDropdown account={{ name: staff.name, email: staff.email }} />;

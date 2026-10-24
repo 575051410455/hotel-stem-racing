@@ -11,14 +11,15 @@
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
 // 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
-// out everywhere. make-admin is also the way back in when no Admin can sign in. Every change is
-// recorded in the Account History as made by "Server command".
+// out everywhere. make-admin is also the way back in when no Admin can sign in. A Staff or Admin
+// Account created or reset here must choose its own password at its next sign-in; a Kiosk Account
+// needn't. Every change is recorded in the Account History as made by "Server command".
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
 
 import { createDatabase } from "@/lib/db/client";
-import type { AccountKind } from "@/lib/auth/access";
+import { type AccountKind, canChangeOwnPassword } from "@/lib/auth/access";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { type Accounts, createAccounts } from "@/lib/auth/accounts";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
@@ -63,13 +64,24 @@ function parseCommand(args: string[]): Command {
   throw new UsageError(USAGE);
 }
 
+/** Said after a password this command set, when the Account's owner must then choose their own. */
+function chooseOwnPasswordNote(kind: AccountKind, when: "first" | "next") {
+  return canChangeOwnPassword(kind) ? ` At their ${when} sign-in they must choose their own password.` : "";
+}
+
 /** What the new Account can open, said once it is created. */
 function createdMessage(kind: AccountKind, email: string, baseURL: string) {
   switch (kind) {
     case "admin":
-      return `Created the Admin Account ${email}. They can sign in at ${baseURL}/admin/login and use the whole Back Office.`;
+      return (
+        `Created the Admin Account ${email}. They can sign in at ${baseURL}/admin/login and use the whole Back Office.` +
+        chooseOwnPasswordNote(kind, "first")
+      );
     case "staff":
-      return `Created the Staff Account ${email}. They can sign in at ${baseURL}/admin/login: it opens only the check-in desk.`;
+      return (
+        `Created the Staff Account ${email}. They can sign in at ${baseURL}/admin/login: it opens only the check-in desk.` +
+        chooseOwnPasswordNote(kind, "first")
+      );
     case "kiosk":
       return (
         `Created the Kiosk Account ${email}. Sign a Kiosk iPad in with it at ${baseURL}/admin/login: ` +
@@ -182,7 +194,10 @@ async function resetPassword(accounts: Accounts, email: string, password: string
   const result = await accounts.resetPassword({ email, password }, "server-command");
   switch (result.status) {
     case "password-reset":
-      console.log(`Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.`);
+      console.log(
+        `Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.` +
+          chooseOwnPasswordNote(result.kind, "next"),
+      );
       return 0;
     case "not-found":
       console.error(`There is no Account for ${email}. Nothing was changed.`);

@@ -1,5 +1,5 @@
 import type { Database } from "@/lib/db/client";
-import { type AccountKind, canEditOwnName, isAccountKind } from "./access";
+import { type AccountKind, canChangeOwnPassword, canEditOwnName, isAccountKind } from "./access";
 import type { AccountChange, Actor } from "./account-changes";
 import { type AccountHistoryPage, readAccountHistory, recordAccountChange } from "./account-history";
 import { MAX_NAME_LENGTH } from "./name-rules";
@@ -134,7 +134,10 @@ function enabledFirstByName(a: Account, b: Account): number {
  * same steps as its sign-up endpoint: hash, create user, link credential. It is also the only way
  * to set an Account's kind or name, which Better Auth refuses from requests. Password length
  * limits come from the auth config, so the commands and sign-in always agree, for every kind.
- * Every write takes an `actor` and records an Account Change (the Account History) on `db`.
+ * Every write takes an `actor` and records an Account Change (the Account History) on `db`. A
+ * password it sets (`create`, `createFirst`, `resetPassword`) is someone else's choice, so a Staff
+ * or Admin Account's owner must choose their own at the next sign-in (`mustChangePassword`); the
+ * owner's own change clears it (a hook in staff-auth.ts). Kiosk Accounts are never flagged.
  */
 export function createAccounts(auth: StaffAuth, db: Database) {
   /**
@@ -193,7 +196,12 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       if (await ctx.internalAdapter.findUserByEmail(email)) return { status: "email-taken" };
 
       const hash = await ctx.password.hash(input.password);
-      const user = await ctx.internalAdapter.createUser({ email, name, kind }, { method: "email-password" });
+      // Whoever creates it chose the password, so its owner chooses their own at the first sign-in.
+      const mustChangePassword = canChangeOwnPassword(kind);
+      const user = await ctx.internalAdapter.createUser(
+        { email, name, kind, mustChangePassword },
+        { method: "email-password" },
+      );
       try {
         await ctx.internalAdapter.linkAccount({
           userId: user.id,
@@ -250,7 +258,11 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       return { status: "renamed", name: trimmed };
     },
 
-    /** Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. */
+    /**
+     * Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. A
+     * Staff or Admin Account's owner must then choose their own password at the next sign-in; a
+     * Kiosk Account's needn't, so the Kiosk keeps working.
+     */
     async resetPassword(input: ResetPasswordInput, actor: Actor): Promise<ResetPasswordResult> {
       const passwordProblem = await checkPassword(input.password);
       if (passwordProblem) return passwordProblem;
@@ -272,6 +284,8 @@ export function createAccounts(auth: StaffAuth, db: Database) {
           password: hash,
         });
       }
+      // Someone else chose it, so a Staff or Admin Account's owner chooses their own at the next sign-in.
+      if (canChangeOwnPassword(kind)) await ctx.internalAdapter.updateUser(userId, { mustChangePassword: true });
       await ctx.internalAdapter.deleteUserSessions(userId);
       await record(userId, { action: "password-set" }, actor);
       return { status: "password-reset", accountId: userId, kind };

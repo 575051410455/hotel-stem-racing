@@ -11,6 +11,7 @@ import {
   canUseCheckInDesk,
   homePath,
   isAccountKind,
+  mustChooseOwnPassword,
 } from "./access";
 
 describe("What each kind of Account may do", () => {
@@ -73,5 +74,13 @@ describe("What each kind of Account may do", () => {
     assert.equal(homePath("admin"), "/admin");
     assert.equal(homePath("staff"), "/admin/check-in");
     assert.equal(homePath("kiosk"), "/kiosk");
+  });
+
+  test("a Staff or Admin Account whose password someone else set must choose its own first; a Kiosk Account never", () => {
+    assert.equal(mustChooseOwnPassword("admin", true), true);
+    assert.equal(mustChooseOwnPassword("staff", true), true);
+    assert.equal(mustChooseOwnPassword("kiosk", true), false);
+    for (const kind of ["admin", "staff", "kiosk"] as const) assert.equal(mustChooseOwnPassword(kind, false), false);
+    assert.equal(mustChooseOwnPassword("superuser" as AccountKind, true), false);
   });
 });
