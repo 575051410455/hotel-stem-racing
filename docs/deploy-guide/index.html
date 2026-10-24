@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deploy Guide · STEM Racing Thailand 2026</title>
+  <meta name="description" content="Operator guide: run the registration site on an Ubuntu server with Docker Compose, nginx and a Cloudflare Tunnel, then create the Admin, Staff and Kiosk Accounts.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the guide</a>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <p class="eyebrow">Operator guide</p>
+      <h1>Deploy the STEM Racing Thailand 2026 registration site</h1>
+      <p class="lede">An Ubuntu server running Docker Compose: the app, PostgreSQL and nginx, reached through a Cloudflare Tunnel. The server opens no inbound port except SSH.</p>
+      <div class="progress" aria-live="polite">
+        <div class="progress-bar"><span id="progress-fill"></span></div>
+        <p id="progress-text">0 of 0 steps done</p>
+        <button type="button" class="link-button" id="reset-progress">Clear ticks</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Sections">
+      <details open>
+        <summary>Sections</summary>
+        <ol>
+          <li><a href="#values">Your values</a></li>
+          <li><a href="#overview">How it fits together</a></li>
+          <li><a href="#server">1. Server</a></li>
+          <li><a href="#tunnel">2. Cloudflare Tunnel</a></li>
+          <li><a href="#cloudflare">3. Cloudflare settings</a></li>
+          <li><a href="#env">4. Fill in .env</a></li>
+          <li><a href="#start">5. Start</a></li>
+          <li><a href="#admin">6. Admin Accounts</a></li>
+          <li><a href="#staff">7. Staff and Kiosk Accounts</a></li>
+          <li><a href="#check">8. Visitor IP and logs</a></li>
+          <li><a href="#daily">9. Day-to-day</a></li>
+          <li><a href="#trouble">10. Troubleshooting</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ol>
+      </details>
+    </nav>
+
+    <main id="main">
+      <section id="values" class="card values">
+        <h2>Your values</h2>
+        <p>Fill these in once. Every command on this page uses them, so you can copy commands as they are. They are kept in this browser only.</p>
+        <form id="values-form" autocomplete="off">
+          <label>
+            <span>Registration domain</span>
+            <input name="domain" placeholder="register.example.org" spellcheck="false" inputmode="url">
+            <small>The hostname visitors open, without https://.</small>
+          </label>
+          <label>
+            <span>Folder on the server</span>
+            <input name="dir" placeholder="/opt/stem-racing" spellcheck="false">
+          </label>
+          <label>
+            <span>Git repository (SSH)</span>
+            <input name="repo" placeholder="git@github.com:575051410455/hotel-stem-racing.git" spellcheck="false">
+          </label>
+          <label>
+            <span>First Admin's email</span>
+            <input name="adminEmail" placeholder="organiser@example.com" spellcheck="false" inputmode="email">
+          </label>
+          <label>
+            <span>First Admin's display name</span>
+            <input name="adminName" placeholder="Organiser">
+          </label>
+        </form>
+      </section>
+
+      <section id="overview">
+        <h2>How it fits together</h2>
+        <div class="flow" role="img" aria-label="Visitor to Cloudflare's edge over HTTPS; the cloudflared container holds an outbound tunnel to the edge and passes requests to nginx on port 80, which proxies to the app on port 3000, which uses PostgreSQL on port 5432.">
+          <div class="flow-node">Visitor</div>
+          <div class="flow-link"><span>HTTPS</span></div>
+          <div class="flow-node edge">Cloudflare edge<small>TLS, Turnstile, DNS</small></div>
+          <div class="flow-link tunnel"><span>tunnel (outbound from the server)</span></div>
+          <div class="flow-group">
+            <p class="flow-group-label">Ubuntu server · Docker Compose</p>
+            <div class="flow-row">
+              <div class="flow-node">cloudflared</div>
+              <div class="flow-link"><span>HTTP</span></div>
+              <div class="flow-node">nginx :80</div>
+              <div class="flow-link"><span></span></div>
+              <div class="flow-node">app :3000</div>
+              <div class="flow-link"><span></span></div>
+              <div class="flow-node">db :5432</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Service</th><th>Image</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><code>cloudflared</code></td><td><code>cloudflare/cloudflared:2026.10.0</code></td><td>Keeps outbound connections open to Cloudflare's edge and passes each request for your hostname to nginx. It sits alone with nginx on the private <code>tunnel</code> network.</td></tr>
+              <tr><td><code>nginx</code></td><td><code>nginx:1.30.6-alpine</code></td><td>Restores the visitor's IP from Cloudflare's <code>CF-Connecting-IP</code> header, but only when the request comes from <code>cloudflared</code>. Then it proxies to the app. Config: <code>deploy/nginx/conf.d/app.conf</code>.</td></tr>
+              <tr><td><code>app</code></td><td>built from <code>Dockerfile</code></td><td>The Next.js server. It applies database migrations on every start, then serves on port 3000 inside Compose.</td></tr>
+              <tr><td><code>db</code></td><td><code>postgres:17-alpine</code></td><td>Data lives in the volume <code>stem-racing_db-data</code>. Rebuilding the app never touches it.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="callout">No port is published on the server and there is no certificate to install: TLS ends at Cloudflare's edge, and nobody can reach nginx by going around Cloudflare. Why this setup: <code>docs/adr/0005-cloudflare-tunnel.md</code>.</p>
+      </section>
+
+      <section id="server" data-section>
+        <h2>1. Server</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="server-size"><span>Use Ubuntu 22.04 or 24.04 with at least 2 GB of RAM, or add swap.</span></label>
+            <div class="body">
+              <p><code>next build</code> runs on the server and can run out of memory on a 1 GB machine. To add 2 GB of swap:</p>
+              <pre><code>sudo fallocate -l 2G /swapfile &amp;&amp; sudo chmod 600 /swapfile
+sudo mkswap /swapfile &amp;&amp; sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab</code></pre>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="server-docker"><span>Install Docker Engine and the Compose plugin.</span></label>
+            <div class="body">
+              <p>Follow <a href="https://docs.docker.com/engine/install/ubuntu/">Docker's Ubuntu guide</a> (the apt repository method). Then let your user run Docker without sudo, log out and back in, and check:</p>
+              <pre><code>sudo usermod -aG docker "$USER"
+docker compose version</code></pre>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="server-firewall"><span>Allow only SSH in.</span></label>
+            <div class="body">
+              <p>The tunnel needs no inbound port. In the provider's firewall allow inbound 22 only, or with <code>ufw</code>:</p>
+              <pre><code>sudo ufw allow OpenSSH
+sudo ufw enable</code></pre>
+              <p><code>cloudflared</code> needs to reach Cloudflare on outbound port 7844 (TCP and UDP). Most providers allow all outbound traffic; if yours doesn't, allow that port.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="server-clone"><span>Clone the repository to <span class="var" data-var="dir"></span>.</span></label>
+            <div class="body">
+              <p>The repository is private. Give the server a read-only deploy key: create it, then add the public key at GitHub → the repository → <b>Settings → Deploy keys → Add deploy key</b> (leave write access off).</p>
+              <pre><code>ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -C "stem-racing server"
+cat ~/.ssh/id_ed25519.pub</code></pre>
+              <p>Then clone:</p>
+              <pre><code>sudo mkdir -p {{dir}} &amp;&amp; sudo chown "$USER": {{dir}}
+git clone {{repo}} {{dir}}
+cd {{dir}}</code></pre>
+              <p>All later commands run from this folder.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="tunnel" data-section>
+        <h2>2. Cloudflare Tunnel</h2>
+        <p>The domain must already use Cloudflare's nameservers. Cloudflare's dashboard changes from time to time, so the names below can differ slightly. <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/">Cloudflare's own guide</a> has the current steps.</p>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="tunnel-create"><span>Create the tunnel.</span></label>
+            <div class="body">
+              <p>Open <b>Zero Trust → Networks → Tunnels → Create a tunnel</b>. Choose <b>Cloudflared</b>, name it <code>stem-racing</code> and save.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="tunnel-token"><span>Copy the tunnel token. Don't run the command Cloudflare shows.</span></label>
+            <div class="body">
+              <p>On the "Install and run a connector" step, pick <b>Docker</b>. The command shown ends in <code>--token eyJ…</code>. Copy only that long token, the part after <code>--token</code>. It goes into <code>.env</code> as <code>CLOUDFLARE_TUNNEL_TOKEN</code> in step 4.</p>
+              <p class="warn">Don't run Cloudflare's <code>docker run</code> command: Compose runs <code>cloudflared</code> for you. Anyone with the token can serve traffic for your hostname, so keep it as secret as a password.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="tunnel-hostname"><span>Route <span class="var" data-var="domain"></span> to nginx.</span></label>
+            <div class="body">
+              <p>On the next step (<b>Public Hostname</b>, called "published application routes" in newer dashboards) add:</p>
+              <div class="table-wrap">
+                <table class="kv">
+                  <tbody>
+                    <tr><th>Subdomain and domain</th><td><span class="var" data-var="domain"></span></td></tr>
+                    <tr><th>Path</th><td>leave empty</td></tr>
+                    <tr><th>Service type</th><td><code>HTTP</code></td></tr>
+                    <tr><th>URL</th><td><code>nginx:80</code></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>Use <code>nginx:80</code>, not <code>app:3000</code> and not <code>localhost</code>. <code>cloudflared</code> runs inside Compose, where nginx is called <code>nginx</code>, and it can't reach the app directly.</p>
+              <p>Saving adds a proxied DNS record for the hostname: a <code>CNAME</code> to <code>&lt;tunnel id&gt;.cfargotunnel.com</code>. If a record with that name already exists, for example an old <code>A</code> record, saving fails. Delete the old record under <b>DNS → Records</b>, then save again.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="cloudflare" data-section>
+        <h2>3. Cloudflare settings</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="cf-https"><span>Turn on Always Use HTTPS.</span></label>
+            <div class="body">
+              <p>Go to <b>SSL/TLS → Edge Certificates</b>. Turn on <b>Always Use HTTPS</b>, and set <b>Minimum TLS Version</b> to TLS 1.2. nginx also redirects plain HTTP if this is ever off.</p>
+              <p>The SSL/TLS encryption mode doesn't affect tunnel traffic, which is encrypted by the tunnel itself. Leave it as it is.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="cf-turnstile"><span>Allow the hostname in Turnstile.</span></label>
+            <div class="body">
+              <p>Under <b>Turnstile</b>, open the registration widget, add <span class="var" data-var="domain"></span> as a hostname, and keep the site key and secret key for <code>.env</code>.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="env" data-section>
+        <h2>4. Fill in .env</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="env-generate"><span>Create <code>.env</code> with the URLs and two new secrets.</span></label>
+            <div class="body">
+              <pre><code>cp .env.example .env &amp;&amp; chmod 600 .env
+sed -i \
+  -e "s|^APP_URL=.*|APP_URL=https://{{domain}}|" \
+  -e "s|^BETTER_AUTH_URL=.*|BETTER_AUTH_URL=https://{{domain}}|" \
+  -e "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -hex 32)|" \
+  -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" \
+  .env</code></pre>
+              <p class="warn">Run this only once, before the first start. The database keeps the password it was created with: running it again would give the app a password the database doesn't know.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="env-edit"><span>Fill in the rest with <code>nano .env</code>.</span></label>
+            <div class="body">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Variable</th><th>Value</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>CLOUDFLARE_TUNNEL_TOKEN</code></td><td>the token from step 2</td></tr>
+                    <tr><td><code>SEED_STAFF_EMAIL</code></td><td><span class="var" data-var="adminEmail"></span>: the first Admin Account (step 6). There is no password variable: the command makes one up.</td></tr>
+                    <tr><td><code>SEED_STAFF_NAME</code></td><td><span class="var" data-var="adminName"></span> (defaults to เจ้าหน้าที่)</td></tr>
+                    <tr><td><code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code>, <code>TURNSTILE_SECRET_KEY</code></td><td>the real Turnstile keys. The example values are test keys that let everything through.</td></tr>
+                    <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>EMAIL_FROM</code></td><td>the Gmail or Google Workspace account. <code>SMTP_PASS</code> is an app password, written without spaces. <code>EMAIL_FROM</code> must be a verified alias of <code>SMTP_USER</code>. Leave <code>SMTP_USER</code> empty to launch without email.</td></tr>
+                    <tr><td><code>NEXT_PUBLIC_CONTACT_LINE</code>, <code>NEXT_PUBLIC_CONTACT_PHONE</code></td><td>the organisers' contact channels. Each is hidden when empty.</td></tr>
+                    <tr><td><code>APP_URL</code>, <code>BETTER_AUTH_URL</code>, <code>BETTER_AUTH_SECRET</code>, <code>POSTGRES_PASSWORD</code></td><td>already set by the command above. Check that both URLs read <code>https://<span class="var" data-var="domain"></span></code>, with no trailing slash.</td></tr>
+                    <tr><td><code>DATABASE_URL</code>, <code>TEST_DATABASE_ADMIN_URL</code></td><td>leave as they are. Compose builds the app's database address from <code>POSTGRES_PASSWORD</code>.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul class="notes">
+                <li><code>NEXT_PUBLIC_*</code> and <code>APP_URL</code> are built into the app. After changing one, rebuild with <code>docker compose up -d --build</code>.</li>
+                <li>Avoid <code>$</code> in values: Compose reads it as a variable.</li>
+                <li>To change <code>POSTGRES_PASSWORD</code> later, run <code>ALTER USER stem_racing PASSWORD '…'</code> in the database shell (step 9) first, then update <code>.env</code> and run <code>docker compose up -d</code>.</li>
+              </ul>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="start" data-section>
+        <h2>5. Start</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="start-up"><span>Check the configuration, then build and start everything.</span></label>
+            <div class="body">
+              <pre><code>docker compose config --quiet &amp;&amp; echo "compose OK"
+docker compose up -d --build
+docker compose ps</code></pre>
+              <p><code>db</code> and <code>app</code> should become <code>healthy</code>, and all four services should be running. The first build takes a few minutes.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="start-logs"><span>Check that the app started and the tunnel connected.</span></label>
+            <div class="body">
+              <pre><code>docker compose logs app | tail -20
+docker compose logs cloudflared | grep -i "registered tunnel connection"
+docker compose exec nginx nginx -t</code></pre>
+              <ul class="notes">
+                <li><code>app</code>: <code>[migrate] applied N new migration(s)</code>, then <code>Ready</code>.</li>
+                <li><code>cloudflared</code>: up to four lines of <code>Registered tunnel connection</code>. The tunnel then shows as <b>Healthy</b> in Zero Trust → Networks → Tunnels.</li>
+                <li><code>nginx -t</code>: <code>syntax is ok</code> and <code>test is successful</code>.</li>
+              </ul>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="start-open"><span>Open <a class="var-link" data-href="https://{{domain}}" href="#"><span class="var" data-var="url"></span></a>.</span></label>
+            <div class="body">
+              <p>The registration page loads. Plain HTTP must redirect to HTTPS:</p>
+              <pre><code>curl -sI http://{{domain}} | head -3</code></pre>
+              <p>Expect <code>301</code> with <code>Location: https://…</code>.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="start-icu"><span>Check the Thai collation once.</span></label>
+            <div class="body">
+              <p>Sorting the Registration list by name needs PostgreSQL's ICU collation. This should print <code>1</code>:</p>
+              <pre><code>docker compose exec db psql -U stem_racing stem_racing -Atc "select 1 from pg_collation where collname = 'th-TH-x-icu'"</code></pre>
+              <p>If it prints nothing, everything else works, but sorting the list by name fails.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="admin" data-section>
+        <h2>6. Admin Accounts</h2>
+        <p>Operator commands run inside the <code>app</code> container, just like <code>npm run …</code> on a laptop. The container gets its settings from <code>.env</code> through Compose. The line "<code>.env</code> not found. Continuing without it." in their output is harmless.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Kind</th><th>Opens</th><th>Created with</th></tr></thead>
+            <tbody>
+              <tr><td>Admin Account</td><td>the whole Back Office: Registrations, the overview, CSV export, email and Check-In</td><td><code>npm run seed</code> (the first one), <code>npm run staff -- create-admin</code></td></tr>
+              <tr><td>Staff Account</td><td>the check-in desk only (<code>/admin/check-in</code>, with Kiosk mode), for helpers at the entrance</td><td><code>npm run staff -- create</code></td></tr>
+              <tr><td>Kiosk Account</td><td>the Kiosk page only (<code>/kiosk</code>), for an unattended iPad</td><td><code>npm run staff -- create-kiosk</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="admin-seed"><span>Create the first Admin Account.</span></label>
+            <div class="body">
+              <p>It uses <code>SEED_STAFF_EMAIL</code> (<span class="var" data-var="adminEmail"></span>) and <code>SEED_STAFF_NAME</code> from <code>.env</code>:</p>
+              <pre><code>docker compose exec app npm run seed</code></pre>
+              <ul class="notes">
+                <li>It prints the email and a random password <b>once</b>. Copy the password straight away: it isn't stored anywhere and doesn't appear in <code>docker compose logs</code>.</li>
+                <li>If an Admin Account already exists, it creates nothing and says so, so running it again is safe.</li>
+                <li>If the email already belongs to an Account, it stops and suggests <code>make-admin</code> (below).</li>
+                <li>If it stops because <code>SEED_STAFF_EMAIL</code> is missing or invalid, fix <code>.env</code>, run <code>docker compose up -d</code> so the container picks it up, and run it again.</li>
+              </ul>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="admin-signin"><span>Sign in and change the password.</span></label>
+            <div class="body">
+              <p>Sign in at <a class="var-link" data-href="https://{{domain}}/admin/login" href="#"><span class="var" data-var="url"></span>/admin/login</a> with the printed password. Then open the account menu at the foot of the sidebar, choose <b>My Account</b>, and change the password.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="admin-more"><span>Add more Admin Accounts.</span></label>
+            <div class="body">
+              <p>Use <code>-it</code> so the command can ask for the password: at least 12 characters, typed twice. Change the email and the name in quotes:</p>
+              <pre><code>docker compose exec -it app npm run staff -- create-admin organiser2@example.com "Organiser name"</code></pre>
+              <p>Keep at least one Admin at the entrance on Event days: looking an Attendee up by name and re-sending an Event Pass need an Admin Account.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="admin-promote"><span>Know how to make an existing Account an Admin, and how to reset a password.</span></label>
+            <div class="body">
+              <p><code>make-admin</code> turns an existing Account into an Admin Account. It needs no password, and it signs that Account out everywhere so it signs in again with the whole Back Office. It is also the way back in if no Admin can sign in:</p>
+              <pre><code>docker compose exec app npm run staff -- make-admin {{adminEmail}}</code></pre>
+              <p>A lost password: <code>reset-password</code> works for every kind of Account. It asks for the new password and signs that Account out everywhere:</p>
+              <pre><code>docker compose exec -it app npm run staff -- reset-password {{adminEmail}}</code></pre>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="staff" data-section>
+        <h2>7. Staff and Kiosk Accounts</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="staff-create"><span>Create Staff Accounts for helpers at the entrance.</span></label>
+            <div class="body">
+              <pre><code>docker compose exec -it app npm run staff -- create helper@example.com "Helper name"</code></pre>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="staff-kiosk"><span>Create one Kiosk Account per iPad.</span></label>
+            <div class="body">
+              <pre><code>docker compose exec -it app npm run staff -- create-kiosk kiosk-1@example.com "Kiosk 1"
+docker compose exec -it app npm run staff -- create-kiosk kiosk-2@example.com "Kiosk 2"</code></pre>
+              <ul class="notes">
+                <li>A Kiosk Account opens only <code>/kiosk</code> and records Check-Ins. Every other page sends it back to the Kiosk, so an Attendee who leaves it reaches no Registration data.</li>
+                <li>One Account per iPad tells the Kiosks apart, and <code>reset-password</code> on a lost iPad's Account signs out that iPad only.</li>
+                <li>The email only identifies the Account; nothing is sent to it.</li>
+              </ul>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="staff-ipads"><span>Sign each iPad in during Event week, and set up Guided Access.</span></label>
+            <div class="body">
+              <ul class="notes">
+                <li>Sessions last 30 days. In Safari, open <span class="var" data-var="url"></span>/admin/login and sign in with the iPad's Kiosk Account. It goes straight to the Kiosk with the front camera; allow the camera.</li>
+                <li>Before the Event a scan shows "วันนี้ไม่ใช่วันจัดงาน / Today isn't an Event Day", which shows that the camera and connection work. To rehearse on a chosen day, use the desk's Kiosk mode (<code>/admin/check-in?kiosk=1</code>) with a Staff Account.</li>
+                <li>Guided Access: Settings → Accessibility → Guided Access, then triple-click the side or top button in Safari. Set Auto-Lock to Never if the Kiosk's Staff panel says it can't keep the screen on.</li>
+              </ul>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="staff-email"><span>Send yourself a test Event Pass email.</span></label>
+            <div class="body">
+              <pre><code>docker compose exec app npm run email:test -- you@example.com</code></pre>
+              <p>Check that it arrives, including in the spam folder.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="check" data-section>
+        <h2>8. Visitor IP and logs</h2>
+        <ol class="tasks">
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="check-ip"><span>Check that nginx sees the visitor's real IP.</span></label>
+            <div class="body">
+              <p>Visit the site, then:</p>
+              <pre><code>docker compose logs --tail 20 nginx</code></pre>
+              <p>Each access line starts with <code>&lt;visitor IP&gt; via 10.203.47.2</code>. The visitor IP must be your own public IP: <a class="var-link" data-href="https://{{domain}}/cdn-cgi/trace" href="#"><span class="var" data-var="url"></span>/cdn-cgi/trace</a> shows it as <code>ip=</code>.</p>
+              <p>If a line starts with <code>10.203.47.2</code> itself, nginx isn't restoring the IP, and every visitor would share one sign-in rate limit. Check that <code>cloudflared</code>'s address in <code>docker-compose.yml</code> and <code>set_real_ip_from</code> in <code>deploy/nginx/conf.d/app.conf</code> are the same.</p>
+            </div>
+          </li>
+          <li class="task">
+            <label class="check"><input type="checkbox" data-task="check-logs"><span>Know where the logs are.</span></label>
+            <div class="body">
+              <pre><code>docker compose logs -f app          # app and migrations
+docker compose logs --tail 100 nginx
+docker compose logs --tail 100 cloudflared
+docker compose logs --tail 100 db</code></pre>
+              <p>Docker keeps at most 5 × 10 MB of logs per container.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="daily">
+        <h2>9. Day-to-day</h2>
+        <dl class="ops">
+          <dt>Deploy a new version</dt>
+          <dd><pre><code>cd {{dir}} &amp;&amp; git pull &amp;&amp; docker compose up -d --build</code></pre>Migrations run on start. The database volume is untouched.</dd>
+          <dt>Restart the app</dt>
+          <dd><pre><code>docker compose restart app</code></pre></dd>
+          <dt>Database shell</dt>
+          <dd><pre><code>docker compose exec db psql -U stem_racing stem_racing</code></pre></dd>
+          <dt>Back up (before the Event and before risky changes)</dt>
+          <dd><pre><code>docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; stem-racing-$(date +%F-%H%M).dump</code></pre></dd>
+          <dt>Restore (replaces the current data)</dt>
+          <dd><pre><code>docker compose stop app
+docker compose exec -T db pg_restore -U stem_racing -d stem_racing --clean --if-exists &lt; file.dump
+docker compose start app</code></pre></dd>
+          <dt>Replace the tunnel token</dt>
+          <dd>If the token may have leaked, delete the tunnel in Zero Trust and create a new one with the same hostname (step 2), put its token in <code>.env</code>, then run: <pre><code>docker compose up -d cloudflared</code></pre></dd>
+          <dt>Update cloudflared</dt>
+          <dd>Change the <code>cloudflare/cloudflared</code> tag in <code>docker-compose.yml</code> to a newer release, then <code>docker compose up -d cloudflared</code>. The tunnel reconnects in a few seconds.</dd>
+          <dt class="danger">Never</dt>
+          <dd>run <code>docker compose down -v</code>: <code>-v</code> deletes the database volume and every Registration. Plain <code>docker compose down</code> is safe.</dd>
+        </dl>
+      </section>
+
+      <section id="trouble">
+        <h2>10. Troubleshooting</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>You see</th><th>Likely cause and fix</th></tr></thead>
+            <tbody>
+              <tr><td>Cloudflare error <b>1033</b></td><td><code>cloudflared</code> isn't connected. Check <code>docker compose logs cloudflared</code>: a wrong or missing <code>CLOUDFLARE_TUNNEL_TOKEN</code>, or outbound port 7844 blocked.</td></tr>
+              <tr><td><b>502 Bad Gateway</b> from Cloudflare</td><td>The hostname's service isn't <code>http://nginx:80</code>, or nginx isn't running (<code>docker compose ps</code>).</td></tr>
+              <tr><td><b>502</b> from nginx</td><td>The app isn't ready or crashed. Check <code>docker compose logs app</code>.</td></tr>
+              <tr><td><code>Pool overlaps with other one on this address space</code></td><td>Another Docker network on the server already uses <code>10.203.47.0/28</code>. Pick another private <code>/28</code> in <code>docker-compose.yml</code> (the subnet, <code>ip_range</code> and <code>cloudflared</code>'s address) and change <code>set_real_ip_from</code> in <code>app.conf</code> to match.</td></tr>
+              <tr><td><code>required variable CLOUDFLARE_TUNNEL_TOKEN is missing</code></td><td>Every <code>docker compose</code> command needs it. Fill it in <code>.env</code>.</td></tr>
+              <tr><td>Sign-in fails with 403</td><td><code>BETTER_AUTH_URL</code> isn't exactly <code>https://<span class="var" data-var="domain"></span></code>. Fix <code>.env</code>, then <code>docker compose up -d</code>.</td></tr>
+              <tr><td>The registration form's bot check fails</td><td>The Turnstile keys are wrong, or the hostname isn't on the widget (step 3). After changing the site key, rebuild with <code>docker compose up -d --build</code>.</td></tr>
+              <tr><td>Error <b>524</b></td><td>A request took longer than Cloudflare's 100 s limit. Bulk email works in batches that each finish well within it.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="notes">
+        <h2>Notes</h2>
+        <ul class="notes">
+          <li><b>Timeouts:</b> nginx allows requests of up to 300 s, but Cloudflare ends any request after 100 s with error 524 on non-Enterprise plans.</li>
+          <li><b>Client IP for the app:</b> nginx sends the restored visitor IP as <code>X-Real-IP</code> and sets <code>X-Forwarded-For</code> to that same single address. It removes <code>CF-Connecting-IP</code> and <code>True-Client-IP</code> before proxying.</li>
+          <li><b>Streaming:</b> nginx doesn't buffer the app's responses (<code>proxy_buffering off</code>), so pages stream through.</li>
+          <li><b>Files:</b> <code>docker-compose.yml</code>, <code>deploy/nginx/conf.d/app.conf</code>, <code>.env.example</code> and <code>Dockerfile</code> in the repository.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

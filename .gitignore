@@ -24,10 +24,6 @@
 .DS_Store
 *.pem
 
-# Cloudflare Origin Certificate and key: server-only files (see deploy/certs/README.md)
-/deploy/certs/*
-!/deploy/certs/README.md
-
 # debug
 npm-debug.log*
 yarn-debug.log*
