@@ -6,7 +6,8 @@ import { registrations } from "@/lib/server/registrations";
 
 const STAFF_AREAS = ["/admin", "/kiosk"];
 const EVENT_PASS_PREFIX = "/p/";
-const UNKNOWN_EVENT_PASS_PATH = "/p/unknown";
+/** No page answers this path, so Next serves the bilingual global-not-found page with a 404. */
+const UNKNOWN_EVENT_PASS_PATH = "/p/unknown/not-found";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -44,7 +45,8 @@ function rewriteTo(request: NextRequest, language: Language, path: string) {
 /**
  * Gives an unknown or malformed Event Pass token a real 404, in either language. The page's own
  * notFound() comes too late: its 200 has already been sent. So this looks the token up first and
- * rewrites misses to a route prerendered as 404, and a real token pays one extra indexed read.
+ * rewrites misses to a path no page answers (served by src/app/global-not-found.tsx, with its HTML
+ * rendered on the server), and a real token pays one extra indexed read.
  */
 async function requireEventPass(request: NextRequest, language: Language, path: string, token: string) {
   const lookup = await registrations().getEventPass(token);
@@ -71,8 +73,9 @@ function requireSessionCookie(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every page address: not /api, not Next's own files, and not files from public/ (they have a dot).
-    "/((?!api/|_next/|.*\\..*).*)",
+    // Every page address: not /api, not Next's own files, and not files served from public/ or by
+    // app/ (images, icons, text). Any other dotted path (/index.html) still gets the public 404.
+    "/((?!api/|_next/|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|txt|xml|json|webmanifest)$).*)",
     // Event Pass links whatever the token holds, dots included, so a malformed one still gets a 404.
     "/p/:token",
     "/:lang(th|en)/p/:token",

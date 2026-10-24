@@ -165,13 +165,16 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | Not found body | ลิงก์อาจไม่ถูกต้องหรือไม่ครบถ้วน กรุณาตรวจสอบลิงก์อีกครั้ง หรือติดต่อผู้จัดงาน | The link may be wrong or incomplete. Please check it, or contact the organisers. |
 | Not found action | ไปที่แบบฟอร์มลงทะเบียน | Go to the registration form |
 
-## Page not found (**new**, any other unknown public address)
+## Page not found (**new**: one bilingual page, Thai then English)
+
+Shown for any unknown address and for unknown or malformed Event Pass links. The page can't know which language was asked for, so it shows both. The "Event Pass not found" rows above remain for a pass deleted while its page loads.
 
 | Key | Thai | English |
 | --- | --- | --- |
-| Tab title, heading | ไม่พบหน้านี้ | Page not found |
-| Body | ลิงก์อาจไม่ถูกต้อง กรุณาตรวจสอบลิงก์อีกครั้ง | The link may be wrong. Please check it. |
-| Action | ไปที่แบบฟอร์มลงทะเบียน | Go to the registration form |
+| Tab title | ไม่พบหน้านี้ · Page not found | (the same) |
+| Heading | ไม่พบหน้านี้ | Page not found |
+| Body | ลิงก์อาจไม่ถูกต้องหรือไม่ครบถ้วน หากเป็นลิงก์บัตรเข้างาน กรุณาตรวจสอบลิงก์ในอีเมลอีกครั้ง หรือติดต่อผู้จัดงาน | The link may be wrong or incomplete. If it's an Event Pass link, check the one in your email again, or contact the organisers. |
+| Action | ไปที่แบบฟอร์มลงทะเบียน (→ `/`) | Go to the registration form (→ `/en`) |
 
 ## Event Pass card and saved image
 
