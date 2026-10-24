@@ -12,7 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireStaff } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { eventDayLabel } from "@/lib/event";
 import type { RegistrationDetail } from "@/lib/registrations/detail";
 import { attendeeRoleShortLabels, organisationLabel, referralSourceShortLabels } from "@/lib/registrations/fields";
@@ -27,7 +27,7 @@ import { DetailEventPassEmail, EventPassLink } from "./detail-actions";
 export const metadata: Metadata = { title: "รายละเอียดการลงทะเบียน" };
 
 // /admin/registrations/{id}: every answer of one Registration, its Event Pass, email status and
-// Check-Ins, and delete. Staff-only; the id, the session and the data are request-time, so it all
+// Check-Ins, and delete. Admin-only; the id, the session and the data are request-time, so it all
 // renders behind one boundary, header included. The query string is the list view to return to
 // (see list-links.ts).
 export default function RegistrationDetailPage({ params, searchParams }: PageProps<"/admin/registrations/[id]">) {
@@ -78,7 +78,7 @@ async function RegistrationDetailContent({
   params,
   searchParams,
 }: Pick<PageProps<"/admin/registrations/[id]">, "params" | "searchParams">) {
-  await requireStaff();
+  await requireAdmin();
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const listParams = queryEntries(query);
   const listHref = registrationListHref(listParams);

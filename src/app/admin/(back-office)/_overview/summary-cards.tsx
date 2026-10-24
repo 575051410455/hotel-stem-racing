@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { requireStaff } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { event, eventDayLabel } from "@/lib/event";
 import { registrations } from "@/lib/server/registrations";
 import { readHeadCounts } from "./head-counts";
@@ -52,10 +52,10 @@ function People({ count }: { count: number }) {
 
 /**
  * Card 1 (all Registrations, with today's) and one card per Event Day (its Registrations and
- * Check-Ins), in Event order. Staff-only; render below a <Suspense> boundary.
+ * Check-Ins), in Event order. Admin-only; render below a <Suspense> boundary.
  */
 export async function HeadCountCards() {
-  await requireStaff();
+  await requireAdmin();
   const counts = await readHeadCounts();
 
   return (
@@ -89,9 +89,9 @@ export async function HeadCountCards() {
   );
 }
 
-/** Card 4: Registrations never sent their Event Pass email. Staff-only; render below a <Suspense> boundary. */
+/** Card 4: Registrations never sent their Event Pass email. Admin-only; render below a <Suspense> boundary. */
 export async function UnsentEmailCard() {
-  await requireStaff();
+  await requireAdmin();
   const summary = await registrations().bulkSendSummary("unsent");
 
   return (

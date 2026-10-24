@@ -1,5 +1,5 @@
 import { invalidParams, noStoreJson, rejectUnlessSameOrigin, unauthorized } from "@/app/api/back-office/route-helpers";
-import { getCurrentStaff } from "@/lib/auth/session";
+import { getCurrentAdmin } from "@/lib/auth/session";
 import { bulkSendBatchRequestSchema } from "@/lib/registrations/bulk-send-params";
 import { registrations } from "@/lib/server/registrations";
 
@@ -12,8 +12,8 @@ import { registrations } from "@/lib/server/registrations";
 export async function POST(request: Request) {
   const crossSite = rejectUnlessSameOrigin(request);
   if (crossSite) return crossSite;
-  const staff = await getCurrentStaff();
-  if (!staff) return unauthorized();
+  const admin = await getCurrentAdmin();
+  if (!admin) return unauthorized();
 
   // JSON only: a cross-site HTML form can't send it, and the session cookie is SameSite=Lax.
   const contentType = request.headers.get("content-type") ?? "";

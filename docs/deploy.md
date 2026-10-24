@@ -55,7 +55,7 @@ All commands below run from the repo checkout on the server.
 | `APP_URL` | `https://<registration domain>`, with no trailing slash. QR links and email links are built from this. |
 | `BETTER_AUTH_URL` | same as `APP_URL` |
 | `BETTER_AUTH_SECRET` | output of `openssl rand -hex 32` |
-| `SEED_STAFF_EMAIL`, `SEED_STAFF_NAME` | the email and display name of the first Staff Account, which `npm run seed` creates (section 6). The name defaults to เจ้าหน้าที่. There is no password variable: the command makes one up. |
+| `SEED_STAFF_EMAIL`, `SEED_STAFF_NAME` | the email and display name of the first Admin Account, which `npm run seed` creates (section 6). The name defaults to เจ้าหน้าที่. There is no password variable: the command makes one up. |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 32`. Hex keeps it URL-safe, since it goes into the app's `DATABASE_URL`. |
 | `DATABASE_URL` | leave as is: Compose replaces it with `postgres://stem_racing:<POSTGRES_PASSWORD>@db:5432/stem_racing` |
 | `TEST_DATABASE_ADMIN_URL` | unused on the server |
@@ -83,25 +83,42 @@ All commands below run from the repo checkout on the server.
   ```
   If it prints nothing, everything else works but sorting the Registration list by name fails.
 
-## 6. First Staff Account, Kiosk Accounts and test email
+## 6. First Admin Account, Staff and Kiosk Accounts, and test email
 
 Operator commands run inside the running `app` container, exactly like `npm run …` locally. The container gets its environment from `.env` through Compose, so no `.env` file is needed inside it. The "`.env` not found. Continuing without it." line in the output is harmless.
 
-- [ ] Create the first Staff Account from `SEED_STAFF_EMAIL` and `SEED_STAFF_NAME` in `.env`:
+There are three kinds of Account (ADR 0004):
+
+| Kind | Opens | Created with |
+| --- | --- | --- |
+| Admin Account | the whole Back Office: Registrations, the overview, CSV export, email, Check-In | `npm run seed` (the first), `npm run staff -- create-admin` |
+| Staff Account | the check-in desk (`/admin/check-in`, with Kiosk mode) only, for helpers at the entrance | `npm run staff -- create` |
+| Kiosk Account | the Kiosk page (`/kiosk`) only, for an unattended iPad | `npm run staff -- create-kiosk` |
+
+Looking an Attendee up by name and re-sending an Event Pass need an Admin Account, so keep at least one Admin at the entrance on Event days.
+
+- [ ] Create the first Admin Account from `SEED_STAFF_EMAIL` and `SEED_STAFF_NAME` in `.env`:
   ```sh
   docker compose exec app npm run seed
   ```
   - It prints the email and a random password **once**. Copy the password straight away: it isn't stored anywhere, and it doesn't appear in `docker compose logs`.
-  - If a Staff Account already exists, it creates nothing and says so. Running it again is safe. Kiosk Accounts don't count.
+  - If an Admin Account already exists, it creates nothing and says so. Running it again is safe. Staff and Kiosk Accounts don't count.
+  - If `SEED_STAFF_EMAIL` already belongs to an Account, it stops and suggests `make-admin` (below).
   - It creates nothing else: no sample Registrations and no Kiosk Accounts.
   - If it stops because `SEED_STAFF_EMAIL` is missing or invalid, fix `.env`, run `docker compose up -d` so the container picks it up, and run it again.
 - [ ] Sign in at `https://<registration domain>/admin/login` with the printed password, then change it at **เปลี่ยนรหัสผ่าน** in the account menu at the foot of the sidebar.
-- [ ] Further Staff Accounts, and password resets, use `npm run staff`. Use `-it` so the password prompt works; the password must be at least 12 characters.
+- [ ] Further Accounts, and password resets, use `npm run staff`. Use `-it` so the password prompt works; the password must be at least 12 characters.
   ```sh
+  docker compose exec -it app npm run staff -- create-admin organiser@example.com "ชื่อผู้จัดงาน"
   docker compose exec -it app npm run staff -- create staff@example.com "ชื่อเจ้าหน้าที่"
   docker compose exec -it app npm run staff -- reset-password staff@example.com   # if a password is lost
   ```
   Resetting a password signs that Account out everywhere.
+- [ ] **A database that already has Staff Accounts** (from before Admin Accounts existed): after the migration they open only the check-in desk. Make the organisers who need Registrations, export and email Admin Accounts. This needs no password and signs that Account out everywhere, so it signs in again with the whole Back Office:
+  ```sh
+  docker compose exec app npm run staff -- make-admin organiser@example.com
+  ```
+  `make-admin` is also the way back in if no Admin can sign in.
 
 ### Kiosk iPads
 

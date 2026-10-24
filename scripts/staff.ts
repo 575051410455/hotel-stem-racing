@@ -1,14 +1,17 @@
-// Account management command: creates Staff Accounts (ticket 04) and check-in-only Kiosk Accounts
-// (ticket 23, ADR 0003), and resets the password of either kind.
+// Account management command (ADR 0003, ADR 0004): creates Admin Accounts (the whole Back Office),
+// Staff Accounts (the check-in desk only) and Kiosk Accounts (the Kiosk only), makes an existing
+// Account an Admin Account, and resets the password of any kind.
 //
 //   npm run staff -- create <email> <display name>
+//   npm run staff -- create-admin <email> <display name>
 //   npm run staff -- create-kiosk <email> <display name>
+//   npm run staff -- make-admin <email>
 //   npm run staff -- reset-password <email>
 //
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
-// 12 characters for both kinds; there are no other rules. A reset signs that Account out everywhere.
-// An Account's kind is fixed when it is created.
+// 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
+// out everywhere. make-admin is also the way back in when no Admin can sign in.
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
@@ -20,30 +23,58 @@ import { createStaffAccounts } from "@/lib/auth/staff-accounts";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
-  npm run staff -- create <email> <display name>          a Staff Account (full Back Office)
-  npm run staff -- create-kiosk <email> <display name>    a Kiosk Account (Kiosk and Check-In only)
-  npm run staff -- reset-password <email>                 either kind
+  npm run staff -- create <email> <display name>          a Staff Account (the check-in desk only)
+  npm run staff -- create-admin <email> <display name>    an Admin Account (the whole Back Office)
+  npm run staff -- create-kiosk <email> <display name>    a Kiosk Account (the Kiosk only, for an iPad)
+  npm run staff -- make-admin <email>                     makes an existing Account an Admin Account
+  npm run staff -- reset-password <email>                 any kind
 
 The password is prompted for (hidden), or read from STAFF_PASSWORD if set.`;
 
-const KIND_LABELS: Record<AccountKind, string> = { staff: "Staff Account", kiosk: "Kiosk Account" };
+const KIND_LABELS: Record<AccountKind, string> = {
+  admin: "Admin Account",
+  staff: "Staff Account",
+  kiosk: "Kiosk Account",
+};
+
+const CREATE_SUBCOMMANDS: Record<string, AccountKind> = {
+  create: "staff",
+  "create-admin": "admin",
+  "create-kiosk": "kiosk",
+};
 
 class UsageError extends Error {}
 
 type Command =
   | { action: "create"; accountKind: AccountKind; email: string; name: string }
+  | { action: "make-admin"; email: string }
   | { action: "reset-password"; email: string };
 
 function parseCommand(args: string[]): Command {
   const [subcommand, email, ...nameParts] = args;
-  if ((subcommand === "create" || subcommand === "create-kiosk") && email && nameParts.length > 0) {
-    const accountKind = subcommand === "create-kiosk" ? "kiosk" : "staff";
+  const accountKind = Object.hasOwn(CREATE_SUBCOMMANDS, subcommand) ? CREATE_SUBCOMMANDS[subcommand] : undefined;
+  if (accountKind && email && nameParts.length > 0) {
     return { action: "create", accountKind, email, name: nameParts.join(" ") };
   }
-  if (subcommand === "reset-password" && email && nameParts.length === 0) {
-    return { action: "reset-password", email };
+  if ((subcommand === "make-admin" || subcommand === "reset-password") && email && nameParts.length === 0) {
+    return { action: subcommand, email };
   }
   throw new UsageError(USAGE);
+}
+
+/** What the new Account can open, said once it is created. */
+function createdMessage(kind: AccountKind, email: string, baseURL: string) {
+  switch (kind) {
+    case "admin":
+      return `Created the Admin Account ${email}. They can sign in at ${baseURL}/admin/login and use the whole Back Office.`;
+    case "staff":
+      return `Created the Staff Account ${email}. They can sign in at ${baseURL}/admin/login: it opens only the check-in desk.`;
+    case "kiosk":
+      return (
+        `Created the Kiosk Account ${email}. Sign a Kiosk iPad in with it at ${baseURL}/admin/login: ` +
+        `it opens only ${baseURL}/kiosk and records Check-Ins.`
+      );
+  }
 }
 
 /** Reads one line from the terminal without echoing it. */
@@ -105,10 +136,28 @@ async function main(): Promise<number> {
   }
 
   const { databaseUrl, secret, baseURL } = readStaffAuthEnv();
-  const password = await readPassword();
+  const password = command.action === "make-admin" ? "" : await readPassword();
   const { db, close } = createDatabase(databaseUrl);
   try {
     const staffAccounts = createStaffAccounts(createStaffAuth({ db, secret, baseURL }));
+
+    if (command.action === "make-admin") {
+      const result = await staffAccounts.makeAdmin(command.email);
+      switch (result.status) {
+        case "promoted":
+          console.log(
+            `Made ${command.email} an Admin Account (it was a ${KIND_LABELS[result.from]}) and signed it out of ` +
+              "every device. It now sees the whole Back Office.",
+          );
+          return 0;
+        case "already-admin":
+          console.log(`${command.email} is already an Admin Account. Nothing was changed.`);
+          return 0;
+        case "not-found":
+          console.error(`There is no Account for ${command.email}. Nothing was changed.`);
+          return 1;
+      }
+    }
 
     if (command.action === "create") {
       const result = await staffAccounts.create({
@@ -119,12 +168,7 @@ async function main(): Promise<number> {
       });
       switch (result.status) {
         case "created":
-          console.log(
-            result.kind === "kiosk"
-              ? `Created the Kiosk Account ${result.email}. Sign a Kiosk iPad in with it at ${baseURL}/admin/login: ` +
-                  `it opens only ${baseURL}/kiosk and records Check-Ins.`
-              : `Created the Staff Account ${result.email}. They can sign in at ${baseURL}/admin/login`,
-          );
+          console.log(createdMessage(result.kind, result.email, baseURL));
           return 0;
         case "invalid-email":
           console.error(`"${command.email}" is not a valid email address. Nothing was changed.`);

@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { RegistrationDeletedToast } from "./registration-deleted-toast";
 import { RegistrationList } from "./registration-list";
 
 /**
  * The Registration list on /admin. The heading is part of the static shell; the list (with the
- * toast after a delete) is Staff-only and reads the URL, so it renders at request time behind its
+ * toast after a delete) is Admin-only and reads the URL, so it renders at request time behind its
  * own boundary.
  */
 export function RegistrationListSection() {
@@ -28,8 +28,8 @@ export function RegistrationListSection() {
 }
 
 async function StaffOnlyRegistrationList() {
-  // The rows come from a Staff-only endpoint; this keeps the controls from signed-out visitors too.
-  await requireStaff();
+  // The rows come from a Admin-only endpoint; this keeps the controls from signed-out visitors too.
+  await requireAdmin();
   return (
     <>
       <RegistrationDeletedToast />

@@ -1,7 +1,7 @@
 import { ChartAreaIcon } from "lucide-react";
 import { Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireStaff } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { registrations } from "@/lib/server/registrations";
 import { cn } from "@/lib/utils";
 import { formatCount, formatSpokenDay } from "./format";
@@ -13,7 +13,7 @@ const PLOT_HEIGHT = "h-62.5";
 /**
  * New Registrations per Bangkok day, from the first Registration's day to today, as an area chart
  * (after dashboard-01's chart card). The title is part of the static shell; the series is
- * Staff-only and streams in behind its own boundary.
+ * Admin-only and streams in behind its own boundary.
  */
 export function DailyRegistrationsCard({ className }: { className?: string }) {
   return (
@@ -36,7 +36,7 @@ export function DailyRegistrationsCard({ className }: { className?: string }) {
 }
 
 async function DailyRegistrations() {
-  await requireStaff();
+  await requireAdmin();
   const series = await registrations().newRegistrationsPerDay();
 
   if (series.length === 0) {

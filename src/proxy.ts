@@ -58,8 +58,9 @@ async function requireEventPass(request: NextRequest, language: Language, path: 
  * Optimistic gate for the Back Office and the Kiosk page: sends visitors without a session cookie
  * to the sign-in page with a real redirect. It only checks that the cookie exists, not whose it is
  * or what kind of Account it belongs to. Pages, Server Actions and Route Handlers still validate
- * the session themselves (`requireStaff` / `getCurrentStaff` / `requireCheckInAccount` in
- * src/lib/auth/session.ts), and they are what refuses a Kiosk Account outside the Kiosk page.
+ * the session themselves (`requireAdmin` / `requireStaff` / `requireCheckInAccount` and their
+ * `getCurrent…` twins in src/lib/auth/session.ts), and they are what keeps a Staff Account at the
+ * check-in desk and a Kiosk Account on the Kiosk page.
  */
 function requireSessionCookie(request: NextRequest) {
   if (request.nextUrl.pathname === SIGN_IN_PATH || getSessionCookie(request)) {

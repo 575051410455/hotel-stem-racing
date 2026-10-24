@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { invalidParams, noStoreJson, unauthorized } from "@/app/api/back-office/route-helpers";
-import { getCurrentStaff } from "@/lib/auth/session";
+import { getCurrentAdmin } from "@/lib/auth/session";
 import { parseRegistrationSearchParams } from "@/lib/registrations/search-params";
 import { registrations } from "@/lib/server/registrations";
 
@@ -10,9 +10,9 @@ import { registrations } from "@/lib/server/registrations";
 // Under /api, not /admin: the proxy would redirect a signed-out JSON request to the sign-in page.
 
 export async function GET(request: NextRequest) {
-  // Before reading the request or the database (see getCurrentStaff).
-  const staff = await getCurrentStaff();
-  if (!staff) return unauthorized();
+  // Before reading the request or the database (see getCurrentAdmin).
+  const admin = await getCurrentAdmin();
+  if (!admin) return unauthorized();
 
   const parsed = parseRegistrationSearchParams(request.nextUrl.searchParams);
   if (!parsed.success) return invalidParams(parsed.error);

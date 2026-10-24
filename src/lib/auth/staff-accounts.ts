@@ -5,7 +5,7 @@ export type CreateStaffAccountInput = {
   email: string;
   name: string;
   password: string;
-  /** A Staff Account (the default) or a check-in-only Kiosk Account (ADR 0003). */
+  /** A Staff Account (the default; check-in desk only), an Admin Account, or a Kiosk Account (ADR 0003, ADR 0004). */
   kind?: AccountKind;
 };
 export type CreateFirstStaffAccountInput = Omit<CreateStaffAccountInput, "kind">;
@@ -22,7 +22,12 @@ export type CreateStaffAccountResult =
   | { status: "email-taken" }
   | NewAccountProblem;
 
-export type CreateFirstStaffAccountResult = CreateStaffAccountResult | { status: "staff-account-exists" };
+export type CreateFirstStaffAccountResult = CreateStaffAccountResult | { status: "admin-account-exists" };
+
+export type MakeAdminResult =
+  | { status: "promoted"; accountId: string; from: AccountKind }
+  | { status: "already-admin"; accountId: string }
+  | { status: "not-found" };
 
 export type ResetStaffPasswordResult =
   | { status: "password-reset"; accountId: string; kind: AccountKind }
@@ -34,8 +39,16 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
+/** The internal adapter types users without our additional field; the column is never null. */
+function kindOf(user: { email: string }): AccountKind {
+  const { kind } = user as { kind?: unknown };
+  if (!isAccountKind(kind)) throw new Error(`${user.email} has an unknown Account kind: ${String(kind)}`);
+  return kind;
+}
+
 /**
- * Creates Accounts, Staff or Kiosk, and resets their passwords. This is the code path behind
+ * Creates Accounts of every kind (Admin, Staff, Kiosk), promotes them to Admin, and resets their
+ * passwords. This is the code path behind
  * `npm run staff` and `npm run seed`. Public sign-up is disabled (ADR 0001), so this writes
  * through Better Auth's server-side context (`auth.$context`), with the same steps as its sign-up
  * endpoint: hash, create user, link credential. It is also the only way to set an Account's kind,
@@ -62,18 +75,19 @@ export function createStaffAccounts(auth: StaffAuth) {
 
   const staffAccounts = {
     /**
-     * Creates a Staff Account only while none exists, for `npm run seed` on a fresh deploy. Kiosk
-     * Accounts don't count, so a database with only Kiosks still gets one. Never changes an Account.
+     * Creates an Admin Account only while none exists, for `npm run seed` on a fresh deploy. Staff
+     * and Kiosk Accounts don't count, so a database without an Admin still gets one. Never changes
+     * an Account: an email that is already taken (by any kind) is reported, not promoted.
      */
     async createFirst(input: CreateFirstStaffAccountInput): Promise<CreateFirstStaffAccountResult> {
-      const account = { ...input, kind: "staff" } satisfies CreateStaffAccountInput;
+      const account = { ...input, kind: "admin" } satisfies CreateStaffAccountInput;
       // Checked first, so a wrong `.env` is reported even when there is nothing to create.
       const problem = await checkNewAccount(account);
       if (problem) return problem;
 
       const ctx = await auth.$context;
       if ((await ctx.internalAdapter.countTotalUsers([{ field: "kind", value: account.kind }])) > 0) {
-        return { status: "staff-account-exists" };
+        return { status: "admin-account-exists" };
       }
       return staffAccounts.create(account);
     },
@@ -105,6 +119,24 @@ export function createStaffAccounts(auth: StaffAuth) {
       return { status: "created", accountId: user.id, email: user.email, kind };
     },
 
+    /**
+     * Makes an existing Account an Admin Account and signs it out everywhere, so no open session
+     * keeps its old kind. For `npm run staff -- make-admin`: the way to appoint Admins on a database
+     * that already has Accounts, and back in when no Admin can sign in.
+     */
+    async makeAdmin(email: string): Promise<MakeAdminResult> {
+      const ctx = await auth.$context;
+      const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(email));
+      if (!found) return { status: "not-found" };
+      const userId = found.user.id;
+      const from = kindOf(found.user);
+      if (from === "admin") return { status: "already-admin", accountId: userId };
+
+      await ctx.internalAdapter.updateUser(userId, { kind: "admin" });
+      await ctx.internalAdapter.deleteUserSessions(userId);
+      return { status: "promoted", accountId: userId, from };
+    },
+
     /** Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. */
     async resetPassword(input: ResetStaffPasswordInput): Promise<ResetStaffPasswordResult> {
       const passwordProblem = await checkPassword(input.password);
@@ -114,9 +146,7 @@ export function createStaffAccounts(auth: StaffAuth) {
       const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(input.email));
       if (!found) return { status: "not-found" };
       const userId = found.user.id;
-      // The internal adapter types users without our additional field; the column is never null.
-      const { kind } = found.user as { kind?: unknown };
-      if (!isAccountKind(kind)) throw new Error(`${found.user.email} has an unknown Account kind: ${String(kind)}`);
+      const kind = kindOf(found.user);
 
       const hash = await ctx.password.hash(input.password);
       if (await ctx.internalAdapter.findCredentialAccount(userId)) {

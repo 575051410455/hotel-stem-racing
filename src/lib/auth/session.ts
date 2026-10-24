@@ -2,19 +2,23 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { type AccountKind, canCheckIn, canUseBackOffice, homePath, SIGN_IN_PATH } from "./access";
+import { type AccountKind, canCheckIn, canUseBackOffice, canUseCheckInDesk, homePath, SIGN_IN_PATH } from "./access";
 import { staffAuth } from "./server";
 
-/** The signed-in Staff member, narrowed to what Back Office pages need. */
-export type CurrentStaff = {
+/** The signed-in Account, narrowed to what Back Office pages need. */
+export type CurrentAccount = {
   /** Better Auth user id; store it as the Account on Check-Ins (`check_ins.staff_account_id`). */
   id: string;
   name: string;
   email: string;
+  kind: AccountKind;
 };
 
-/** The signed-in Account on the Check-In path: a Staff Account or a Kiosk Account. */
-export type CurrentCheckInAccount = CurrentStaff & { kind: AccountKind };
+/** A Staff member signed in with a Staff Account or an Admin Account (GLOSSARY: Staff). */
+export type CurrentStaff = CurrentAccount;
+
+/** The signed-in Account on the Check-In path: any kind of Account. */
+export type CurrentCheckInAccount = CurrentAccount;
 
 /**
  * Reads and validates the session from the request cookies (a database lookup, no cookie cache),
@@ -22,7 +26,7 @@ export type CurrentCheckInAccount = CurrentStaff & { kind: AccountKind };
  * Component, call it below a `<Suspense>` boundary. Deduplicated within one render; Server Actions
  * and Route Handlers re-check. Not exported: callers ask for what they need through the helpers below.
  */
-const getSignedInAccount = cache(async (): Promise<CurrentCheckInAccount | null> => {
+const getSignedInAccount = cache(async (): Promise<CurrentAccount | null> => {
   // Read the request first: during prerender this suspends, so the auth instance (which needs the
   // runtime env) is never built at build time.
   const requestHeaders = await headers();
@@ -33,15 +37,36 @@ const getSignedInAccount = cache(async (): Promise<CurrentCheckInAccount | null>
 });
 
 /**
- * The signed-in Staff member, or null when nobody is signed in or the Account may not use the Back
- * Office (a Kiosk Account, ADR 0003). Every Back Office page, Route Handler and Server Action
- * checks with this or `requireStaff()`, so a Kiosk Account is refused exactly like a signed-out
- * request. Request-time: see `getSignedInAccount`.
+ * The signed-in Admin Account, or null when nobody is signed in or the Account is a Staff or Kiosk
+ * Account (ADR 0004). The overview, the Registration list and detail, email and every
+ * `/api/back-office/*` Route Handler check with this or `requireAdmin()`, so any other Account is
+ * refused exactly like a signed-out request. Request-time: see `getSignedInAccount`.
+ */
+export async function getCurrentAdmin(): Promise<CurrentStaff | null> {
+  const account = await getSignedInAccount();
+  return account && canUseBackOffice(account.kind) ? account : null;
+}
+
+/**
+ * Like `getCurrentAdmin`, but redirects when there's no Admin: to the sign-in page when nobody is
+ * signed in, and otherwise to where the Account belongs (`homePath`): the check-in desk for a Staff
+ * Account, the Kiosk for a Kiosk Account.
+ */
+export async function requireAdmin(): Promise<CurrentStaff> {
+  const account = await getSignedInAccount();
+  if (!account) redirect(SIGN_IN_PATH);
+  if (!canUseBackOffice(account.kind)) redirect(homePath(account.kind));
+  return account;
+}
+
+/**
+ * The signed-in Staff member (a Staff or Admin Account), or null when nobody is signed in or the
+ * Account is a Kiosk Account (ADR 0003). For the check-in desk and the Account's own pages.
+ * Request-time: see `getSignedInAccount`.
  */
 export async function getCurrentStaff(): Promise<CurrentStaff | null> {
   const account = await getSignedInAccount();
-  if (!account || !canUseBackOffice(account.kind)) return null;
-  return { id: account.id, name: account.name, email: account.email };
+  return account && canUseCheckInDesk(account.kind) ? account : null;
 }
 
 /**
@@ -52,8 +77,8 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
 export async function requireStaff(): Promise<CurrentStaff> {
   const account = await getSignedInAccount();
   if (!account) redirect(SIGN_IN_PATH);
-  if (!canUseBackOffice(account.kind)) redirect(homePath(account.kind));
-  return { id: account.id, name: account.name, email: account.email };
+  if (!canUseCheckInDesk(account.kind)) redirect(homePath(account.kind));
+  return account;
 }
 
 /**
