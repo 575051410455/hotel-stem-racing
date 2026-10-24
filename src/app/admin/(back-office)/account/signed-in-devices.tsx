@@ -16,7 +16,8 @@ import { SignOutDeviceButton, SignOutOtherDevicesButton } from "./sign-out-devic
  * (`SignedInDevicesSkeleton`).
  */
 export async function SignedInDevices() {
-  // Already read by the page's requireStaff() in this request, which sent anyone else away.
+  // Already read by the page's guard in this request, which sent anyone else away. The page leaves
+  // this out while the Account must choose its own password, when this is null.
   const staff = await getCurrentStaff();
   if (!staff) return null;
   const devices = await accounts().listDevices(staff.id, staff.sessionId);

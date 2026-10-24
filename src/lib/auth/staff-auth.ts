@@ -123,16 +123,19 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
           });
         }
       }),
-      // The owner's own password change (My Account) is an Account Change like any other: recorded
-      // as `password-changed`, with the owner as actor, once Better Auth has changed it. A refused or
-      // failed change (wrong current password, a Kiosk Account, signed out) returns an error and
-      // records nothing. Never the password.
+      // The owner's own password change (My Account). Now only its owner knows the password, so it
+      // no longer has to choose its own (`must_change_password`, account-management 05): cleared
+      // first, so its owner isn't held at My Account even if recording fails. It is then an Account
+      // Change like any other: recorded as `password-changed`, with the owner as actor. A refused or
+      // failed change (wrong current password, a Kiosk Account, signed out) returns an error, so the
+      // flag stays and nothing is recorded. Never the password.
       after: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== "/change-password") return;
         const returned: unknown = ctx.context.returned;
         if (!returned || isAPIError(returned)) return;
         const ownerId = (returned as { user?: { id?: unknown } }).user?.id;
         if (typeof ownerId !== "string") throw new Error("The changed password's Account is unknown, so it isn't recorded");
+        await db.update(authSchema.users).set({ mustChangePassword: false }).where(eq(authSchema.users.id, ownerId));
         await recordAccountChange(db, ownerId, { action: "password-changed" }, { accountId: ownerId });
       }),
     },

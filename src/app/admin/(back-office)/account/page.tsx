@@ -1,6 +1,8 @@
+import { KeyRoundIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { type CurrentStaff, requireStaff } from "@/lib/auth/session";
+import { homePath } from "@/lib/auth/access";
+import { type CurrentStaff, requireStaffForOwnAccount } from "@/lib/auth/session";
 import { PageContent, PageHeader, PageTitle } from "../_shell/page-header";
 import { ChangePasswordForm } from "./change-password-form";
 import { RenameForm } from "./rename-form";
@@ -18,6 +20,11 @@ const KIND_LABELS = {
 // password and where they are signed in. Reached from the account menu, not the sidebar nav;
 // /admin/password redirects here. The header is the static shell; the rest needs the session, so a
 // Kiosk Account is sent back to the Kiosk.
+//
+// When someone else set the password (account-management 05), every other page sends its owner
+// here until they choose their own: a notice says why, the name can still be saved, Signed-in
+// devices is left out (its actions are refused meanwhile, and setting the password signed every
+// other device out), and a successful change goes on to the Account's home.
 export default function MyAccountPage() {
   return (
     <>
@@ -34,10 +41,19 @@ export default function MyAccountPage() {
 }
 
 async function OwnAccount() {
-  const staff = await requireStaff();
+  const staff = await requireStaffForOwnAccount();
   return (
     <>
-      <section aria-labelledby="account-details-heading">
+      {staff.mustChangePassword && (
+        <div className="flex items-start gap-3 rounded-lg border bg-card px-4 py-3 text-sm leading-normal">
+          <KeyRoundIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>
+            <span className="font-medium">An Admin set your password.</span> Choose your own to continue.
+          </p>
+        </div>
+      )}
+      {/* mt-6 below the notice; PageContent drops it when Details comes first. */}
+      <section aria-labelledby="account-details-heading" className="mt-6">
         <h2 id="account-details-heading" className="text-base leading-normal font-semibold">
           Details
         </h2>
@@ -61,23 +77,29 @@ async function OwnAccount() {
           Change password
         </h2>
         <div className="mt-4">
-          <ChangePasswordForm email={staff.email} />
+          <ChangePasswordForm
+            email={staff.email}
+            homeAfterChange={staff.mustChangePassword ? homePath(staff.kind) : undefined}
+          />
         </div>
       </section>
-      <section aria-labelledby="signed-in-devices-heading" className="mt-10 border-t pt-6">
-        <h2 id="signed-in-devices-heading" className="text-base leading-normal font-semibold">
-          Signed-in devices
-        </h2>
-        <p className="mt-1 text-sm leading-normal text-muted-foreground">
-          Where your Account is signed in. Sign out any device you don&apos;t recognise.
-        </p>
-        <div className="mt-4">
-          {/* Its own boundary: Details and Change password show while the devices are read. */}
-          <Suspense fallback={<SignedInDevicesSkeleton />}>
-            <SignedInDevices />
-          </Suspense>
-        </div>
-      </section>
+      {/* Left out while the Account must choose its own password: its actions are refused until then. */}
+      {!staff.mustChangePassword && (
+        <section aria-labelledby="signed-in-devices-heading" className="mt-10 border-t pt-6">
+          <h2 id="signed-in-devices-heading" className="text-base leading-normal font-semibold">
+            Signed-in devices
+          </h2>
+          <p className="mt-1 text-sm leading-normal text-muted-foreground">
+            Where your Account is signed in. Sign out any device you don&apos;t recognise.
+          </p>
+          <div className="mt-4">
+            {/* Its own boundary: Details and Change password show while the devices are read. */}
+            <Suspense fallback={<SignedInDevicesSkeleton />}>
+              <SignedInDevices />
+            </Suspense>
+          </div>
+        </section>
+      )}
     </>
   );
 }

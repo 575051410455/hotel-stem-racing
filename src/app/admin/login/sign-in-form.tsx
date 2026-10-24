@@ -5,7 +5,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { homePath, isAccountKind } from "@/lib/auth/access";
+import { homePath, isAccountKind, MY_ACCOUNT_PATH, mustChooseOwnPassword } from "@/lib/auth/access";
 import { staffAuthClient } from "@/lib/auth/client";
 
 type SignInFailure = { status: number; code?: string; retryAfterSeconds?: number };
@@ -57,11 +57,14 @@ export function SignInForm() {
       if (result.error) {
         failure = { status: result.error.status, code: result.error.code, retryAfterSeconds };
       } else {
-        // A Kiosk Account goes straight to the Kiosk page. This only saves a hop: /admin would
+        // A Kiosk Account goes straight to the Kiosk page, and an Account whose password someone
+        // else set straight to My Account to choose its own. This only saves a hop: /admin would
         // send it there too, because the server decides what each Account may open. (Better Auth
-        // types this user loosely, so the kind is checked rather than trusted.)
-        const { kind } = result.data.user as { kind?: unknown };
-        if (isAccountKind(kind)) home = homePath(kind);
+        // types this user loosely, so the kind and the flag are checked rather than trusted.)
+        const { kind, mustChangePassword } = result.data.user as { kind?: unknown; mustChangePassword?: unknown };
+        if (isAccountKind(kind)) {
+          home = mustChooseOwnPassword(kind, mustChangePassword === true) ? MY_ACCOUNT_PATH : homePath(kind);
+        }
       }
     } catch {
       failure = { status: 0 };

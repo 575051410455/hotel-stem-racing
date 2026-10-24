@@ -5,7 +5,8 @@
 //
 // Creates an Admin Account (the whole Back Office, ADR 0004) from SEED_STAFF_EMAIL (required) and
 // SEED_STAFF_NAME (default "เจ้าหน้าที่") with a random password, and prints the password once. The
-// password is never read from env or arguments and never written anywhere else. Does nothing if an
+// password is never read from env or arguments and never written anywhere else, and the operator
+// must choose their own at the first sign-in (account-management 05). Does nothing if an
 // Admin Account already exists (Staff and Kiosk Accounts don't count); further Accounts, make-admin
 // and resets use `npm run staff`. The env names predate Admin Accounts and are kept for `.env`.
 // Creates no other data.
@@ -58,7 +59,7 @@ async function main(): Promise<number> {
             `  Email:     ${result.email}`,
             `  Password:  ${password}`,
             "",
-            `Sign in at ${baseURL}/admin/login, then change the password at "My Account" in the account menu.`,
+            `Sign in at ${baseURL}/admin/login with it: you'll be asked to choose your own password before anything else.`,
           ].join("\n"),
         );
         return 0;
