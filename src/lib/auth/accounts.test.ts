@@ -453,6 +453,112 @@ describe("Accounts", () => {
 
     assert.deepEqual(result, { status: "not-found" });
   });
+
+  test("a new Account is listed enabled, with no last sign-in and no forced password change", async () => {
+    const before = new Date();
+    const created = await accounts.create({ email: "Staff@Example.org", name: "Napat Wongsa", password });
+    const after = new Date();
+    assert.equal(created.status, "created");
+
+    const [account, ...others] = await accounts.list();
+
+    assert.deepEqual(others, []);
+    const { createdAt, ...rest } = account;
+    assert.deepEqual(rest, {
+      id: created.accountId,
+      name: "Napat Wongsa",
+      email: "staff@example.org",
+      kind: "staff",
+      disabledAt: null,
+      mustChangePassword: false,
+      lastSignedInAt: null,
+    });
+    assert.ok(createdAt >= before && createdAt <= after, String(createdAt));
+  });
+
+  test("signing in sets an Account's last sign-in, for every kind", async () => {
+    for (const kind of ["admin", "staff", "kiosk"] as const) {
+      await accounts.create({ email: `${kind}@example.org`, name: kind, password, kind });
+      const before = new Date();
+      assert.equal((await signIn(auth, `${kind}@example.org`, password)).status, 200);
+      const after = new Date();
+
+      const { lastSignedInAt } = (await accounts.list()).find((account) => account.kind === kind)!;
+
+      assert.ok(lastSignedInAt && lastSignedInAt >= before && lastSignedInAt <= after, `${kind}: ${lastSignedInAt}`);
+    }
+  });
+
+  test("one Account is read by its id, as the list shows it, and an unknown id is not found", async () => {
+    const created = await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" });
+    assert.equal(created.status, "created");
+    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await signIn(auth, "kiosk-1@example.org", password);
+
+    const account = await accounts.get(created.accountId);
+
+    assert.equal(account?.email, "kiosk-1@example.org");
+    assert.equal(account?.kind, "kiosk");
+    assert.ok(account?.lastSignedInAt instanceof Date);
+    assert.deepEqual(
+      account,
+      (await accounts.list()).find(({ id }) => id === created.accountId),
+    );
+    assert.equal(await accounts.get("no-such-account"), null);
+  });
+
+  test("the list shows enabled Accounts first, then disabled ones, each by name whatever its case", async () => {
+    const ids = new Map<string, string>();
+    for (const [name, kind] of [
+      ["Zed Admin", "admin"],
+      ["carl", "staff"],
+      ["anna", "staff"],
+      ["Bob", "kiosk"],
+      ["Kiosk 1", "kiosk"],
+    ] as const) {
+      const created = await accounts.create({ email: `${name.replace(" ", "-")}@example.org`, name, password, kind });
+      if (created.status === "created") ids.set(name, created.accountId);
+    }
+    // Until ticket 08's `disable`, disable two Accounts the way the module will: through Better Auth.
+    const ctx = await auth.$context;
+    for (const name of ["carl", "Bob"]) await ctx.internalAdapter.updateUser(ids.get(name)!, { disabledAt: new Date() });
+
+    const listed = await accounts.list();
+
+    assert.deepEqual(
+      listed.map(({ name, disabledAt }) => [name, disabledAt instanceof Date]),
+      [
+        ["anna", false],
+        ["Kiosk 1", false],
+        ["Zed Admin", false],
+        ["Bob", true],
+        ["carl", true],
+      ],
+    );
+  });
+
+  test("the list has every Account, beyond Better Auth's default of 100 rows", async () => {
+    // Without passwords, through Better Auth, so 101 Accounts are quick to make.
+    const ctx = await auth.$context;
+    for (let n = 1; n <= 101; n++) {
+      await ctx.internalAdapter.createUser(
+        { email: `kiosk-${n}@example.org`, name: `Kiosk ${n}`, kind: "kiosk" },
+        { method: "email-password" },
+      );
+    }
+
+    assert.equal((await accounts.list()).length, 101);
+  });
+
+  test("the session carries the Account's forced-change flag, disabled time and last sign-in", async () => {
+    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+
+    const session = await signInAndGetSession(auth, "staff@example.org", password);
+
+    assert.equal(session?.user.mustChangePassword, false);
+    assert.equal(session?.user.disabledAt ?? null, null);
+    assert.ok(session?.user.lastSignedInAt instanceof Date);
+  });
 });
 
 describe("Accounts: signed-in devices", () => {
