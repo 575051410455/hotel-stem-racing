@@ -2,7 +2,7 @@
 // English headers and option values; names and free text as the Attendee typed them, often Thai.
 // Written for Excel: UTF-8 with a BOM (or Thai turns into mojibake), RFC 4180 quoting, CRLF.
 
-import { bangkokDate, bangkokTime } from "@/lib/bangkok-time";
+import { bangkokDate, bangkokEnglishDateTime } from "@/lib/bangkok-time";
 import { eventDayLabel } from "@/lib/event";
 import type { RegistrationExportRow } from "./export";
 import { attendeeRoleShortLabels, formatPhoneAsYouType, referralSourceShortLabels } from "./fields";
@@ -14,10 +14,12 @@ const CRLF = "\r\n";
 /** Several choices in one cell. */
 const joined = (labels: string[]) => labels.join("; ");
 
-/** "2026-10-22 14:05:09" in Bangkok time, a form Excel reads (and sorts) as a date and time. */
+/**
+ * "22 Oct 2026, 14:05" in Bangkok time, as in the list (the organisers' choice over Excel's
+ * sortable "2026-10-22 14:05:09"). Excel keeps it as text: the rows come in the list's sort order.
+ */
 function bangkokDateTime(date: Date | null): string {
-  if (!date) return "";
-  return `${bangkokDate(date)} ${bangkokTime(date, { seconds: true })}`;
+  return date ? bangkokEnglishDateTime(date) : "";
 }
 
 /** "+66812345678" → "081-234-5678", as Attendees typed it. */

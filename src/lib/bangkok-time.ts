@@ -34,6 +34,23 @@ export function bangkokTime(instant: Date, { seconds = false }: { seconds?: bool
   return seconds ? `${part.hour}:${part.minute}:${part.second}` : `${part.hour}:${part.minute}`;
 }
 
+/**
+ * English month names for `bangkokEnglishDateTime`, put in British order by hand. en-US's, which
+ * keep "Sep" where en-GB now writes "Sept"; its order and commas go unused.
+ */
+const bangkokEnglishDateParts = new Intl.DateTimeFormat("en-US", {
+  timeZone: event.timeZone,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** "22 Oct 2026, 14:05": the Back Office's English timestamp (list, detail and CSV), in Bangkok time. */
+export function bangkokEnglishDateTime(instant: Date): string {
+  const part = Object.fromEntries(bangkokEnglishDateParts.formatToParts(instant).map(({ type, value }) => [type, value]));
+  return `${part.day} ${part.month} ${part.year}, ${bangkokTime(instant)}`;
+}
+
 /** The instant of a Bangkok date ("2026-10-31") at a Bangkok wall-clock time ("09:00", default midnight). */
 export function bangkokInstant(isoDate: string, time = "00:00"): Date {
   return new Date(`${isoDate}T${time}:00${BANGKOK_OFFSET}`);
