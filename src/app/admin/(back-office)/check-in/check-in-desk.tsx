@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { isKioskMode, kioskUrl } from "@/lib/check-in/kiosk-mode";
-import { event, findEventDay } from "@/lib/event";
+import { event, eventDayLabel } from "@/lib/event";
 import { cn } from "@/lib/utils";
 import { useNoToasts } from "../_shell/toasts";
 import { checkInScan } from "./actions";
@@ -24,10 +24,11 @@ function setKioskMode(on: boolean) {
 }
 
 /**
- * The entrance desk: the Event Day being checked in, the Pass Code box and the latest result, or
- * the Kiosk (ticket 19) when the address says so. Both check in through the same `submitScan`, so
- * the Event Day chosen at the desk still applies in the Kiosk. Check-In results show in the large
- * panel only, never in a toast; Kiosk mode clears and holds back the Back Office's toasts.
+ * The entrance desk, in English: the Event Day being checked in, the Pass Code box and the latest
+ * result, or the Kiosk (ticket 19) when the address says so. Both check in through the same
+ * `submitScan`, so the Event Day chosen at the desk still applies in the Kiosk. Check-In results
+ * show in the large panel only, never in a toast; Kiosk mode clears and holds back the Back
+ * Office's toasts.
  * `today` is today's Event Day when the page was rendered (Bangkok), or null when today isn't one.
  */
 export function CheckInDesk({ today: renderedToday }: { today: string | null }) {
@@ -77,10 +78,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         attempt={attempt}
         onPass={(scan) => void submitScan(scan)}
         exit={{ kind: "leave-kiosk-mode", onLeave: () => setKioskMode(false) }}
-        checkInDay={{
-          label: findEventDay(selectedDay)?.label.th ?? null,
-          chosenByStaff: chosenDay !== null,
-        }}
+        checkInDay={{ date: selectedDay, chosenByStaff: chosenDay !== null }}
       />
     );
   }
@@ -88,7 +86,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
   return (
     <div className="mt-6">
       <fieldset>
-        <legend className="text-sm leading-normal font-medium">วันเข้าร่วมงานที่เช็คอิน</legend>
+        <legend className="text-sm leading-normal font-medium">Event Day to check in for</legend>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {event.eventDays.map((day) => (
             <label
@@ -107,20 +105,21 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
                 onChange={() => setChosenDay(day.date === today ? null : day.date)}
                 className="sr-only"
               />
-              <span className="text-sm font-medium">{day.label.th}</span>
-              {day.date === today && <span className="text-xs">วันนี้</span>}
+              <span className="text-sm font-medium">{day.label.en}</span>
+              {day.date === today && <span className="text-xs">Today</span>}
             </label>
           ))}
         </div>
         {today === null && chosenDay === null && (
           <p className="mt-2 text-sm leading-normal text-muted-foreground">
-            วันนี้ไม่ใช่วันจัดงาน เลือกวันเข้าร่วมงานที่จะเช็คอิน เช่น เพื่อทดสอบก่อนงาน
+            Today isn&apos;t an Event Day. Choose the Event Day to check in for, for example to test before the
+            Event.
           </p>
         )}
         {chosenDay !== null && (
           <p className="mt-2 text-sm leading-normal font-medium text-orange-800">
-            {today === null ? "วันนี้ไม่ใช่วันจัดงาน" : "ไม่ใช่วันนี้"}: การเช็คอินจะบันทึกเป็น
-            {findEventDay(chosenDay)?.label.th}
+            {today === null ? "Today isn't an Event Day" : "Not today"}: Check-Ins are recorded for{" "}
+            {eventDayLabel(chosenDay, "en")}
           </p>
         )}
       </fieldset>
@@ -134,7 +133,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
           <CheckInResultPanel attempt={attempt} />
         ) : (
           <p className="rounded-xl border-2 border-dashed border-neutral-300 p-5 text-base leading-normal text-muted-foreground">
-            ผลการเช็คอินจะแสดงที่นี่
+            Check-In results appear here
           </p>
         )}
       </div>
@@ -143,7 +142,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
           the pass in the URL. Once hydrated, onSubmit handles everything. */}
       <form method="dialog" onSubmit={onSubmit} className="mt-6">
         <label htmlFor="check-in-scan" className="text-sm leading-normal font-medium">
-          Pass Code หรือลิงก์ Event Pass
+          Pass Code or Event Pass link
         </label>
         <div className="mt-2 flex gap-2 tab:gap-3">
           <input
@@ -158,37 +157,39 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
             autoCapitalize="characters"
             spellCheck={false}
             enterKeyHint="go"
-            placeholder="เช่น EP-7KQ2MZ9H"
+            placeholder="e.g. EP-7KQ2MZ9H"
             aria-describedby="check-in-scan-hint"
             className="h-16 w-full min-w-0 rounded-lg border-2 border-neutral-500 bg-white px-3 font-mono text-xl tracking-wide placeholder:font-sans placeholder:text-base placeholder:tracking-normal placeholder:text-muted-foreground focus-visible:border-neutral-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-neutral-950/20 tab:px-4 tab:text-2xl tab:placeholder:text-lg"
           />
           <Button type="submit" className="h-16 px-5 text-xl tab:px-8">
-            เช็คอิน
+            Check in
           </Button>
         </div>
         <p id="check-in-scan-hint" className="mt-2 text-sm leading-normal text-muted-foreground">
-          พิมพ์ Pass Code ตัวพิมพ์เล็กหรือใหญ่ มีขีดหรือเว้นวรรคก็ได้ หรือวางลิงก์ Event Pass แล้วกด Enter
+          Type the Pass Code in any case, with or without hyphens or spaces, or paste an Event Pass link, then press
+          Enter.
         </p>
       </form>
 
       <section aria-labelledby="kiosk-mode-heading" className="mt-10 border-t pt-6">
         <h2 id="kiosk-mode-heading" className="text-base leading-normal font-semibold">
-          โหมด Kiosk: จุดเช็คอินด้วยตนเอง
+          Kiosk mode: self check-in
         </h2>
         <p className="mt-1 text-sm leading-normal text-muted-foreground">
-          สำหรับ iPad ที่ผู้เข้าร่วมงานแสดง Event Pass ที่กล้องหน้าเอง เต็มหน้าจอ มีคำแนะนำภาษาไทยและอังกฤษ
-          และไม่มีเมนู ช่องพิมพ์ Pass Code หรือการเลือกวัน การเช็คอินบันทึกเป็นวันที่เลือกไว้ด้านบน
-          ออกจากโหมดนี้ได้ที่ปุ่ม “เจ้าหน้าที่” มุมขวาบน
+          For an iPad where Attendees show their Event Pass to the front camera themselves: full screen, with Thai
+          and English instructions, and no menu, Pass Code entry or day choice. Check-Ins are recorded for the day
+          chosen above. Leave it with the “Staff” button in the top-right corner.
         </p>
         <Button type="button" size="lg" variant="outline" className="mt-3" onClick={() => setKioskMode(true)}>
-          เปิดโหมด Kiosk
+          Start Kiosk mode
         </Button>
         <p className="mt-2 text-sm leading-normal text-muted-foreground">
-          บุ๊กมาร์กหน้านี้โดยเติม <code className="font-mono">?kiosk=1</code> ท้ายลิงก์ เพื่อเปิดเข้าโหมด Kiosk โดยตรง
+          Bookmark this page with <code className="font-mono">?kiosk=1</code> at the end of the link to open Kiosk
+          mode directly.
         </p>
         <p className="mt-2 text-sm leading-normal font-medium">
-          iPad ที่วางไว้ให้ผู้เข้าร่วมงานใช้เองโดยไม่มีเจ้าหน้าที่อยู่ ให้เข้าสู่ระบบด้วยบัญชี Kiosk แทน
-          บัญชีนี้เปิดได้เฉพาะหน้า Kiosk และไม่เห็นข้อมูลผู้ลงทะเบียน
+          An iPad left for Attendees with no Staff nearby should sign in with a Kiosk Account instead. That Account
+          opens only the Kiosk page and sees no Registration data.
         </p>
       </section>
     </div>
