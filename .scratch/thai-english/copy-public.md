@@ -21,8 +21,8 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | Key | Thai page | English page |
 | --- | --- | --- |
 | Group name (screen readers) | เลือกภาษา | Choose language |
-| Thai half: visible / accessible name | TH / ภาษาไทย | TH / ภาษาไทย |
-| English half: visible / accessible name | EN / English | EN / English |
+| Thai half: visible / accessible name | TH / TH ภาษาไทย | TH / TH ภาษาไทย |
+| English half: visible / accessible name | EN / EN English | EN / EN English |
 
 ## Site header and footer
 

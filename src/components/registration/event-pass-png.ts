@@ -43,7 +43,7 @@ const colours = {
 // Same stacks as the page (--font-sans in globals.css, Tailwind's --font-mono), used only when
 // the live values can't be read. System fonts only: nothing to load before drawing.
 const fallbackSans =
-  '"SF Pro TH", "SF Pro Display", "SF Pro Icons", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif';
+  '"SF Pro Text", "SF Pro TH", "SF Pro Icons", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif';
 const fallbackMono =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 

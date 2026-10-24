@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { type ReactNode, Suspense } from "react";
 import { type Language, languagePath } from "@/lib/language";
 import { Container } from "./Container";
 import { LanguageToggle, LanguageToggleFallback } from "./LanguageToggle";
@@ -16,19 +16,40 @@ export function SiteHeader({ language, copy }: { language: Language; copy: SiteH
       >
         {copy.skipLink}
       </a>
-      <Container className="flex h-14 items-center gap-4 tab:h-24 tab:gap-6">
-        <Link href={languagePath(language, "/")} aria-label={copy.homeLinkName} className="flex items-center">
-          <Wordmark />
-        </Link>
-        {/* Partner divider: shown because this site is co-branded with the venue.
-            Hidden on the narrowest phones, where the banner right below carries both marks. */}
-        <span aria-hidden="true" className="h-6 w-px bg-divider max-[399px]:hidden tab:h-8" />
-        <PartnerWordmark className="max-[399px]:hidden" />
+      <HeaderBar homeHref={languagePath(language, "/")} homeLinkName={copy.homeLinkName}>
         {/* The address is request-time on the Event Pass page; prerendered pages never show the fallback. */}
         <Suspense fallback={<LanguageToggleFallback language={language} name={copy.languageToggleName} />}>
           <LanguageToggle language={language} name={copy.languageToggleName} />
         </Suspense>
-      </Container>
+      </HeaderBar>
     </header>
+  );
+}
+
+/**
+ * The header's row: the wordmark linking home, the venue's wordmark, then `children` at the right
+ * (the language toggle). The global 404 uses it too, with no toggle.
+ */
+export function HeaderBar({
+  homeHref,
+  homeLinkName,
+  children,
+}: {
+  homeHref: string;
+  homeLinkName: string;
+  children?: ReactNode;
+}) {
+  return (
+    <Container className="flex h-14 items-center gap-3 tab:h-24 tab:gap-6">
+      <Link href={homeHref} aria-label={homeLinkName} className="flex items-center">
+        <Wordmark />
+      </Link>
+      {/* Partner divider: shown because this site is co-branded with the venue.
+          Hidden below `tab:`: on phones the language toggle needs the room (with both marks it
+          was pushed off-screen at 400–510px), and the registration page's banner carries both. */}
+      <span aria-hidden="true" className="hidden h-8 w-px bg-divider tab:block" />
+      <PartnerWordmark className="hidden tab:inline" />
+      {children}
+    </Container>
   );
 }

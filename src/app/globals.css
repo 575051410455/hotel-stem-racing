@@ -20,7 +20,7 @@
   --color-muted: #606066;
   --color-icon: #303037;
   --color-line: #e0dedc;
-  --color-line-strong: #aaaaaa;
+  --color-line-strong: #888888; /* 3.2:1 on bg: the language toggle's edge is visible (WCAG 1.4.11) */
   --color-divider: #cdcdcd;
   --color-success: #166534;
 
@@ -32,9 +32,12 @@
   --color-error-tint: #fdf4f2; /* behind a field with an error; accent on it is 4.8:1 */
   --color-selected-tint: #f9f1f5;
 
-  /* ---- Type: system fonts only; SF Pro may not be hosted as a webfont ---- */
+  /* ---- Type: system fonts only; SF Pro may not be hosted as a webfont ----
+     "SF Pro Text" and "SF Pro TH" match only where SF Pro is installed by hand. Everywhere else
+     -apple-system / BlinkMacSystemFont give SF (with Thai) on Apple devices, and Leelawadee UI /
+     Noto Sans Thai give Thai on Windows / Android, where Helvetica and Arial have no Thai. */
   --font-sans:
-    "SF Pro TH", "SF Pro Display", "SF Pro Icons", -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "SF Pro TH", "SF Pro Icons", -apple-system, BlinkMacSystemFont,
     "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif;
 
   /* ---- Radius ---- */

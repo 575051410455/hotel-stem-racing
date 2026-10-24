@@ -2,7 +2,7 @@
 
 export function Wordmark({ size = "header" }: { size?: "header" | "footer" }) {
   const scale =
-    size === "header" ? "h-6 text-[0.8rem] tab:h-8 tab:text-[1.3rem]" : "h-5 text-[0.85rem]";
+    size === "header" ? "h-6 text-[0.75rem] tab:h-8 tab:text-[1.3rem]" : "h-5 text-[0.85rem]";
 
   return (
     <span
