@@ -16,3 +16,14 @@ See the spec ("English Back Office": check-in headings, camera, the Kiosk) and `
 
 - [ ] Every string in the listed areas matches `copy-back-office.md`; the Kiosk's Attendee-facing screens are unchanged.
 - [ ] typecheck, lint, test and build pass. The hand-off records a check against `next start`: each Check-In result at the desk, Kiosk mode at the desk, the Kiosk page's corner button and Staff panel, and a camera error on each.
+
+## Answer
+
+Plan:
+- `check-in-result.tsx`: the shared heading gains a Staff-worded English heading for the desk; the desk panel's details move to English (Event Day labels, Attendee Roles, times in English).
+- `check-in-desk.tsx` and `page.tsx`: day choice, hints, Pass Code entry and Kiosk mode's introduction in English, with the deck's wording.
+- `camera-scanner.tsx`: messages built in English for the desk, and Thai then English on the Kiosk.
+- `kiosk-screen.tsx` and `/kiosk`: corner button "เจ้าหน้าที่ · Staff", an English Staff panel, Attendee-facing screens unchanged; decide on `lang` marking under the English root.
+- Verify against `next start` with headless Chrome (every desk result, Kiosk mode, `/kiosk`, camera errors).
+
+In progress.
