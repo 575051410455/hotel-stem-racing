@@ -545,10 +545,21 @@ describe("Field validation: messages in English", () => {
     );
   });
 
-  test("the organisation field is relabelled for a Sponsor in English", () => {
-    assert.equal(organisationLabel("sponsor", "en"), "Company or organisation you represent");
-    assert.equal(organisationLabel("teacher", "en"), "School, university, company or organisation");
-    assert.equal(organisationLabel("", "en"), "School, university, company or organisation");
+  test("the organisation label for each Attendee Role, in Thai and in English", () => {
+    const school = { th: "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน", en: "School, university, company or organisation" };
+    const expected = {
+      parent: school,
+      teacher: school,
+      student: school,
+      sponsor: { th: "บริษัท / องค์กรที่ท่านเป็นตัวแทน", en: "Company or organisation you represent" },
+      other: school,
+    };
+    assert.deepEqual(attendeeRoles, Object.keys(expected), "every Attendee Role has an expected label");
+    for (const role of attendeeRoles) {
+      assert.equal(organisationLabel(role, "th"), expected[role].th, role);
+      assert.equal(organisationLabel(role, "en"), expected[role].en, role);
+    }
+    assert.equal(organisationLabel("", "en"), school.en, "no role chosen yet");
   });
 
   test("parsing an invalid English form returns English errors", () => {

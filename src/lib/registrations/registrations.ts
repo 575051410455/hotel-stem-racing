@@ -181,9 +181,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
 
     /**
      * Submits a Registration from what the Attendee entered. The same Field validation the
-     * browser runs is re-run here; nothing is saved unless every field is valid.
+     * browser runs is re-run here; nothing is saved unless every field is valid. Field problems
+     * come back in `language`, the language of the form the Attendee filled in.
      */
-    /** Field problems come back in `language`, the language of the form the Attendee filled in. */
     async submit(
       form: RegistrationForm,
       context: SubmissionContext = {},

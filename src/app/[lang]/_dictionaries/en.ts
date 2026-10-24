@@ -42,7 +42,7 @@ export const en: Dictionary = {
     eventDaysQuestion: "Which days will you attend?",
     referralQuestion: "How did you hear about the Event?",
     referralOther: "Please specify where you heard about it",
-    teamCheeredFor: "Team you're coming to cheer for (optional)",
+    competingTeamCheeredFor: "Team you're coming to cheer for (optional)",
     accessibilityNeeds: "Help you need to attend (optional)",
     accessibilityHints: ["For example, wheelchair access.", "You don't need to give health information or a diagnosis."],
     comments: "Questions or suggestions",

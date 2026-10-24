@@ -59,7 +59,7 @@ export type RegistrationFormCopy = {
     eventDaysQuestion: string;
     referralQuestion: string;
     referralOther: string;
-    teamCheeredFor: string;
+    competingTeamCheeredFor: string;
     accessibilityNeeds: string;
     accessibilityHints: string[];
     comments: string;
@@ -165,7 +165,11 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
   });
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
-      if (event.target instanceof Element && event.target.closest("[data-language-switch]")) keepAnswersForSwitch();
+      // A modified click opens the other language in a new tab: this tab keeps its form, so keep nothing.
+      const sameTab = event.button === 0 && !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey);
+      if (sameTab && event.target instanceof Element && event.target.closest("[data-language-switch]")) {
+        keepAnswersForSwitch();
+      }
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
@@ -364,7 +368,7 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
         )}
       </div>
 
-      <TextField {...textProps("competingTeamCheeredFor")} label={text.teamCheeredFor} />
+      <TextField {...textProps("competingTeamCheeredFor")} label={text.competingTeamCheeredFor} />
 
       <TextAreaField
         {...textProps("accessibilityNeeds")}

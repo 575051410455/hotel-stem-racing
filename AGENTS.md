@@ -18,7 +18,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The Registration module (`src/lib/registrations/`) owns the domain rules and receives its collaborators as dependencies. `src/lib/server/registrations.ts` is the only composition root that reads environment variables to build them.
 - Schema changes: edit `src/lib/db/schema.ts`, then `npm run db:generate -- --name <slug>`. Never edit a migration that is already committed.
 - Cache Components is on: request-time data (database reads, `cookies()`, `headers()`, `searchParams`, current time, random values) must sit under `<Suspense>` or after `await connection()`. Don't export `runtime`.
-- Public UI is Thai and English, hand-built on the tokens in `src/app/globals.css` (`tab:` = the 735px breakpoint). Public pages live under `src/app/[lang]/` (Thai unprefixed via the Proxy, English under `/en`); their wording is in `src/app/[lang]/_dictionaries/`.
+- Public UI is Thai and English, hand-built on the tokens in `src/app/globals.css` (`tab:` = the 735px breakpoint). Public pages live under `src/app/[lang]/` (Thai unprefixed via the Proxy, English under `/en`). Their wording is in `src/app/[lang]/_dictionaries/`, except strings the browser and the Registration module share (validation messages, Attendee Role, Referral Source and Event labels, contact labels), which live in their `src/lib/` modules keyed by language.
 
 ## Agent skills
 

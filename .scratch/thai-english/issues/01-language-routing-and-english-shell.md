@@ -72,3 +72,21 @@ Done on branch `thai-english-01-routing`.
   - At 375 and 1280 px on `/en` and `/p/:token`: no sideways scroll; each toggle half at least 44 × 40 px and inside the viewport.
   - JavaScript off: `/en`'s toggle is plain links.
 - **Not checked live:** "Registration is closed" in English. It needs the clock past 1 November; it is the same component with the dictionary's copy.
+
+## Review follow-ups (2026-10-24, two-axis review of tickets 01–05)
+
+Fixed on branch `thai-english-review-fixes`:
+- **Proxy matcher:** `/p/:token` and `/:lang(th|en)/p/:token` added beside the general pattern, which skips paths with a dot. `/p/x.y` and `/en/p/x.y` are 404 again (they were a bare 404 and a 200), `/th/p/x.y` redirects.
+- **Kept answers (ticket 04):** a click with Ctrl, Cmd, Shift or Alt, or not the main button, opens a new tab, so nothing is kept.
+- **`submit` (ticket 02):** one JSDoc instead of two stacked blocks.
+- **Organisation label test (ticket 02):** every Attendee Role in both languages.
+- **`APP_URL`:** the registration page reads it through `appUrl()` in the composition root (`src/lib/server/registrations.ts`).
+- **AGENTS.md:** says which strings live in the dictionaries and which in `src/lib/` modules.
+- **Dictionary key** `competingTeamCheeredFor` (glossary term), not `teamCheeredFor`.
+- **One `NotFoundNotice`** (`src/components/site/NotFoundNotice.tsx`) for both public not-found pages; `THAI_COUNTRY_CODE` used everywhere in `fields.ts`.
+
+Checked against `next start`: the status codes above, a Ctrl-click keeping nothing while a plain click keeps the answers, the renamed label, and the 404 pages in both languages.
+
+**Not changed: 404 HTML before JavaScript.** The server's HTML for a public 404 is Next's `__next_error__` shell; the not-found page (heading, `lang`, title) renders from the RSC payload once JavaScript runs. A build of `b01ce58`, before this feature, stores `/p/unknown` the same way, so it isn't new: it is how Next 16 with Cache Components stores a page that calls `notFound()`. With JavaScript, every 404 shows in the right language (checked). Making it server HTML would mean `global-not-found` (experimental) with one bilingual page instead of one per language; left for a decision.
+
+Not taken up (judgement calls): placeholder style, the `.th` pins in the Back Office (tickets 06–09), copy types re-declaring the dictionary's shape, and the `docs/deploy.md` note for the `APP_URL` build arg.

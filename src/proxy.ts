@@ -70,6 +70,11 @@ function requireSessionCookie(request: NextRequest) {
 }
 
 export const config = {
-  // Every page address: not /api, not Next's own files, and not files from public/ (they have a dot).
-  matcher: ["/((?!api/|_next/|.*\\..*).*)"],
+  matcher: [
+    // Every page address: not /api, not Next's own files, and not files from public/ (they have a dot).
+    "/((?!api/|_next/|.*\\..*).*)",
+    // Event Pass links whatever the token holds, dots included, so a malformed one still gets a 404.
+    "/p/:token",
+    "/:lang(th|en)/p/:token",
+  ],
 };
