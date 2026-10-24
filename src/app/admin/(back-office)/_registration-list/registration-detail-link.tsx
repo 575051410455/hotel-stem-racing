@@ -15,7 +15,7 @@ export function RegistrationDetailLink({ registration }: { registration: Registr
   return (
     <Button asChild variant="outline" size="xs">
       <Link href={registrationDetailHref(registration.id, searchParams)} prefetch={false}>
-        รายละเอียด
+        Details
         <span className="sr-only">
           {" "}
           {registration.givenName} {registration.familyName}

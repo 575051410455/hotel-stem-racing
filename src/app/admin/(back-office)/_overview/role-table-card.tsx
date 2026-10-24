@@ -16,7 +16,7 @@ import { type AttendeeRole, attendeeRoleShortLabels, attendeeRoles } from "@/lib
 import { cn } from "@/lib/utils";
 import { readHeadCounts } from "./head-counts";
 
-const formatCount = new Intl.NumberFormat("th-TH").format;
+const formatCount = new Intl.NumberFormat("en-GB").format;
 
 /**
  * Registrations per Event Day by Attendee Role, for planning each day's crowd. The card and its
@@ -29,11 +29,11 @@ export function RoleTableCard({ className }: { className?: string }) {
       <CardHeader>
         <CardTitle>
           <h3 id="role-table-heading" className="leading-normal">
-            ผู้ลงทะเบียนตามฐานะการเข้าร่วมงาน
+            Registrations by Attendee Role
           </h3>
         </CardTitle>
         <CardDescription id="role-table-note" className="leading-normal">
-          ผู้ที่เลือกทั้ง 2 วันนับในแต่ละวัน
+          People who chose both days count on each day
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,15 +64,16 @@ async function RoleTableWithCounts() {
 function RoleTableSkeleton() {
   return (
     <div role="status">
-      <span className="sr-only">กำลังโหลดจำนวนผู้ลงทะเบียน…</span>
+      <span className="sr-only">Loading Registration counts…</span>
       <RoleTable cell={() => <Skeleton aria-hidden="true" className="ml-auto h-5 w-8" />} />
     </div>
   );
 }
 
 /**
- * Attendee Roles as rows ("อื่น ๆ" for Other), then each Event Day's total; Event Days as
- * columns. `cell` gives the content for one Event Day and Attendee Role, or that day's total.
+ * Attendee Roles as rows ("Other", not the form's "Other (please specify)"), then each Event Day's
+ * total; Event Days as columns. `cell` gives the content for one Event Day and Attendee Role, or
+ * that day's total.
  */
 function RoleTable({ cell }: { cell: (eventDay: string, role: AttendeeRole | "total") => ReactNode }) {
   return (
@@ -80,11 +81,11 @@ function RoleTable({ cell }: { cell: (eventDay: string, role: AttendeeRole | "to
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead scope="col" className="h-auto py-2 leading-normal whitespace-normal">
-            ฐานะการเข้าร่วมงาน
+            Attendee Role
           </TableHead>
           {event.eventDays.map(({ date, label }) => (
             <TableHead key={date} scope="col" className="h-auto py-2 text-right leading-normal whitespace-normal">
-              {label.th}
+              {label.en}
             </TableHead>
           ))}
         </TableRow>
@@ -93,7 +94,7 @@ function RoleTable({ cell }: { cell: (eventDay: string, role: AttendeeRole | "to
         {attendeeRoles.map((role) => (
           <TableRow key={role}>
             <TableHead scope="row" className="h-auto py-2 leading-normal font-normal whitespace-normal">
-              {attendeeRoleShortLabels.th[role]}
+              {attendeeRoleShortLabels.en[role]}
             </TableHead>
             {event.eventDays.map(({ date }) => (
               <TableCell key={date} className="text-right tabular-nums">
@@ -106,7 +107,7 @@ function RoleTable({ cell }: { cell: (eventDay: string, role: AttendeeRole | "to
       <TableFooter className="bg-transparent">
         <TableRow className="hover:bg-transparent">
           <TableHead scope="row" className="h-auto py-2 leading-normal">
-            รวม
+            Total
           </TableHead>
           {event.eventDays.map(({ date }) => (
             <TableCell key={date} className="text-right tabular-nums">

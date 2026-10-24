@@ -3,11 +3,11 @@
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { DailyRegistrations } from "@/lib/registrations/daily-registrations";
-import { formatAxisDay, formatCount, formatTooltipDay } from "./format";
+import { formatAxisDay, formatCount, formatPeople, formatTooltipDay } from "./format";
 
 const chartConfig = {
   // --chart-2: the first chart token with 3:1 contrast on the card (WCAG non-text contrast).
-  registrations: { label: "ผู้ลงทะเบียนใหม่", color: "var(--chart-2)" },
+  registrations: { label: "New Registrations", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
 /**
@@ -26,7 +26,7 @@ export function DailyRegistrationsChart({ series }: { series: DailyRegistrations
         data={series}
         margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         role="img"
-        aria-label="กราฟผู้ลงทะเบียนใหม่รายวัน ตัวเลขแต่ละวันอยู่ในตารางถัดไป"
+        aria-label="Chart of new Registrations per day. Each day's number is in the table that follows."
       >
         <defs>
           <linearGradient id="fill-daily-registrations" x1="0" y1="0" x2="0" y2="1">
@@ -58,9 +58,9 @@ export function DailyRegistrationsChart({ series }: { series: DailyRegistrations
               formatter={(value) => (
                 <div className="flex w-full items-center gap-2">
                   <span aria-hidden="true" className="size-2.5 shrink-0 rounded-[2px] bg-(--color-registrations)" />
-                  <span className="text-muted-foreground">ลงทะเบียนใหม่</span>
+                  <span className="text-muted-foreground">New Registrations</span>
                   <span className="ml-auto pl-2 font-medium text-foreground tabular-nums">
-                    {formatCount(Number(value))} คน
+                    {formatPeople(Number(value))}
                   </span>
                 </div>
               )}
