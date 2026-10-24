@@ -155,7 +155,7 @@ function AttendeeLines({ attendee }: { attendee: CheckedInAttendee }) {
         {attendee.givenName} {attendee.familyName}
       </p>
       <p className="text-lg leading-normal">
-        {attendeeRoleShortLabels[attendee.role]} · <span className="font-mono tracking-wide whitespace-nowrap">{attendee.passCode}</span>
+        {attendeeRoleShortLabels.th[attendee.role]} · <span className="font-mono tracking-wide whitespace-nowrap">{attendee.passCode}</span>
       </p>
     </>
   );

@@ -93,7 +93,7 @@ function RoleTable({ cell }: { cell: (eventDay: string, role: AttendeeRole | "to
         {attendeeRoles.map((role) => (
           <TableRow key={role}>
             <TableHead scope="row" className="h-auto py-2 leading-normal font-normal whitespace-normal">
-              {attendeeRoleShortLabels[role]}
+              {attendeeRoleShortLabels.th[role]}
             </TableHead>
             {event.eventDays.map(({ date }) => (
               <TableCell key={date} className="text-right tabular-nums">

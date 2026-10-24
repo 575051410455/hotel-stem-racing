@@ -1,6 +1,7 @@
 // English wording for the public pages, from .scratch/thai-english/copy-public.md.
 
 import { event, eventDateRangeLabel, eventVenue } from "@/lib/event";
+import { SUBMISSION_WINDOW_MINUTES } from "@/lib/registrations/bot-protection";
 import type { Dictionary } from ".";
 
 const dateRange = eventDateRangeLabel("en");
@@ -19,6 +20,53 @@ export const en: Dictionary = {
     introduction: `Come and feel the atmosphere of ${event.name} and cheer on the young competitors.`,
     dateAndVenue: `${dateRange} · ${venue}`,
     loading: "Loading the registration form…",
+  },
+  registrationForm: {
+    formName: "Registration form",
+    intro: "Please fill in your details to register.",
+    requiredKey: "marks a required field",
+    requiredForScreenReaders: "(required)",
+    givenName: "Given name",
+    familyName: "Family name",
+    phone: "Phone number",
+    phonePlaceholder: "081-234-5678",
+    email: "Email",
+    emailPlaceholder: "name@example.com",
+    roleQuestion: "You're attending as",
+    chooseOne: "(choose one)",
+    chooseOneOrMore: "(choose one or more)",
+    roleOther: "Please specify how you're attending",
+    organisationHintSponsor: "Please give the company or organisation you represent",
+    organisationHintOthers: "Leave blank if none",
+    eventDaysQuestion: "Which days will you attend?",
+    referralQuestion: "How did you hear about the Event?",
+    referralOther: "Please specify where you heard about it",
+    teamCheeredFor: "Team you're coming to cheer for (optional)",
+    accessibilityNeeds: "Help you need to attend (optional)",
+    accessibilityHints: ["For example, wheelchair access.", "You don't need to give health information or a diagnosis."],
+    comments: "Questions or suggestions",
+    submit: "Register",
+    submitting: "Registering…",
+    privacyNote: "We use your details to manage your registration, contact you about attending, and plan for attendees.",
+    onePerForm: "One person per form, please.",
+  },
+  botProtection: {
+    loadFailed: "The security check didn't load. Check your internet connection, then reload this page.",
+    error: "The security check ran into a problem.",
+    unsupported: "This browser doesn't support the security check. Please update it or use another browser.",
+    didNotPass: "The security check didn't pass. Wait for the check above to finish, then press Register again.",
+    rateLimited: `Too many forms have been sent from this network. Please wait about ${SUBMISSION_WINDOW_MINUTES} minutes and try again.`,
+    retry: "Try again",
+  },
+  duplicateRegistration: {
+    heading: "You're already registered",
+    resent: "We've sent your Event Pass to {email} again.",
+    spamHint: "If it isn't in your inbox, check your spam folder.",
+    checkInbox: "Look for your Event Pass in the inbox of the email you registered with ({email}), including the spam folder.",
+    registeredWith: "You registered with {email}.",
+    stillNotFound: "If you still can't find it, please contact the organisers.",
+    wantItAgain: "To get your Event Pass again, please contact the organisers.",
+    registerSomeoneElse: "Register someone else",
   },
   registrationClosed: {
     heading: "Registration is closed",

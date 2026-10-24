@@ -228,9 +228,9 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
     },
     {
       label: "ฐานะการเข้าร่วมงาน",
-      value: withOther(attendeeRoleShortLabels[registration.role], registration.roleOther),
+      value: withOther(attendeeRoleShortLabels.th[registration.role], registration.roleOther),
     },
-    { label: organisationLabel(registration.role), value: registration.organisation },
+    { label: organisationLabel(registration.role, "th"), value: registration.organisation },
     {
       label: "วันเข้าร่วมงาน",
       value: <Lines items={registration.eventDays.map((day) => eventDayLabel(day, "th"))} />,
@@ -240,7 +240,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       value: (
         <Lines
           items={registration.referralSources.map((source) =>
-            withOther(referralSourceShortLabels[source], source === "other" ? registration.referralOther : null),
+            withOther(referralSourceShortLabels.th[source], source === "other" ? registration.referralOther : null),
           )}
         />
       ),

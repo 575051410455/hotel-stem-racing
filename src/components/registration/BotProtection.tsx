@@ -1,12 +1,13 @@
 "use client";
 
-// Bot protection on the public form: the Cloudflare Turnstile widget, and the Thai messages for a
-// submission the server turned away (failed bot check, or too many submissions from one IP).
+// Bot protection on the public form: the Cloudflare Turnstile widget, and the messages for a
+// submission the server turned away (failed bot check, or too many submissions from one IP), in
+// the page's language.
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { TURNSTILE_RESPONSE_FIELD } from "@/lib/bot-check/submission-context";
-import { SUBMISSION_WINDOW_MINUTES } from "@/lib/registrations/bot-protection";
+import type { Language } from "@/lib/language";
 import { FieldError } from "./controls";
 import type { RegistrationFormState } from "./form-state";
 
@@ -42,41 +43,61 @@ function resetTurnstile(widgetId: string | null) {
 
 type WidgetProblem = "load-failed" | "error" | "unsupported";
 
-const widgetProblemMessages: Record<WidgetProblem, string> = {
-  "load-failed":
-    "โหลดระบบตรวจสอบความปลอดภัยไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วโหลดหน้านี้ใหม่",
-  error: "ระบบตรวจสอบความปลอดภัยขัดข้อง",
-  unsupported: "เบราว์เซอร์นี้ไม่รองรับระบบตรวจสอบความปลอดภัย กรุณาอัปเดตหรือเปลี่ยนเบราว์เซอร์",
+/** The widget's problems and the turned-away messages, from the page's dictionary. */
+export type BotProtectionCopy = {
+  loadFailed: string;
+  error: string;
+  unsupported: string;
+  didNotPass: string;
+  rateLimited: string;
+  retry: string;
 };
 
-const turnedAwayMessages = {
-  "bot-check-failed":
-    "การตรวจสอบความปลอดภัยไม่ผ่าน กรุณารอให้การตรวจสอบด้านบนเสร็จสิ้น แล้วกดลงทะเบียนอีกครั้ง",
-  "rate-limited": `มีการส่งแบบฟอร์มจากเครือข่ายนี้บ่อยเกินไป กรุณารอประมาณ ${SUBMISSION_WINDOW_MINUTES} นาที แล้วลองใหม่อีกครั้ง`,
-} as const;
+const widgetProblemKeys = { "load-failed": "loadFailed", error: "error", unsupported: "unsupported" } as const;
 
 /**
  * Sits above the submit button. The Turnstile token travels in the form's own FormData, in the
  * hidden input the widget adds. While a submission is pending its last message is hidden, so a
  * repeated message is announced again.
  */
-export function BotProtection({ state, pending }: { state: RegistrationFormState; pending: boolean }) {
-  const message =
-    !pending && (state.status === "bot-check-failed" || state.status === "rate-limited")
-      ? turnedAwayMessages[state.status]
-      : undefined;
+export function BotProtection({
+  state,
+  pending,
+  copy,
+  language,
+}: {
+  state: RegistrationFormState;
+  pending: boolean;
+  copy: BotProtectionCopy;
+  language: Language;
+}) {
+  const message = pending
+    ? undefined
+    : state.status === "bot-check-failed"
+      ? copy.didNotPass
+      : state.status === "rate-limited"
+        ? copy.rateLimited
+        : undefined;
   if (!siteKey && !message) return null;
 
   return (
     <div className="flex flex-col">
-      {siteKey && <TurnstileWidget resetSignal={state} />}
+      {siteKey && <TurnstileWidget resetSignal={state} copy={copy} language={language} />}
       <FieldError id="registration-bot-protection" message={message} />
     </div>
   );
 }
 
 /** `resetSignal` changes with every server result; each change gets a fresh token. */
-function TurnstileWidget({ resetSignal }: { resetSignal: unknown }) {
+function TurnstileWidget({
+  resetSignal,
+  copy,
+  language,
+}: {
+  resetSignal: unknown;
+  copy: BotProtectionCopy;
+  language: Language;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
@@ -89,7 +110,7 @@ function TurnstileWidget({ resetSignal }: { resetSignal: unknown }) {
 
     const widgetId = turnstile.render(container, {
       sitekey: siteKey,
-      language: "th",
+      language,
       // The public pages have no dark theme.
       theme: "light",
       size: container.clientWidth >= FLEXIBLE_MIN_WIDTH ? "flexible" : "compact",
@@ -107,7 +128,7 @@ function TurnstileWidget({ resetSignal }: { resetSignal: unknown }) {
       widgetIdRef.current = null;
       turnstile.remove(widgetId);
     };
-  }, [scriptReady]);
+  }, [scriptReady, language]);
 
   // A token is single use, and the server spends it on any submission it checks (including one
   // that then fails Field validation), so every result needs a new token for the next attempt.
@@ -133,12 +154,12 @@ function TurnstileWidget({ resetSignal }: { resetSignal: unknown }) {
       <p aria-live="polite" className={problem ? "mt-2 text-[0.875rem] text-accent" : undefined}>
         {problem && (
           <>
-            {widgetProblemMessages[problem]}
+            {copy[widgetProblemKeys[problem]]}
             {problem === "error" && (
               <>
                 {" "}
                 <button type="button" onClick={retry} className="font-bold text-link underline">
-                  ลองอีกครั้ง
+                  {copy.retry}
                 </button>
               </>
             )}

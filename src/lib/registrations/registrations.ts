@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
+import { defaultLanguage, type Language } from "@/lib/language";
 import {
   ATTEMPTS_PER_WINDOW,
   createInMemoryRateLimiter,
@@ -182,7 +183,12 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
      * Submits a Registration from what the Attendee entered. The same Field validation the
      * browser runs is re-run here; nothing is saved unless every field is valid.
      */
-    async submit(form: RegistrationForm, context: SubmissionContext = {}): Promise<SubmitResult> {
+    /** Field problems come back in `language`, the language of the form the Attendee filled in. */
+    async submit(
+      form: RegistrationForm,
+      context: SubmissionContext = {},
+      language: Language = defaultLanguage,
+    ): Promise<SubmitResult> {
       const now = deps.clock();
       if (isRegistrationClosed(now)) return { status: "closed" };
 
@@ -200,9 +206,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
         return { status: "rate-limited" };
       }
 
-      const parsed = parseRegistration(form);
+      const parsed = parseRegistration(form, language);
       const fieldErrors = {
-        ...endedEventDayErrors(form.eventDays, now),
+        ...endedEventDayErrors(form.eventDays, now, language),
         ...(parsed.ok ? {} : parsed.fieldErrors),
       };
       if (!parsed.ok || Object.keys(fieldErrors).length > 0) return { status: "invalid", fieldErrors };

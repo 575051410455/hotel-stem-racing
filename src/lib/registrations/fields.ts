@@ -1,7 +1,9 @@
 // Registration fields: options, limits and the pure Field validation shared by the browser
-// (as the Attendee types) and the server (before anything is saved). Safe to import anywhere.
+// (as the Attendee types) and the server (before anything is saved). Labels and messages come in
+// each public language; callers pass the language. Safe to import anywhere.
 
 import { event } from "@/lib/event";
+import type { Language } from "@/lib/language";
 
 /** What the Attendee entered, as the form holds it and FormData carries it. */
 export type RegistrationForm = {
@@ -60,21 +62,33 @@ export const emptyRegistrationForm: RegistrationForm = {
   comments: "",
 };
 
-// ---- Options (labels are the organisers' canonical Thai copy) ----
+// ---- Options (Thai labels are the organisers' canonical copy; English from the copy deck) ----
 
 export const attendeeRoles = ["parent", "teacher", "student", "sponsor", "other"] as const;
 export type AttendeeRole = (typeof attendeeRoles)[number];
 
-export const attendeeRoleLabels: Record<AttendeeRole, string> = {
-  parent: "ผู้ปกครอง",
-  teacher: "คุณครู / อาจารย์",
-  student: "นักเรียน / นักศึกษา",
-  sponsor: "สปอนเซอร์ / ผู้สนับสนุน",
-  other: "อื่น ๆ โปรดระบุ",
+export const attendeeRoleLabels: Record<Language, Record<AttendeeRole, string>> = {
+  th: {
+    parent: "ผู้ปกครอง",
+    teacher: "คุณครู / อาจารย์",
+    student: "นักเรียน / นักศึกษา",
+    sponsor: "สปอนเซอร์ / ผู้สนับสนุน",
+    other: "อื่น ๆ โปรดระบุ",
+  },
+  en: {
+    parent: "Parent",
+    teacher: "Teacher / Lecturer",
+    student: "Student",
+    sponsor: "Sponsor / Supporter",
+    other: "Other (please specify)",
+  },
 };
 
 /** The form's "Other" asks the Attendee to specify; as a stored answer (counts, lists, CSV, at the door) it is just "Other". */
-export const attendeeRoleShortLabels: Record<AttendeeRole, string> = { ...attendeeRoleLabels, other: "อื่น ๆ" };
+export const attendeeRoleShortLabels: Record<Language, Record<AttendeeRole, string>> = {
+  th: { ...attendeeRoleLabels.th, other: "อื่น ๆ" },
+  en: { ...attendeeRoleLabels.en, other: "Other" },
+};
 
 const isAttendeeRole = (value: string): value is AttendeeRole =>
   (attendeeRoles as readonly string[]).includes(value);
@@ -93,36 +107,123 @@ export const referralSources = [
 ] as const;
 export type ReferralSource = (typeof referralSources)[number];
 
-export const referralSourceLabels: Record<ReferralSource, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  line: "LINE",
-  website: "เว็บไซต์",
-  school: "โรงเรียน / สถาบันการศึกษา",
-  organisation: "บริษัท / หน่วยงาน",
-  friend: "เพื่อน / คนรู้จัก",
-  competing_team: "ทีมที่เข้าร่วมการแข่งขัน",
-  other: "อื่น ๆ โปรดระบุ",
+const socialMedia = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", line: "LINE" } as const;
+
+export const referralSourceLabels: Record<Language, Record<ReferralSource, string>> = {
+  th: {
+    ...socialMedia,
+    website: "เว็บไซต์",
+    school: "โรงเรียน / สถาบันการศึกษา",
+    organisation: "บริษัท / หน่วยงาน",
+    friend: "เพื่อน / คนรู้จัก",
+    competing_team: "ทีมที่เข้าร่วมการแข่งขัน",
+    other: "อื่น ๆ โปรดระบุ",
+  },
+  en: {
+    ...socialMedia,
+    website: "Website",
+    school: "School or university",
+    organisation: "Company or organisation",
+    friend: "Friend or acquaintance",
+    competing_team: "A Competing Team",
+    other: "Other (please specify)",
+  },
 };
 
 /** As `attendeeRoleShortLabels`: "Other" as an answer, not a prompt. */
-export const referralSourceShortLabels: Record<ReferralSource, string> = { ...referralSourceLabels, other: "อื่น ๆ" };
+export const referralSourceShortLabels: Record<Language, Record<ReferralSource, string>> = {
+  th: { ...referralSourceLabels.th, other: "อื่น ๆ" },
+  en: { ...referralSourceLabels.en, other: "Other" },
+};
 
 const isReferralSource = (value: string): value is ReferralSource =>
   (referralSources as readonly string[]).includes(value);
 
 const eventDayDates: readonly string[] = event.eventDays.map((day) => day.date);
 
+const organisationLabels: Record<Language, { sponsor: string; others: string }> = {
+  th: { sponsor: "บริษัท / องค์กรที่ท่านเป็นตัวแทน", others: "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน" },
+  en: { sponsor: "Company or organisation you represent", others: "School, university, company or organisation" },
+};
+
 /** Field 5 merges the original form's questions 5 and 6: Sponsors are asked whom they represent. */
-export function organisationLabel(role: string): string {
-  return role === "sponsor"
-    ? "บริษัท / องค์กรที่ท่านเป็นตัวแทน"
-    : "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน";
+export function organisationLabel(role: string, language: Language): string {
+  const labels = organisationLabels[language];
+  return role === "sponsor" ? labels.sponsor : labels.others;
 }
 
-/** Thai messages keyed by field; empty when every field is valid. */
+/** Messages in the form's language, keyed by field; empty when every field is valid. */
 export type FieldErrors = Partial<Record<FieldName, string>>;
+
+type NameField = "givenName" | "familyName";
+
+/** Every Field validation message, per language (.scratch/thai-english/copy-public.md). */
+const messages: Record<
+  Language,
+  {
+    /** A name field as it reads inside a sentence. */
+    nameField: Record<NameField, string>;
+    nameMissing: (field: string) => string;
+    nameTooLong: (field: string, maxLength: number) => string;
+    nameCharacters: (field: string) => string;
+    nameTooShort: (field: string) => string;
+    phoneMissing: string;
+    phoneInvalid: string;
+    emailMissing: string;
+    emailInvalid: string;
+    textTooLong: (maxLength: number) => string;
+    roleMissing: string;
+    roleOtherMissing: string;
+    sponsorOrganisationMissing: string;
+    eventDaysMissing: string;
+    eventDayNotListed: string;
+    referralSourcesMissing: string;
+    referralSourceNotListed: string;
+    referralOtherMissing: string;
+  }
+> = {
+  th: {
+    nameField: { givenName: "ชื่อ", familyName: "นามสกุล" },
+    nameMissing: (field) => `กรุณากรอก${field}`,
+    nameTooLong: (field, maxLength) => `${field}ยาวได้ไม่เกิน ${maxLength} ตัวอักษร`,
+    nameCharacters: (field) => `${field}ใช้ได้เฉพาะตัวอักษร คั่นคำด้วยเว้นวรรค ขีด (-) หรือ ' ได้ครั้งละ 1 ตัว`,
+    nameTooShort: (field) => `${field}ต้องมีอย่างน้อย 2 ตัวอักษร`,
+    phoneMissing: "กรุณากรอกเบอร์โทรศัพท์",
+    phoneInvalid: "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678",
+    emailMissing: "กรุณากรอกอีเมล",
+    emailInvalid: "กรุณากรอกอีเมลให้ถูกต้อง เช่น name@example.com",
+    textTooLong: (maxLength) => `ข้อความยาวได้ไม่เกิน ${maxLength} ตัวอักษร`,
+    roleMissing: "กรุณาเลือกฐานะการเข้าร่วมงาน",
+    roleOtherMissing: "กรุณาระบุฐานะการเข้าร่วมงาน",
+    sponsorOrganisationMissing: "กรุณาระบุบริษัท / องค์กรที่ท่านเป็นตัวแทน",
+    eventDaysMissing: "กรุณาเลือกวันที่ต้องการเข้าร่วมงานอย่างน้อย 1 วัน",
+    eventDayNotListed: "กรุณาเลือกวันที่ต้องการเข้าร่วมงานจากรายการ",
+    referralSourcesMissing: "กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง",
+    referralSourceNotListed: "กรุณาเลือกช่องทางที่ทราบข่าวจากรายการ",
+    referralOtherMissing: "กรุณาระบุช่องทางที่ทราบข่าว",
+  },
+  en: {
+    nameField: { givenName: "given name", familyName: "family name" },
+    nameMissing: (field) => `Please enter your ${field}`,
+    nameTooLong: (field, maxLength) => `Your ${field} can be at most ${maxLength} characters`,
+    nameCharacters: (field) =>
+      `Your ${field} can use letters only, with a single space, hyphen (-) or apostrophe (') between words`,
+    nameTooShort: (field) => `Your ${field} needs at least 2 letters`,
+    phoneMissing: "Please enter your phone number",
+    phoneInvalid: "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678",
+    emailMissing: "Please enter your email",
+    emailInvalid: "Please enter a valid email, such as name@example.com",
+    textTooLong: (maxLength) => `This can be at most ${maxLength} characters`,
+    roleMissing: "Please choose how you're attending",
+    roleOtherMissing: "Please specify how you're attending",
+    sponsorOrganisationMissing: "Please give the company or organisation you represent",
+    eventDaysMissing: "Please choose at least one day",
+    eventDayNotListed: "Please choose a day from the list",
+    referralSourcesMissing: "Please choose at least one way you heard about the Event",
+    referralSourceNotListed: "Please choose from the list",
+    referralOtherMissing: "Please specify where you heard about the Event",
+  },
+};
 
 export const maxLengths = {
   givenName: 100,
@@ -153,14 +254,14 @@ function cleanName(raw: string): string {
 }
 const NAME_CHARACTER = /[\p{L}\p{M}]/gu;
 
-function validateName(raw: string, label: "ชื่อ" | "นามสกุล", maxLength: number) {
+function validateName(raw: string, field: NameField, language: Language) {
+  const text = messages[language];
+  const name = text.nameField[field];
   const value = cleanName(raw);
-  if (!value) return `กรุณากรอก${label}`;
-  if (value.length > maxLength) return `${label}ยาวได้ไม่เกิน ${maxLength} ตัวอักษร`;
-  if (!NAME_PATTERN.test(value)) {
-    return `${label}ใช้ได้เฉพาะตัวอักษร คั่นคำด้วยเว้นวรรค ขีด (-) หรือ ' ได้ครั้งละ 1 ตัว`;
-  }
-  if ((value.match(NAME_CHARACTER) ?? []).length < 2) return `${label}ต้องมีอย่างน้อย 2 ตัวอักษร`;
+  if (!value) return text.nameMissing(name);
+  if (value.length > maxLengths[field]) return text.nameTooLong(name, maxLengths[field]);
+  if (!NAME_PATTERN.test(value)) return text.nameCharacters(name);
+  if ((value.match(NAME_CHARACTER) ?? []).length < 2) return text.nameTooShort(name);
   return undefined;
 }
 
@@ -227,11 +328,9 @@ export function formatPhoneAsYouType(raw: string): string {
   return `+66 ${groupDigits(rest, rest.startsWith("0") ? nationalGroups(rest) : subscriberGroups(rest))}`;
 }
 
-function validatePhone(raw: string) {
-  if (!raw.trim()) return "กรุณากรอกเบอร์โทรศัพท์";
-  if (raw.length > maxLengths.phone || !phoneToE164(raw)) {
-    return "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678";
-  }
+function validatePhone(raw: string, language: Language) {
+  if (!raw.trim()) return messages[language].phoneMissing;
+  if (raw.length > maxLengths.phone || !phoneToE164(raw)) return messages[language].phoneInvalid;
   return undefined;
 }
 
@@ -242,75 +341,68 @@ function validatePhone(raw: string) {
 const EMAIL_PATTERN =
   /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/;
 
-function validateEmail(raw: string) {
+function validateEmail(raw: string, language: Language) {
   const value = raw.trim();
-  if (!value) return "กรุณากรอกอีเมล";
-  if (value.length > maxLengths.email || !EMAIL_PATTERN.test(value)) {
-    return "กรุณากรอกอีเมลให้ถูกต้อง เช่น name@example.com";
-  }
+  if (!value) return messages[language].emailMissing;
+  if (value.length > maxLengths.email || !EMAIL_PATTERN.test(value)) return messages[language].emailInvalid;
   return undefined;
 }
 
 // ---- Free text ----
 
-const tooLong = (maxLength: number) => `ข้อความยาวได้ไม่เกิน ${maxLength} ตัวอักษร`;
-
-function validateText(raw: string, maxLength: number, missing?: string) {
+function validateText(raw: string, maxLength: number, language: Language, missing?: string) {
   const value = raw.trim();
   if (!value) return missing;
-  return value.length > maxLength ? tooLong(maxLength) : undefined;
+  return value.length > maxLength ? messages[language].textTooLong(maxLength) : undefined;
 }
 
 // ---- Validation ----
 
-export function validateField(field: FieldName, form: RegistrationForm): string | undefined {
+export function validateField(field: FieldName, form: RegistrationForm, language: Language): string | undefined {
+  const text = messages[language];
   switch (field) {
     case "givenName":
-      return validateName(form.givenName, "ชื่อ", maxLengths.givenName);
     case "familyName":
-      return validateName(form.familyName, "นามสกุล", maxLengths.familyName);
+      return validateName(form[field], field, language);
     case "phone":
-      return validatePhone(form.phone);
+      return validatePhone(form.phone, language);
     case "email":
-      return validateEmail(form.email);
+      return validateEmail(form.email, language);
     case "role":
-      return isAttendeeRole(form.role) ? undefined : "กรุณาเลือกฐานะการเข้าร่วมงาน";
+      return isAttendeeRole(form.role) ? undefined : text.roleMissing;
     case "roleOther":
       return form.role === "other"
-        ? validateText(form.roleOther, maxLengths.roleOther, "กรุณาระบุฐานะการเข้าร่วมงาน")
+        ? validateText(form.roleOther, maxLengths.roleOther, language, text.roleOtherMissing)
         : undefined;
     case "organisation":
       return validateText(
         form.organisation,
         maxLengths.organisation,
-        form.role === "sponsor" ? "กรุณาระบุบริษัท / องค์กรที่ท่านเป็นตัวแทน" : undefined,
+        language,
+        form.role === "sponsor" ? text.sponsorOrganisationMissing : undefined,
       );
     case "eventDays":
-      if (form.eventDays.length === 0) return "กรุณาเลือกวันที่ต้องการเข้าร่วมงานอย่างน้อย 1 วัน";
-      return form.eventDays.every((day) => eventDayDates.includes(day))
-        ? undefined
-        : "กรุณาเลือกวันที่ต้องการเข้าร่วมงานจากรายการ";
+      if (form.eventDays.length === 0) return text.eventDaysMissing;
+      return form.eventDays.every((day) => eventDayDates.includes(day)) ? undefined : text.eventDayNotListed;
     case "referralSources":
-      if (form.referralSources.length === 0) return "กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง";
-      return form.referralSources.every(isReferralSource)
-        ? undefined
-        : "กรุณาเลือกช่องทางที่ทราบข่าวจากรายการ";
+      if (form.referralSources.length === 0) return text.referralSourcesMissing;
+      return form.referralSources.every(isReferralSource) ? undefined : text.referralSourceNotListed;
     case "referralOther":
       return form.referralSources.includes("other")
-        ? validateText(form.referralOther, maxLengths.referralOther, "กรุณาระบุช่องทางที่ทราบข่าว")
+        ? validateText(form.referralOther, maxLengths.referralOther, language, text.referralOtherMissing)
         : undefined;
     case "competingTeamCheeredFor":
     case "accessibilityNeeds":
     case "comments":
-      return validateText(form[field], maxLengths[field]);
+      return validateText(form[field], maxLengths[field], language);
   }
 }
 
-/** Every field's Thai message, in form order; `{}` when the form is valid. */
-export function validateRegistration(form: RegistrationForm): FieldErrors {
+/** Every field's message in `language`, in form order; `{}` when the form is valid. */
+export function validateRegistration(form: RegistrationForm, language: Language): FieldErrors {
   const errors: FieldErrors = {};
   for (const field of fieldOrder) {
-    const error = validateField(field, form);
+    const error = validateField(field, form, language);
     if (error) errors[field] = error;
   }
   return errors;
@@ -344,9 +436,9 @@ export type ParseResult =
 const optionalText = (raw: string) => raw.trim() || null;
 const nameText = cleanName;
 
-/** Validates, then normalises: trimmed text, E.164 phone, empty optionals as null. */
-export function parseRegistration(form: RegistrationForm): ParseResult {
-  const fieldErrors = validateRegistration(form);
+/** Validates (messages in `language`), then normalises: trimmed text, E.164 phone, empty optionals as null. */
+export function parseRegistration(form: RegistrationForm, language: Language): ParseResult {
+  const fieldErrors = validateRegistration(form, language);
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
 
   const role = form.role as AttendeeRole;
