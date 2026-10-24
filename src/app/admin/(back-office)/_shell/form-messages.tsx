@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
 
-// What the My Account forms say about a request itself, above their buttons, rather than about a field.
+// What the Back Office forms (My Account, the Accounts pages) say about a request itself, above their
+// buttons, rather than about a field.
 
 /** The session ended while the form was open. */
 export function SessionExpired() {

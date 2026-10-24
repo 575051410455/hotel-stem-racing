@@ -78,6 +78,9 @@ async function main(): Promise<number> {
             `\`npm run staff -- make-admin ${email}\`; or set SEED_STAFF_EMAIL to another email. Nothing was changed.`,
         );
         return 1;
+      case "name-too-long":
+        console.error(`SEED_STAFF_NAME is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
+        return 1;
       default:
         // An empty name falls back to the default, and the generated password is always in range.
         throw new Error(`Unexpected result: ${result.status}. Nothing was changed.`);

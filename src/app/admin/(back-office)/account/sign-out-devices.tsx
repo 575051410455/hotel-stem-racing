@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { CANT_REACH_SERVER, SessionExpired } from "../_shell/form-messages";
 import { toastError, toastInfo, toastSuccess } from "../_shell/toasts";
 import {
   type SignOutDeviceActionResult,
@@ -20,7 +21,6 @@ import {
   signOutDevice,
   signOutOtherDevices,
 } from "./actions";
-import { CANT_REACH_SERVER, SessionExpired } from "./form-messages";
 
 // The sign-out buttons of My Account's Signed-in devices. The Server Actions read Signed-in devices
 // again, so a device that is signed out leaves the list; these only show how it went.

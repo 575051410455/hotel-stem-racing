@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../_shell/form-messages";
 import { toastSuccess } from "../_shell/toasts";
 import { type RenameOwnAccountResult, renameOwnAccount } from "./actions";
-import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "./form-messages";
 
 const EMPTY = "Please enter your name";
 const TOO_LONG = `Your name can be at most ${MAX_NAME_LENGTH} characters`;

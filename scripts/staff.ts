@@ -178,6 +178,9 @@ async function create(
     case "invalid-name":
       console.error("The display name is empty. Nothing was changed.");
       return 1;
+    case "name-too-long":
+      console.error(`The display name is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
+      return 1;
     case "email-taken":
       console.error(
         `An Account for ${command.email} already exists. Use reset-password to change its password, ` +

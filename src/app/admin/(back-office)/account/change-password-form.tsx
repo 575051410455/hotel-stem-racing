@@ -7,8 +7,8 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { staffAuthClient } from "@/lib/auth/client";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../_shell/form-messages";
 import { toastSuccess } from "../_shell/toasts";
-import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "./form-messages";
 
 type FieldName = "currentPassword" | "newPassword" | "confirmation";
 
