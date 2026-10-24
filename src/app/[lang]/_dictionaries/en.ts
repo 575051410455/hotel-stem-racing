@@ -104,9 +104,8 @@ export const en: Dictionary = {
     action: "Go to the registration form",
   },
   pageNotFound: {
-    title: "Page not found",
     heading: "Page not found",
-    body: "The link may be wrong. Please check it.",
+    body: "The link may be wrong or incomplete. If it's an Event Pass link, check the one in your email again, or contact the organisers.",
     action: "Go to the registration form",
   },
 };
