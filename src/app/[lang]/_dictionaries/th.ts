@@ -29,6 +29,7 @@ export const th = {
     givenName: "ชื่อ",
     familyName: "นามสกุล",
     phone: "เบอร์โทรศัพท์",
+    phoneHint: "เบอร์มือถือหรือเบอร์บ้าน หรือเบอร์ต่างประเทศขึ้นต้นด้วย + และรหัสประเทศ",
     phonePlaceholder: "081-234-5678",
     email: "อีเมล",
     emailPlaceholder: "name@example.com",

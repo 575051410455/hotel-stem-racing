@@ -67,7 +67,7 @@ describe("Registration module", () => {
         status: "invalid",
         fieldErrors: {
           givenName: "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร",
-          phone: "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678",
+          phone: "กรุณากรอกเบอร์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678 หรือเบอร์ต่างประเทศขึ้นต้นด้วย + เช่น +44 7700 900123",
           email: "กรุณากรอกอีเมลให้ถูกต้อง เช่น name@example.com",
           eventDays: "กรุณาเลือกวันที่ต้องการเข้าร่วมงานอย่างน้อย 1 วัน",
         },
@@ -97,6 +97,17 @@ describe("Registration module", () => {
       });
       const accepted = await registrations.submit({ ...other, roleOther: "ศิษย์เก่า", referralOther: "วิทยุ" });
       assert.equal(accepted.status, "accepted");
+    });
+
+    test("an international phone number registers and is stored as E.164", async () => {
+      const result = await registrations.submit({ ...attendee, givenName: "Jane", familyName: "Doe", phone: "+44 7700 900123" });
+      assert.equal(result.status, "accepted");
+
+      const { rows } = await registrations.search({ q: "Jane", page: 1, pageSize: 25 });
+      assert.deepEqual(
+        rows.map((row) => row.phone),
+        ["+447700900123"],
+      );
     });
 
     test("each Registration gets its own token and Pass Code", async () => {

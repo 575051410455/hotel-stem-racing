@@ -99,6 +99,14 @@ describe("Registration CSV", () => {
     );
   });
 
+  test("an international phone number is written as E.164 in both phone columns", () => {
+    const [, row] = registrationsCsv([{ ...wichai, phone: "+447700900123" }]).split("\r\n");
+    const [, , , , localPhone, e164Phone] = row.split(",");
+
+    assert.equal(localPhone, "'+447700900123");
+    assert.equal(e164Phone, "'+447700900123");
+  });
+
   test("names the file after the Bangkok date it was exported on", () => {
     // 00:30 on 25 October in Bangkok, still the 24th in UTC.
     assert.equal(

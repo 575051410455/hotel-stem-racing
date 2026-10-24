@@ -46,6 +46,7 @@ export type RegistrationFormCopy = {
     givenName: string;
     familyName: string;
     phone: string;
+    phoneHint: string;
     phonePlaceholder: string;
     email: string;
     emailPlaceholder: string;
@@ -279,6 +280,7 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
         ref={phoneRef}
         onChange={changePhone}
         label={text.phone}
+        help={text.phoneHint}
         required
         type="tel"
         inputMode="tel"
