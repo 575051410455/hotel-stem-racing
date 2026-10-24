@@ -14,17 +14,17 @@ export type CreateAccountInput = {
   kind?: AccountKind;
 };
 export type CreateFirstAdminAccountInput = Omit<CreateAccountInput, "kind">;
-export type ResetPasswordInput = { email: string; password: string };
+
+/** What an Admin may change on an Account's page. A field left out stays as it is. */
+export type AccountUpdate = { name?: string; email?: string; kind?: AccountKind };
 
 type PasswordProblem =
   | { status: "password-too-short"; minLength: number }
   | { status: "password-too-long"; maxLength: number };
 
-type NewAccountProblem =
-  | { status: "invalid-email" }
-  | { status: "invalid-name" }
-  | { status: "name-too-long"; maxLength: number }
-  | PasswordProblem;
+type NameProblem = { status: "invalid-name" } | { status: "name-too-long"; maxLength: number };
+
+type NewAccountProblem = { status: "invalid-email" } | NameProblem | PasswordProblem;
 
 export type CreateAccountResult =
   | { status: "created"; accountId: string; email: string; kind: AccountKind }
@@ -38,15 +38,29 @@ export type MakeAdminResult =
   | { status: "already-admin"; accountId: string }
   | { status: "not-found" };
 
+export type UpdateAccountResult =
+  /** Saved, or nothing to save; `account` is as it is now. */
+  | { status: "updated"; account: Account }
+  | { status: "not-found" }
+  | NameProblem
+  | { status: "invalid-email" }
+  | { status: "email-taken" }
+  /** An Admin changing their own kind (rules about yourself apply only to an Account actor). */
+  | { status: "own-kind" }
+  /** Demoting the only enabled Admin Account: there is always at least one (ADR 0004). */
+  | { status: "last-enabled-admin" };
+
 export type RenameResult =
   | { status: "renamed"; name: string }
-  | { status: "invalid-name" }
-  | { status: "name-too-long"; maxLength: number }
+  | NameProblem
   | { status: "not-allowed" }
   | { status: "not-found" };
 
-export type ResetPasswordResult =
-  | { status: "password-reset"; accountId: string; kind: AccountKind }
+export type SetPasswordResult =
+  /** `staysDisabled`: the Account was disabled, and setting its password doesn't enable it. */
+  | { status: "password-set"; accountId: string; email: string; kind: AccountKind; staysDisabled: boolean }
+  /** An Admin's own password is changed on My Account, by confirming the current one. */
+  | { status: "own-account" }
   | { status: "not-found" }
   | PasswordProblem;
 
@@ -119,6 +133,16 @@ function toAccount(user: { id: string; name: string; email: string; createdAt: D
  */
 const nameOrder = new Intl.Collator("th");
 
+/**
+ * Whether an Account must choose its own password once its kind becomes `kind`. A Kiosk never has
+ * to. A Kiosk made Staff or Admin must: an Admin or the command chose its password (ADR 0004).
+ * Between Staff and Admin it stays as it was.
+ */
+function mustChangePasswordAsKind(account: Account, kind: AccountKind): boolean {
+  if (!canChangeOwnPassword(kind)) return false;
+  return account.mustChangePassword || !canChangeOwnPassword(account.kind);
+}
+
 /** The Accounts list's order: enabled Accounts first, then disabled ones, each group by name. */
 function enabledFirstByName(a: Account, b: Account): number {
   return (
@@ -129,18 +153,20 @@ function enabledFirstByName(a: Account, b: Account): number {
 }
 
 /**
- * The Accounts module (ADR 0004): creates Accounts of every kind (Admin, Staff, Kiosk), promotes
- * them to Admin, renames them and resets their passwords. It is the code path behind `npm run staff`,
- * `npm run seed`, My Account and the Accounts pages, and the one place that writes Accounts. Public
- * sign-up is disabled (ADR 0001), so this writes through Better Auth's server-side context
- * (`auth.$context`), with the same steps as its sign-up endpoint: hash, create user, link
- * credential. It is also the only way to set an Account's kind or name, which Better Auth refuses
- * from requests. Password length limits come from the auth config, so the commands and sign-in
- * always agree, for every kind.
- * Every write takes an `actor` and records an Account Change (the Account History) on `db`. A
- * password it sets (`create`, `createFirst`, `resetPassword`) is someone else's choice, so a Staff
- * or Admin Account's owner must choose their own at the next sign-in (`mustChangePassword`); the
- * owner's own change clears it (a hook in staff-auth.ts). Kiosk Accounts are never flagged.
+ * The Accounts module (ADR 0004): creates Accounts of every kind (Admin, Staff, Kiosk), edits their
+ * name, email and kind, promotes them to Admin and sets their passwords. It is the code path behind
+ * `npm run staff`, `npm run seed`, My Account and the Accounts pages, and the one place that writes
+ * Accounts. Public sign-up is disabled (ADR 0001), so this writes through Better Auth's server-side
+ * context (`auth.$context`), with the same steps as its sign-up endpoint: hash, create user, link
+ * credential. It is also the only way to set an Account's kind, name or email, which Better Auth
+ * refuses from requests. Password length limits come from the auth config, so the commands and
+ * sign-in always agree, for every kind.
+ * Every write takes an `actor` and records an Account Change (the Account History) on `db`; a
+ * no-op or a refusal records nothing. Rules about yourself (your own kind, your own password) apply
+ * only to an Account actor, never to the server command. A password it sets (`create`,
+ * `createFirst`, `setPassword`) is someone else's choice, so a Staff or Admin Account's owner must
+ * choose their own at the next sign-in (`mustChangePassword`); the owner's own change clears it (a
+ * hook in staff-auth.ts). Kiosk Accounts are never flagged.
  */
 export function createAccounts(auth: StaffAuth, db: Database) {
   /**
@@ -163,13 +189,34 @@ export function createAccounts(auth: StaffAuth, db: Database) {
     return null;
   }
 
+  /** A name as it will be stored (already trimmed): not empty, at most 100 characters. */
+  function checkName(name: string): NameProblem | null {
+    if (!name) return { status: "invalid-name" };
+    if (name.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
+    return null;
+  }
+
   async function checkNewAccount(input: CreateAccountInput): Promise<NewAccountProblem | null> {
     if (!isValidAccountEmail(input.email)) return { status: "invalid-email" };
-    const name = input.name.trim();
-    if (!name) return { status: "invalid-name" };
-    // The same limit as the owner's rename, so an Account never starts with a name its owner couldn't save.
-    if (name.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
-    return checkPassword(input.password);
+    // The same rule as an edit or the owner's rename, so an Account never starts with a name its owner couldn't save.
+    return checkName(input.name.trim()) ?? checkPassword(input.password);
+  }
+
+  /** Whether `actor` is the Account itself: an Admin on their own Account's page, or the owner. */
+  const isOwnAccount = (accountId: string, actor: Actor) => actor !== "server-command" && actor.accountId === accountId;
+
+  /**
+   * How many enabled Admin Accounts there are besides this one. None means this one is the last
+   * enabled Admin, which must stay one (ADR 0004). Two Admins demoting each other in the same
+   * instant could both pass: accepted (spec), and `make-admin` is the way back.
+   */
+  async function otherEnabledAdmins(accountId: string): Promise<number> {
+    const ctx = await auth.$context;
+    return ctx.internalAdapter.countTotalUsers([
+      { field: "kind", value: "admin" },
+      { field: "disabledAt", value: null },
+      { field: "id", operator: "ne", value: accountId },
+    ]);
   }
 
   const accounts = {
@@ -242,64 +289,129 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       const from = kindOf(found.user);
       if (from === "admin") return { status: "already-admin", accountId: userId };
 
-      await ctx.internalAdapter.updateUser(userId, { kind: "admin" });
+      await ctx.internalAdapter.updateUser(userId, {
+        kind: "admin",
+        mustChangePassword: mustChangePasswordAsKind(toAccount(found.user), "admin"),
+      });
       await ctx.internalAdapter.deleteUserSessions(userId);
       await record(userId, { action: "kind-changed", details: { from, to: "admin" } }, actor);
       return { status: "promoted", accountId: userId, from };
     },
 
     /**
-     * The owner's own rename, from My Account. The only way a name changes: Better Auth's own
-     * `/update-user` is refused (see staff-auth.ts). Sessions stay; they read the name afresh.
-     * Records `name-changed` with the owner as actor, unless the name stays the same.
+     * Changes an Account's name, email or kind, for an Admin on the Account's page. A field that is
+     * left out or stays the same is neither checked nor recorded, so an Account keeps a name or email
+     * that today's rules wouldn't allow until someone changes it. All or nothing: any refusal
+     * changes nothing. Each field that changes is recorded on its own, with its old and new value.
+     * The name is trimmed, not empty and at most 100 characters. The email is trimmed and
+     * lower-cased, and refused when any other Account has it, enabled or disabled. Sessions stay
+     * through both; they read them afresh. A kind change signs the Account out everywhere, so no
+     * open session keeps its old kind, and moves the must-change-password flag with it
+     * (`mustChangePasswordAsKind`); an Admin can't change their own, and the last enabled Admin
+     * can't be demoted, by anyone.
+     */
+    async update(accountId: string, fields: AccountUpdate, actor: Actor): Promise<UpdateAccountResult> {
+      const ctx = await auth.$context;
+      const user = await ctx.internalAdapter.findUserById(accountId);
+      if (!user) return { status: "not-found" };
+      const account = toAccount(user);
+
+      const name = fields.name?.trim();
+      const nameChanges = name !== undefined && name !== account.name;
+      if (nameChanges) {
+        const problem = checkName(name);
+        if (problem) return problem;
+      }
+
+      const email = fields.email === undefined ? undefined : normaliseEmail(fields.email);
+      const emailChanges = email !== undefined && email !== account.email;
+      if (emailChanges) {
+        if (!isValidAccountEmail(email)) return { status: "invalid-email" };
+        if (await ctx.internalAdapter.findUserByEmail(email)) return { status: "email-taken" };
+      }
+
+      const { kind } = fields;
+      const kindChanges = kind !== undefined && kind !== account.kind;
+      if (kindChanges) {
+        if (isOwnAccount(accountId, actor)) return { status: "own-kind" };
+        // A disabled Admin isn't one of the enabled Admins, so demoting one leaves them as they are.
+        if (account.kind === "admin" && account.disabledAt === null && (await otherEnabledAdmins(accountId)) === 0) {
+          return { status: "last-enabled-admin" };
+        }
+      }
+
+      if (!nameChanges && !emailChanges && !kindChanges) return { status: "updated", account };
+      const updated = await ctx.internalAdapter.updateUser(accountId, {
+        ...(nameChanges && { name }),
+        ...(emailChanges && { email }),
+        ...(kindChanges && { kind, mustChangePassword: mustChangePasswordAsKind(account, kind) }),
+      });
+      if (kindChanges) await ctx.internalAdapter.deleteUserSessions(accountId);
+      if (nameChanges) await record(accountId, { action: "name-changed", details: { from: account.name, to: name } }, actor);
+      if (emailChanges) await record(accountId, { action: "email-changed", details: { from: account.email, to: email } }, actor);
+      if (kindChanges) await record(accountId, { action: "kind-changed", details: { from: account.kind, to: kind } }, actor);
+      return { status: "updated", account: toAccount(updated) };
+    },
+
+    /**
+     * The owner's own rename, from My Account: `update` with only the name, and the owner as actor.
+     * Better Auth's own `/update-user` is refused (see staff-auth.ts), so names change only here and
+     * on the Account's page. A Kiosk can't rename itself.
      */
     async rename(accountId: string, name: string): Promise<RenameResult> {
-      const trimmed = name.trim();
-      if (!trimmed) return { status: "invalid-name" };
-      if (trimmed.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
+      const account = await accounts.get(accountId);
+      if (!account) return { status: "not-found" };
+      // A Kiosk's name is set by an Admin or the command; the Kiosk can't change it (ADR 0003).
+      if (!canEditOwnName(account.kind)) return { status: "not-allowed" };
+
+      const result = await accounts.update(accountId, { name }, { accountId });
+      switch (result.status) {
+        case "updated":
+          return { status: "renamed", name: result.account.name };
+        case "invalid-name":
+        case "name-too-long":
+        case "not-found":
+          return result;
+        default:
+          // Only the name was given, so nothing else can be refused.
+          throw new Error(`Renaming ${accountId} was refused as ${result.status}`);
+      }
+    },
+
+    /**
+     * Sets a new password, for an Admin on the Account's page or `npm run staff -- reset-password`,
+     * and signs the Account out everywhere, Kiosks included. Its kind stays. A Staff or Admin
+     * Account's owner must then choose their own password at the next sign-in; a Kiosk Account's
+     * needn't, so the Kiosk keeps working. A disabled Account stays disabled (`staysDisabled`), so a
+     * reset never quietly lets it back in. An Admin's own password is refused here: they change it
+     * on My Account, by confirming the current one.
+     */
+    async setPassword(accountId: string, password: string, actor: Actor): Promise<SetPasswordResult> {
+      if (isOwnAccount(accountId, actor)) return { status: "own-account" };
+      const passwordProblem = await checkPassword(password);
+      if (passwordProblem) return passwordProblem;
 
       const ctx = await auth.$context;
       const user = await ctx.internalAdapter.findUserById(accountId);
       if (!user) return { status: "not-found" };
-      // A Kiosk's name is set by whoever creates it; the Kiosk can't change it (ADR 0003).
-      if (!canEditOwnName(kindOf(user))) return { status: "not-allowed" };
-      if (trimmed === user.name) return { status: "renamed", name: trimmed };
-      await ctx.internalAdapter.updateUser(accountId, { name: trimmed });
-      await record(accountId, { action: "name-changed", details: { from: user.name, to: trimmed } }, { accountId });
-      return { status: "renamed", name: trimmed };
-    },
+      const { email, kind, disabledAt } = toAccount(user);
 
-    /**
-     * Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. A
-     * Staff or Admin Account's owner must then choose their own password at the next sign-in; a
-     * Kiosk Account's needn't, so the Kiosk keeps working.
-     */
-    async resetPassword(input: ResetPasswordInput, actor: Actor): Promise<ResetPasswordResult> {
-      const passwordProblem = await checkPassword(input.password);
-      if (passwordProblem) return passwordProblem;
-
-      const ctx = await auth.$context;
-      const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(input.email));
-      if (!found) return { status: "not-found" };
-      const userId = found.user.id;
-      const kind = kindOf(found.user);
-
-      const hash = await ctx.password.hash(input.password);
-      if (await ctx.internalAdapter.findCredentialAccount(userId)) {
-        await ctx.internalAdapter.updatePassword(userId, hash);
+      const hash = await ctx.password.hash(password);
+      if (await ctx.internalAdapter.findCredentialAccount(accountId)) {
+        await ctx.internalAdapter.updatePassword(accountId, hash);
       } else {
         await ctx.internalAdapter.linkAccount({
-          userId,
+          userId: accountId,
           providerId: "credential",
-          accountId: userId,
+          accountId,
           password: hash,
         });
       }
       // Someone else chose it, so a Staff or Admin Account's owner chooses their own at the next sign-in.
-      if (canChangeOwnPassword(kind)) await ctx.internalAdapter.updateUser(userId, { mustChangePassword: true });
-      await ctx.internalAdapter.deleteUserSessions(userId);
-      await record(userId, { action: "password-set" }, actor);
-      return { status: "password-reset", accountId: userId, kind };
+      if (canChangeOwnPassword(kind)) await ctx.internalAdapter.updateUser(accountId, { mustChangePassword: true });
+      await ctx.internalAdapter.deleteUserSessions(accountId);
+      await record(accountId, { action: "password-set" }, actor);
+      return { status: "password-set", accountId, email, kind, staysDisabled: disabledAt !== null };
     },
 
     /** Every Account, of every kind, for the Accounts list: enabled first, then disabled, each by name. */
@@ -315,6 +427,13 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       const ctx = await auth.$context;
       const user = await ctx.internalAdapter.findUserById(accountId);
       return user ? toAccount(user) : null;
+    },
+
+    /** One Account by its email, in any case, for the commands; null when there is none. */
+    async getByEmail(email: string): Promise<Account | null> {
+      const ctx = await auth.$context;
+      const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(email));
+      return found ? toAccount(found.user) : null;
     },
 
     /**

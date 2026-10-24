@@ -13,7 +13,8 @@
 // 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
 // out everywhere. make-admin is also the way back in when no Admin can sign in. A Staff or Admin
 // Account created or reset here must choose its own password at its next sign-in; a Kiosk Account
-// needn't. Every change is recorded in the Account History as made by "Server command".
+// needn't. A reset never enables a disabled Account, and says so. Every change is recorded in the
+// Account History as made by "Server command".
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
@@ -193,18 +194,28 @@ async function create(
   }
 }
 
+/**
+ * Sets the password of the Account with this email, any kind, the operator's own included: rules
+ * about yourself don't apply to the server command.
+ */
 async function resetPassword(accounts: Accounts, email: string, password: string): Promise<number> {
-  const result = await accounts.resetPassword({ email, password }, "server-command");
+  const account = await accounts.getByEmail(email);
+  const result = account && (await accounts.setPassword(account.id, password, "server-command"));
+  if (!result || result.status === "not-found") {
+    console.error(`There is no Account for ${email}. Nothing was changed.`);
+    return 1;
+  }
   switch (result.status) {
-    case "password-reset":
+    case "password-set":
       console.log(
-        `Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.` +
-          chooseOwnPasswordNote(result.kind, "next"),
+        `Reset the password for the ${KIND_LABELS[result.kind]} ${result.email} and signed it out of every device.` +
+          chooseOwnPasswordNote(result.kind, "next") +
+          (result.staysDisabled ? " It stays disabled: it can't sign in until an Admin enables it again." : ""),
       );
       return 0;
-    case "not-found":
-      console.error(`There is no Account for ${email}. Nothing was changed.`);
-      return 1;
+    case "own-account":
+      // Only an Account actor has an Account of its own; the server command has none.
+      throw new Error("The server command was refused as the Account's owner");
     default:
       console.error(passwordProblemMessage(result));
       return 1;

@@ -1,12 +1,16 @@
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { accountChangeLine } from "@/lib/auth/account-changes";
 import type { AccountHistoryEntry } from "@/lib/auth/account-history";
 import { bangkokEnglishDateTime } from "@/lib/bangkok-time";
+import { cn } from "@/lib/utils";
+import { accountHref } from "../links";
 
 /**
- * Account Changes in the order given (newest first), read-only. A table where the list has room, a
- * stacked list where it hasn't (a phone, a tablet, or a narrow window with the sidebar open): it
- * switches on its own width (a container query, 48rem), like the Accounts list.
+ * Account Changes in the order given (newest first), read-only; each Account's name opens its page.
+ * A table where the list has room, a stacked list where it hasn't (a phone, a tablet, or a narrow
+ * window with the sidebar open): it switches on its own width (a container query, 48rem), like the
+ * Accounts list.
  */
 export function AccountHistoryList({ changes }: { changes: AccountHistoryEntry[] }) {
   return (
@@ -29,7 +33,7 @@ export function AccountHistoryList({ changes }: { changes: AccountHistoryEntry[]
                 </TableCell>
                 {/* Long names, emails and changes wrap rather than push the last column out of view. */}
                 <TableCell className="align-top whitespace-normal">
-                  <span className="block min-w-32 font-medium wrap-anywhere">{entry.account.name}</span>
+                  <AccountLink account={entry.account} className="block min-w-32 font-medium wrap-anywhere" />
                   <span className="block wrap-anywhere text-muted-foreground">{entry.account.email}</span>
                 </TableCell>
                 <TableCell className="align-top whitespace-normal wrap-anywhere">
@@ -53,7 +57,7 @@ export function AccountHistoryList({ changes }: { changes: AccountHistoryEntry[]
             <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm leading-normal">
               <dt className="text-muted-foreground">Account</dt>
               <dd className="wrap-anywhere">
-                {entry.account.name}
+                <AccountLink account={entry.account} />
                 <span className="block text-muted-foreground">{entry.account.email}</span>
               </dd>
               <dt className="text-muted-foreground">When</dt>
@@ -69,6 +73,15 @@ export function AccountHistoryList({ changes }: { changes: AccountHistoryEntry[]
         ))}
       </ul>
     </div>
+  );
+}
+
+/** The Account's name as it is now, opening its page. */
+function AccountLink({ account, className }: { account: AccountHistoryEntry["account"]; className?: string }) {
+  return (
+    <Link href={accountHref(account.id)} className={cn("underline underline-offset-4", className)}>
+      {account.name}
+    </Link>
   );
 }
 

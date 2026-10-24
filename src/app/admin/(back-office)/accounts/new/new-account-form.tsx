@@ -16,23 +16,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { type AccountKind, canChangeOwnPassword, isAccountKind } from "@/lib/auth/access";
-import { isValidAccountEmail } from "@/lib/auth/email-rules";
 import { KIND_LABELS } from "@/lib/auth/kind-labels";
-import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
 import { toastSuccess } from "../../_shell/toasts";
+import {
+  EMAIL_INVALID,
+  EMAIL_TAKEN,
+  emailProblems,
+  KIND_CHOICES,
+  KIND_INVALID,
+  NAME_EMPTY,
+  NAME_TOO_LONG,
+  nameProblems,
+  PASSWORD_TOO_LONG,
+  PASSWORD_TOO_SHORT,
+  passwordProblems,
+} from "../account-form-rules";
 import { type CreateAccountActionResult, createAccount } from "./actions";
 
 /** Where the Admin goes once the Account is created. */
 const ACCOUNTS_PATH = "/admin/accounts";
-
-/** The kinds on offer, in this order, each with what it opens (ADR 0003, ADR 0004). */
-const KIND_CHOICES = [
-  { kind: "staff", explanation: "Check-In desk only" },
-  { kind: "admin", explanation: "The whole Back Office, including Accounts" },
-  { kind: "kiosk", explanation: "Kiosk only, for an unattended iPad" },
-] as const satisfies readonly { kind: AccountKind; explanation: string }[];
 
 /** Chosen to begin with: a helper at the entrance is the commonest new Account, and the least a person can be given. */
 const FIRST_KIND: AccountKind = "staff";
@@ -42,13 +46,6 @@ type FieldName = "name" | "email" | "kind" | "password" | "confirmation";
 /** What went wrong: next to a field, or (`form`) for the whole form, above the button. */
 type Problems = Partial<Record<FieldName, string>> & { form?: ReactNode };
 
-const NAME_EMPTY = "Please enter a name";
-const NAME_TOO_LONG = `The name can be at most ${MAX_NAME_LENGTH} characters`;
-const EMAIL_INVALID = "Please enter a valid email";
-const EMAIL_TAKEN = "This email already belongs to an Account";
-const PASSWORD_TOO_SHORT = `The password needs at least ${MIN_PASSWORD_LENGTH} characters`;
-const PASSWORD_TOO_LONG = `The password can be at most ${MAX_PASSWORD_LENGTH} characters`;
-
 type Typed = { name: string; email: string; password: string; confirmation: string };
 
 /**
@@ -56,16 +53,7 @@ type Typed = { name: string; email: string; password: string; confirmation: stri
  * the same rules, except the confirmation, which only guards against a typo here.
  */
 function checkInput({ name, email, password, confirmation }: Typed): Problems {
-  const problems: Problems = {};
-  if (!name) problems.name = NAME_EMPTY;
-  else if (name.length > MAX_NAME_LENGTH) problems.name = NAME_TOO_LONG;
-  if (!email) problems.email = "Please enter an email";
-  else if (!isValidAccountEmail(email)) problems.email = EMAIL_INVALID;
-  if (password.length < MIN_PASSWORD_LENGTH) problems.password = PASSWORD_TOO_SHORT;
-  else if (password.length > MAX_PASSWORD_LENGTH) problems.password = PASSWORD_TOO_LONG;
-  if (!confirmation) problems.confirmation = "Please enter the password again";
-  else if (confirmation !== password) problems.confirmation = "The passwords don't match";
-  return problems;
+  return { ...nameProblems(name), ...emailProblems(email), ...passwordProblems(password, confirmation) };
 }
 
 function resultProblems(result: CreateAccountActionResult | null): Problems {
@@ -85,8 +73,7 @@ function resultProblems(result: CreateAccountActionResult | null): Problems {
     case "password-too-long":
       return { password: PASSWORD_TOO_LONG };
     case "invalid-kind":
-      // The radio group always sends one of the three, so only a bug lands here.
-      return { kind: "Choose a kind of Account" };
+      return { kind: KIND_INVALID };
     case "signed-out":
       return { form: <SessionExpired /> };
     case undefined:

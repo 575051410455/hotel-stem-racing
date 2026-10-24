@@ -11,8 +11,8 @@ import { accountHistoryHref } from "./history/links";
 
 export const metadata: Metadata = { title: "Accounts" };
 
-// /admin/accounts: every Account (account-management ticket 03), with the way to the Account History
-// (04) and to create one (06). Admin-only: managing Accounts is (canManageAccounts, ADR 0004), so
+// /admin/accounts: every Account (account-management ticket 03), each opening its page (07), with the
+// way to the Account History (04) and to create one (06). Admin-only: managing Accounts is (canManageAccounts, ADR 0004), so
 // Staff go to the check-in desk and a Kiosk to the Kiosk. The header is the static shell; the list
 // needs the session and the database.
 export default function AccountsPage() {
