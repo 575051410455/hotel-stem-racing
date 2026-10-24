@@ -42,6 +42,21 @@ export type ResetPasswordResult =
   | { status: "not-found" }
   | PasswordProblem;
 
+/** An Account as the Accounts pages show it (GLOSSARY: Account). Never a password or its hash. */
+export type Account = {
+  id: string;
+  name: string;
+  email: string;
+  kind: AccountKind;
+  /** When an Admin disabled it; null while it is enabled. */
+  disabledAt: Date | null;
+  /** Its owner must choose their own password at the next sign-in. */
+  mustChangePassword: boolean;
+  /** When it last signed in; null if it never has ("Never"). */
+  lastSignedInAt: Date | null;
+  createdAt: Date;
+};
+
 // Deliberately loose: the operator types the address, and Better Auth lower-cases and stores it as given.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,6 +67,41 @@ function kindOf(user: { email: string }): AccountKind {
   const { kind } = user as { kind?: unknown };
   if (!isAccountKind(kind)) throw new Error(`${user.email} has an unknown Account kind: ${String(kind)}`);
   return kind;
+}
+
+/** The internal adapter's user, typed without our additional fields, as an `Account`. */
+function toAccount(user: { id: string; name: string; email: string; createdAt: Date }): Account {
+  const { mustChangePassword, disabledAt, lastSignedInAt } = user as {
+    mustChangePassword?: unknown;
+    disabledAt?: unknown;
+    lastSignedInAt?: unknown;
+  };
+  const dateOrNull = (value: unknown) => (value instanceof Date ? value : null);
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    kind: kindOf(user),
+    disabledAt: dateOrNull(disabledAt),
+    mustChangePassword: mustChangePassword === true,
+    lastSignedInAt: dateOrNull(lastSignedInAt),
+    createdAt: user.createdAt,
+  };
+}
+
+/**
+ * Names in Thai dictionary order, like the Registration list's (a leading vowel such as เ files under
+ * the consonant after it), with Latin letters ignoring case.
+ */
+const nameOrder = new Intl.Collator("th");
+
+/** The Accounts list's order: enabled Accounts first, then disabled ones, each group by name. */
+function enabledFirstByName(a: Account, b: Account): number {
+  return (
+    Number(a.disabledAt !== null) - Number(b.disabledAt !== null) ||
+    nameOrder.compare(a.name, b.name) ||
+    a.email.localeCompare(b.email)
+  );
 }
 
 /**
@@ -187,6 +237,21 @@ export function createAccounts(auth: StaffAuth) {
       }
       await ctx.internalAdapter.deleteUserSessions(userId);
       return { status: "password-reset", accountId: userId, kind };
+    },
+
+    /** Every Account, of every kind, for the Accounts list: enabled first, then disabled, each by name. */
+    async list(): Promise<Account[]> {
+      const ctx = await auth.$context;
+      // Better Auth returns at most 100 rows unless told how many to read.
+      const users = await ctx.internalAdapter.listUsers(await ctx.internalAdapter.countTotalUsers());
+      return users.map(toAccount).sort(enabledFirstByName);
+    },
+
+    /** One Account by its id, for its page; null when there is none. */
+    async get(accountId: string): Promise<Account | null> {
+      const ctx = await auth.$context;
+      const user = await ctx.internalAdapter.findUserById(accountId);
+      return user ? toAccount(user) : null;
     },
   };
   return accounts;

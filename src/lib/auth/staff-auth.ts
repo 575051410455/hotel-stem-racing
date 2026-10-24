@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
 import { ACCOUNT_KINDS, canChangeOwnPassword, isAccountKind } from "./access";
@@ -51,11 +52,34 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
         // Staff Account or Kiosk Account (`users.kind`, ADR 0003), returned on every session.
         // `input: false`: no request can set it, not even /update-user from a signed-in Kiosk.
         kind: { type: [...ACCOUNT_KINDS], required: true, defaultValue: "staff", input: false },
+        // Part 2 (account-management ticket 03), also returned on every session and never set from
+        // a request. Only the Accounts module and the hooks below write them.
+        mustChangePassword: { type: "boolean", required: true, defaultValue: false, input: false },
+        disabledAt: { type: "date", required: false, input: false },
+        lastSignedInAt: { type: "date", required: false, input: false },
       },
     },
     session: {
       expiresIn: SESSION_LIFETIME_SECONDS,
       updateAge: 60 * 60 * 24,
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // Last sign-in (account-management ticket 03): set as each session is created, for every
+          // kind of Account, so an unused Kiosk iPad shows up like an unused helper. A wrong password
+          // never gets here, and neither will a disabled Account once ticket 08 refuses it in
+          // `.before`. Changing a password starts a fresh session too, which counts: its owner is
+          // there. Written straight to the table: the endpoint context, and with it the internal
+          // adapter, can be null here.
+          after: async (session) => {
+            await db
+              .update(authSchema.users)
+              .set({ lastSignedInAt: session.createdAt })
+              .where(eq(authSchema.users.id, session.userId));
+          },
+        },
+      },
     },
     rateLimit: {
       // Better Auth turns this off outside production by default; keep it on everywhere so dev and

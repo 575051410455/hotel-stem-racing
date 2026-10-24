@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { bangkokDate, bangkokEnglishDateTime, bangkokInstant, bangkokTime } from "./bangkok-time";
+import { bangkokDate, bangkokEnglishDate, bangkokEnglishDateTime, bangkokInstant, bangkokTime } from "./bangkok-time";
 
 // Instants are written in UTC, and the expected Bangkok values are worked out by hand (UTC+07:00,
 // no daylight saving), so a helper that used the machine's or UTC's zone would disagree.
@@ -21,6 +21,13 @@ describe("Bangkok time", () => {
     assert.equal(bangkokEnglishDateTime(new Date("2026-10-22T07:05:09Z")), "22 Oct 2026, 14:05");
     assert.equal(bangkokEnglishDateTime(new Date("2026-10-30T17:00:00Z")), "31 Oct 2026, 00:00");
     assert.equal(bangkokEnglishDateTime(new Date("2026-09-05T02:05:00Z")), "5 Sep 2026, 09:05");
+  });
+
+  test("the English date is day, short month and year, on Bangkok's calendar", () => {
+    assert.equal(bangkokEnglishDate(new Date("2026-10-22T07:05:09Z")), "22 Oct 2026");
+    assert.equal(bangkokEnglishDate(new Date("2026-10-30T16:59:59Z")), "30 Oct 2026");
+    assert.equal(bangkokEnglishDate(new Date("2026-10-30T17:00:00Z")), "31 Oct 2026");
+    assert.equal(bangkokEnglishDate(new Date("2026-09-05T02:05:00Z")), "5 Sep 2026");
   });
 
   test("midnight in Bangkok reads 00:00, not 24:00", () => {

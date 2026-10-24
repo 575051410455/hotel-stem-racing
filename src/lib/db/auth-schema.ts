@@ -36,6 +36,14 @@ export const users = pgTable(
      * Better Auth refuses it from requests (`input: false`).
      */
     kind: text({ enum: ACCOUNT_KINDS }).notNull().default("staff"),
+    // Part 2 of account-management (ticket 03). Like `kind`, declared to Better Auth as user
+    // `additionalFields` with `input: false`, so no request can set them, and returned on the session.
+    /** Set when someone else sets a Staff or Admin Account's password; its owner must choose their own. */
+    mustChangePassword: boolean().notNull().default(false),
+    /** When an Admin disabled the Account; null while it is enabled. Disabled Accounts can't sign in. */
+    disabledAt: timestamp({ withTimezone: true }),
+    /** When the Account last signed in (any kind), set as each session is created; null for "Never". */
+    lastSignedInAt: timestamp({ withTimezone: true }),
   },
   (table) => [check("users_kind_check", sql`${table.kind} in ('admin', 'staff', 'kiosk')`)],
 );
