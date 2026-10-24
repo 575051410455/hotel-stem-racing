@@ -10,12 +10,28 @@ import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type CameraFacing, deviceCameraPreference } from "@/lib/check-in/camera-preference";
 import { looksLikeEventPass } from "@/lib/check-in/pass-recogniser";
+import type { Language } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 /** Non-exact facing modes: a device without that camera opens the camera it has instead of failing. */
 const FACING_MODES: Record<CameraFacing, "user" | "environment"> = { front: "user", back: "environment" };
 
-const CAMERA_NAMES: Record<CameraFacing, string> = { front: "กล้องหน้า", back: "กล้องหลัง" };
+/**
+ * Something the scanner says. The desk shows the English; a Kiosk shows the Thai, then the English
+ * (`Words`). Every message carries both, even the errors of controls only the desk has, so one
+ * kind serves both places.
+ */
+type Message = Record<Language, string>;
+
+const CAMERA_NAMES: Record<Language, Record<CameraFacing, string>> = {
+  th: { front: "กล้องหน้า", back: "กล้องหลัง" },
+  en: { front: "front camera", back: "back camera" },
+};
+
+const HEADING: Message = { th: "สแกน QR ด้วยกล้อง", en: "Scan a QR with the camera" };
+const OPENING: Message = { th: "กำลังเปิดกล้อง…", en: "Opening the camera…" };
+const OPEN_AGAIN: Message = { th: "เปิดกล้องอีกครั้ง", en: "Open the camera again" };
+const NOT_AN_EVENT_PASS: Message = { th: "QR นี้ไม่ใช่ Event Pass", en: "This QR isn't an Event Pass" };
 
 /** How long the orange "not an Event Pass" notice stays up. */
 const NOTICE_MS = 3_000;
@@ -96,34 +112,68 @@ function previewOutOfShape(reader: HTMLElement): boolean {
   );
 }
 
-/** What went wrong opening a camera, in words Staff can act on. */
-function cameraProblem(failure: unknown): string {
+/**
+ * What went wrong opening a camera, in words Staff can act on. The English always ends a sentence,
+ * so more can follow it.
+ */
+function cameraProblem(failure: unknown): Message {
   // html5-qrcode rejects with strings such as "Error getting userMedia, error = NotAllowedError: …".
   const detail = String(failure);
-  if (!window.isSecureContext) return "เบราว์เซอร์เปิดกล้องได้เฉพาะหน้าเว็บที่เป็น https";
+  if (!window.isSecureContext) {
+    return {
+      th: "เบราว์เซอร์เปิดกล้องได้เฉพาะหน้าเว็บที่เป็น https",
+      en: "The browser can open the camera only on an https page.",
+    };
+  }
   if (/NotAllowedError|PermissionDenied|Permission denied|SecurityError/i.test(detail)) {
-    return "ไม่ได้รับอนุญาตให้ใช้กล้อง อนุญาตให้เว็บไซต์นี้ใช้กล้องในการตั้งค่าเบราว์เซอร์ แล้วลองอีกครั้ง";
+    return {
+      th: "ไม่ได้รับอนุญาตให้ใช้กล้อง อนุญาตให้เว็บไซต์นี้ใช้กล้องในการตั้งค่าเบราว์เซอร์ แล้วลองอีกครั้ง",
+      en: "Camera access was denied. Allow this site to use the camera in the browser settings, then try again.",
+    };
   }
-  if (/NotFoundError|DevicesNotFoundError|OverconstrainedError/i.test(detail)) return "ไม่พบกล้องบนอุปกรณ์นี้";
+  if (/NotFoundError|DevicesNotFoundError|OverconstrainedError/i.test(detail)) {
+    return { th: "ไม่พบกล้องบนอุปกรณ์นี้", en: "No camera found on this device." };
+  }
   if (/NotReadableError|TrackStartError|AbortError/i.test(detail)) {
-    return "กล้องอาจถูกแอปอื่นใช้อยู่ ปิดแอปนั้นแล้วลองอีกครั้ง";
+    return {
+      th: "กล้องอาจถูกแอปอื่นใช้อยู่ ปิดแอปนั้นแล้วลองอีกครั้ง",
+      en: "Another app may be using the camera. Close it and try again.",
+    };
   }
-  if (/not supported|mediaDevices/i.test(detail)) return "เบราว์เซอร์นี้ใช้กล้องไม่ได้ ลองเปิดด้วย Safari หรือ Chrome";
-  return "ลองอีกครั้ง";
+  if (/not supported|mediaDevices/i.test(detail)) {
+    return {
+      th: "เบราว์เซอร์นี้ใช้กล้องไม่ได้ ลองเปิดด้วย Safari หรือ Chrome",
+      en: "This browser can't use the camera. Try Safari or Chrome.",
+    };
+  }
+  return { th: "ลองอีกครั้ง", en: "Try again." };
+}
+
+/** A message as the scanner shows it: English at the desk; on a Kiosk, Thai, then the English below. */
+function Words({ message, kiosk, englishClassName }: { message: Message; kiosk: boolean; englishClassName?: string }) {
+  if (!kiosk) return message.en;
+  return (
+    <>
+      {message.th}{" "}
+      <span lang="en" className={cn("block", englishClassName)}>
+        {message.en}
+      </span>
+    </>
+  );
 }
 
 type Status = "off" | "starting" | "on" | "stopping";
 
 /**
- * The camera preview with its Start, Switch and Stop controls. `onPass` receives decoded text that
- * looks like an Event Pass, at most once per presentation of a pass.
+ * The camera preview with its Start, Switch and Stop controls, in English. `onPass` receives
+ * decoded text that looks like an Event Pass, at most once per presentation of a pass.
  *
  * `mirrorPreview` flips the preview like a mirror, with CSS only (what is scanned is unaffected).
  * It defaults to mirroring while the front camera is open.
  *
  * `kiosk` (fixed for the scanner's lifetime) sets it up for a Kiosk: it opens the front camera as
  * soon as it mounts, without reading or saving the device's camera choice; it has no switch or
- * stop control, only a retry when the camera couldn't open; its notices are in Thai and English;
+ * stop control, only a retry when the camera couldn't open; it says everything in Thai, then English;
  * and it pauses the camera while the page is hidden. The preview fills the section, which
  * `className` sizes.
  */
@@ -142,7 +192,7 @@ export function CameraScanner({
   const [status, setStatus] = useState<Status>(kiosk ? "starting" : "off");
   // The camera that is open, or being reopened after a failed switch.
   const [facing, setFacing] = useState<CameraFacing>(kiosk ? "front" : "back");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Message | null>(null);
   const [noticeShown, setNoticeShown] = useState(false);
 
   const readerRef = useRef<HTMLDivElement>(null);
@@ -276,7 +326,11 @@ export function CameraScanner({
         console.error(`Opening the ${next} camera failed`, failure);
         if (!mountedRef.current) return;
         setStatus("off");
-        setError(`เปิด${CAMERA_NAMES[next]}ไม่ได้: ${cameraProblem(failure)}`);
+        const problem = cameraProblem(failure);
+        setError({
+          th: `เปิด${CAMERA_NAMES.th[next]}ไม่ได้: ${problem.th}`,
+          en: `Couldn't open the ${CAMERA_NAMES.en[next]}: ${problem.en}`,
+        });
       }
     });
   }
@@ -301,17 +355,30 @@ export function CameraScanner({
         console.error(`Switching to the ${next} camera failed`, failure);
         if (!mountedRef.current) return;
         // Put the previous camera back and leave the saved choice alone.
-        const problem = `เปลี่ยนเป็น${CAMERA_NAMES[next]}ไม่ได้: ${cameraProblem(failure)}`;
+        const reason = cameraProblem(failure);
+        const problem: Message = {
+          th: `เปลี่ยนเป็น${CAMERA_NAMES.th[next]}ไม่ได้: ${reason.th}`,
+          en: `Couldn't switch to the ${CAMERA_NAMES.en[next]}: ${reason.en}`,
+        };
         try {
           const scanner = await camera();
           await scanner.close();
           await scanner.open(previous);
           setStatus("on");
-          setError(`${problem} กลับมาใช้${CAMERA_NAMES[previous]}แล้ว`);
+          setError({
+            th: `${problem.th} กลับมาใช้${CAMERA_NAMES.th[previous]}แล้ว`,
+            en: `${problem.en} Back to the ${CAMERA_NAMES.en[previous]}.`,
+          });
         } catch (restoreFailure) {
           console.error(`Reopening the ${previous} camera failed`, restoreFailure);
           setStatus("off");
-          setError(`${problem} และเปิด${CAMERA_NAMES[previous]}อีกครั้งไม่ได้ กดเปิดกล้องเพื่อลองใหม่`);
+          setError({
+            th: `${problem.th} และเปิด${CAMERA_NAMES.th[previous]}อีกครั้งไม่ได้ กดเปิดกล้องเพื่อลองใหม่`,
+            // The problem's sentence carries on, without its full stop.
+            en:
+              `${problem.en.replace(/\.$/, "")} and couldn't reopen the ${CAMERA_NAMES.en[previous]}. ` +
+              "Press Open camera to try again.",
+          });
         }
         return;
       }
@@ -333,7 +400,10 @@ export function CameraScanner({
         console.error("Closing the camera failed", failure);
         if (!mountedRef.current) return;
         setStatus("on");
-        setError("ปิดกล้องไม่ได้ ลองอีกครั้ง หรือโหลดหน้านี้ใหม่");
+        setError({
+          th: "ปิดกล้องไม่ได้ ลองอีกครั้ง หรือโหลดหน้านี้ใหม่",
+          en: "Couldn't turn off the camera. Try again, or reload this page.",
+        });
       }
     });
   }
@@ -347,7 +417,7 @@ export function CameraScanner({
       className={cn(kiosk ? "flex min-h-0 flex-col" : "mt-6", className)}
     >
       <h2 id={`${previewId}-heading`} className={kiosk ? "sr-only" : "text-sm leading-normal font-medium"}>
-        สแกน QR ด้วยกล้อง
+        <Words message={HEADING} kiosk={kiosk} />
       </h2>
 
       <div
@@ -374,19 +444,24 @@ export function CameraScanner({
               kiosk ? "text-2xl" : "text-base",
             )}
           >
-            กำลังเปิดกล้อง…
-            {kiosk && <span className="block text-xl font-normal text-white/80">Starting the camera…</span>}
+            <Words message={OPENING} kiosk={kiosk} englishClassName="text-xl font-normal text-white/80" />
           </p>
         )}
         {kiosk && status === "off" && (
           <div className="absolute inset-0 grid place-content-center justify-items-center gap-5 p-6 text-center">
             {error && (
               <p role="alert" className="max-w-md text-lg leading-normal font-medium text-white">
-                {error}
+                <Words message={error} kiosk englishClassName="mt-1 font-normal text-white/80" />
               </p>
             )}
-            <Button type="button" size="lg" variant="secondary" className="h-14 px-8 text-lg" onClick={start}>
-              เปิดกล้องอีกครั้ง
+            <Button
+              type="button"
+              size="lg"
+              variant="secondary"
+              className="h-auto min-h-14 flex-col gap-0 px-8 py-2 text-lg whitespace-normal"
+              onClick={start}
+            >
+              <Words message={OPEN_AGAIN} kiosk englishClassName="text-base font-normal" />
             </Button>
           </div>
         )}
@@ -404,8 +479,7 @@ export function CameraScanner({
                 kiosk ? "px-8 py-3 text-2xl" : "px-4 py-2 text-base",
               )}
             >
-              QR นี้ไม่ใช่ Event Pass
-              {kiosk && <span className="block text-lg font-medium">This QR isn’t an Event Pass</span>}
+              <Words message={NOT_AN_EVENT_PASS} kiosk={kiosk} englishClassName="text-lg font-medium" />
             </p>
           )}
         </div>
@@ -416,15 +490,15 @@ export function CameraScanner({
           <div className="mt-3 flex flex-wrap gap-2">
             {status === "off" ? (
               <Button type="button" size="lg" onClick={start}>
-                เปิดกล้องสแกน QR
+                Open camera to scan QR
               </Button>
             ) : (
               <>
                 <Button type="button" size="lg" variant="outline" disabled={busy} onClick={switchCamera}>
-                  สลับเป็น{CAMERA_NAMES[facing === "back" ? "front" : "back"]}
+                  Switch to {CAMERA_NAMES.en[facing === "back" ? "front" : "back"]}
                 </Button>
                 <Button type="button" size="lg" variant="outline" disabled={busy} onClick={stop}>
-                  ปิดกล้อง
+                  Turn off camera
                 </Button>
               </>
             )}
@@ -432,7 +506,7 @@ export function CameraScanner({
 
           {error && (
             <p role="alert" className="mt-2 text-sm leading-normal font-medium text-destructive">
-              {error}
+              {error.en}
             </p>
           )}
         </>

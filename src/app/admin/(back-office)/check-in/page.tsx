@@ -5,7 +5,7 @@ import { eventDayOn } from "@/lib/registrations/event-day-availability";
 import { PageContent, PageHeader, PageTitle } from "../_shell/page-header";
 import { CheckInDesk } from "./check-in-desk";
 
-export const metadata: Metadata = { title: "เช็คอิน" };
+export const metadata: Metadata = { title: "Check-In" };
 
 // Check-In at the entrance. The header is the static shell; the desk is Staff-only and needs
 // today's date, so it renders at request time behind its own boundary.
@@ -13,10 +13,10 @@ export default function CheckInPage() {
   return (
     <>
       <PageHeader>
-        <PageTitle>เช็คอิน</PageTitle>
+        <PageTitle>Check-In</PageTitle>
       </PageHeader>
       <PageContent narrow>
-        <Suspense fallback={<p className="text-sm leading-normal text-muted-foreground">กำลังโหลด…</p>}>
+        <Suspense fallback={<p className="text-sm leading-normal text-muted-foreground">Loading…</p>}>
           <CheckInStation />
         </Suspense>
       </PageContent>

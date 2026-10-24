@@ -1,6 +1,7 @@
 // The big Check-In result Staff read at the entrance. Hook-free, so the typed form (ticket 13),
 // the camera scanner (18) and Kiosk mode (19) can all render it. Text alone carries every
-// result; colour and icon only reinforce it.
+// result; colour and icon only reinforce it. The desk is in English; the Kiosk shares the
+// headings below in Thai, with an English line for Attendees.
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -34,36 +35,76 @@ export const tones: Record<Tone, string> = {
 export type CheckInHeading = {
   tone: Tone;
   Icon: ((props: { className?: string }) => ReactNode) | null;
+  /** The desk's headline, in English worded for Staff ("Checked in"). */
+  staff: string;
+  /** The Kiosk's headline. */
   thai: string;
-  /** The Kiosk's second line, for Attendees who don't read Thai. */
+  /** The Kiosk's second line, for Attendees who don't read Thai ("You’re checked in"). */
   english: string;
 };
 
 export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading {
   switch (result.status) {
     case "pending":
-      return { tone: "neutral", Icon: null, thai: "กำลังตรวจสอบ…", english: "Checking…" };
+      return { tone: "neutral", Icon: null, staff: "Checking…", thai: "กำลังตรวจสอบ…", english: "Checking…" };
     case "checked-in":
-      return { tone: "success", Icon: CheckIcon, thai: "เช็คอินสำเร็จ", english: "You’re checked in" };
+      return {
+        tone: "success",
+        Icon: CheckIcon,
+        staff: "Checked in",
+        thai: "เช็คอินสำเร็จ",
+        english: "You’re checked in",
+      };
     case "already-checked-in": {
       const time = bangkokTime(result.checkedInAt);
       return {
         tone: "repeat",
         Icon: ClockIcon,
+        staff: `Already checked in at ${time}`,
         thai: `เช็คอินแล้วเมื่อ ${time}`,
         english: `Already checked in at ${time}`,
       };
     }
     case "checked-in-outside-registered-day":
-      return { tone: "warning", Icon: AlertIcon, thai: "ไม่ได้ลงทะเบียนวันนี้", english: "Not registered for today" };
+      return {
+        tone: "warning",
+        Icon: AlertIcon,
+        staff: "Not registered for this day",
+        thai: "ไม่ได้ลงทะเบียนวันนี้",
+        english: "Not registered for today",
+      };
     case "not-an-event-pass":
-      return { tone: "neutral", Icon: CrossIcon, thai: "ไม่ใช่ Event Pass", english: "Not an Event Pass" };
+      return {
+        tone: "neutral",
+        Icon: CrossIcon,
+        staff: "Not an Event Pass",
+        thai: "ไม่ใช่ Event Pass",
+        english: "Not an Event Pass",
+      };
     case "not-an-event-day":
-      return { tone: "neutral", Icon: CrossIcon, thai: "วันนี้ไม่ใช่วันจัดงาน", english: "Today isn’t an Event Day" };
+      return {
+        tone: "neutral",
+        Icon: CrossIcon,
+        staff: "Today isn't an Event Day",
+        thai: "วันนี้ไม่ใช่วันจัดงาน",
+        english: "Today isn’t an Event Day",
+      };
     case "failed":
-      return { tone: "neutral", Icon: CrossIcon, thai: "เช็คอินไม่สำเร็จ", english: "Check-in didn’t go through" };
+      return {
+        tone: "neutral",
+        Icon: CrossIcon,
+        staff: "Check-In didn't go through",
+        thai: "เช็คอินไม่สำเร็จ",
+        english: "Check-in didn’t go through",
+      };
     case "signed-out":
-      return { tone: "neutral", Icon: CrossIcon, thai: "หมดเวลาเข้าสู่ระบบ", english: "Session expired" };
+      return {
+        tone: "neutral",
+        Icon: CrossIcon,
+        staff: "Session expired",
+        thai: "หมดเวลาเข้าสู่ระบบ",
+        english: "Session expired",
+      };
   }
 }
 
@@ -88,8 +129,8 @@ function panelDetails({ result, scan }: CheckInAttempt): ReactNode {
         <>
           <AttendeeLines attendee={result.attendee} />
           <p className="mt-3 text-base leading-normal">
-            ไม่ได้บันทึกซ้ำ ตรวจสอบว่าเป็นเจ้าของ Event Pass
-            {result.outsideRegisteredDay ? " (ไม่ได้ลงทะเบียนวันนี้)" : ""}
+            Not recorded again. Check that this is the Event Pass holder
+            {result.outsideRegisteredDay ? " (not registered for this day)" : ""}.
           </p>
           <EventDayLine date={result.eventDay} />
         </>
@@ -97,10 +138,10 @@ function panelDetails({ result, scan }: CheckInAttempt): ReactNode {
     case "checked-in-outside-registered-day":
       return (
         <>
-          <p className="text-lg leading-normal font-semibold">บันทึกการเช็คอินแล้ว</p>
+          <p className="text-lg leading-normal font-semibold">Check-In recorded</p>
           <AttendeeLines attendee={result.attendee} />
           <p className="mt-3 text-base leading-normal">
-            ลงทะเบียนไว้: {result.attendee.eventDays.map((day) => eventDayLabel(day, "th")).join(" และ ")}
+            Registered for: {result.attendee.eventDays.map((day) => eventDayLabel(day, "en")).join(" and ")}
           </p>
           <EventDayLine date={result.eventDay} />
         </>
@@ -109,39 +150,37 @@ function panelDetails({ result, scan }: CheckInAttempt): ReactNode {
       return (
         <>
           <ScannedText scan={scan} />
-          <p className="mt-2 text-base leading-normal">ไม่ได้บันทึกการเช็คอิน ตรวจสอบรหัสแล้วลองอีกครั้ง</p>
+          <p className="mt-2 text-base leading-normal">No Check-In recorded. Check the code and try again.</p>
         </>
       );
     case "not-an-event-day":
       return (
         <p className="text-base leading-normal">
-          เลือกวันเข้าร่วมงานที่จะเช็คอินด้านบน แล้วกดเช็คอินอีกครั้ง ยังไม่ได้บันทึกการเช็คอิน
+          Choose the Event Day above, then press Check in again. No Check-In recorded yet.
         </p>
       );
     case "signed-out":
       return (
         <p className="text-base leading-normal">
-          ยังไม่ได้บันทึกการเช็คอิน{" "}
+          No Check-In recorded.{" "}
           <Link href={SIGN_IN_PATH} className="font-semibold underline underline-offset-4">
-            เข้าสู่ระบบอีกครั้ง
+            Sign in again
           </Link>
         </p>
       );
     case "failed":
       return (
-        <p className="text-base leading-normal">
-          เกิดข้อผิดพลาดในการเชื่อมต่อ ยังไม่ได้บันทึกการเช็คอิน กดเช็คอินอีกครั้ง
-        </p>
+        <p className="text-base leading-normal">Connection problem. No Check-In recorded. Press Check in again.</p>
       );
   }
 }
 
-function Panel({ heading: { tone, Icon, thai }, children }: { heading: CheckInHeading; children: ReactNode }) {
+function Panel({ heading: { tone, Icon, staff }, children }: { heading: CheckInHeading; children: ReactNode }) {
   return (
     <div className={cn("rounded-xl border-2 p-5 tab:p-6", tones[tone])}>
       <p className="flex items-center gap-3 text-3xl leading-tight font-bold tab:text-4xl">
         {Icon && <Icon />}
-        <span>{thai}</span>
+        <span>{staff}</span>
       </p>
       <div className="mt-3">{children}</div>
     </div>
@@ -155,14 +194,14 @@ function AttendeeLines({ attendee }: { attendee: CheckedInAttendee }) {
         {attendee.givenName} {attendee.familyName}
       </p>
       <p className="text-lg leading-normal">
-        {attendeeRoleShortLabels.th[attendee.role]} · <span className="font-mono tracking-wide whitespace-nowrap">{attendee.passCode}</span>
+        {attendeeRoleShortLabels.en[attendee.role]} · <span className="font-mono tracking-wide whitespace-nowrap">{attendee.passCode}</span>
       </p>
     </>
   );
 }
 
 function EventDayLine({ date }: { date: string }) {
-  return <p className="mt-3 text-sm leading-normal opacity-90">เช็คอินสำหรับ{eventDayLabel(date, "th")}</p>;
+  return <p className="mt-3 text-sm leading-normal opacity-90">Check-In for {eventDayLabel(date, "en")}</p>;
 }
 
 function ScannedText({ scan }: { scan: string }) {
