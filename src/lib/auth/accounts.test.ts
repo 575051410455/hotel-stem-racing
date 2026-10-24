@@ -974,4 +974,18 @@ describe("Accounts: signed-in devices", () => {
       [thisDevice.session.id],
     );
   });
+
+  test("listing devices and signing them out records no Account Change", async () => {
+    const accountId = await createStaff("staff@example.org");
+    const thisDevice = await signInDevice("staff@example.org");
+    const phone = await signInDevice("staff@example.org");
+    await signInDevice("staff@example.org");
+    const before = await accounts.history({ accountId, page: 1 });
+
+    await accounts.listDevices(accountId, thisDevice.session.id);
+    await accounts.signOutDevice(accountId, phone.session.id, thisDevice.session.id);
+    await accounts.signOutOtherDevices(accountId, thisDevice.session.id);
+
+    assert.deepEqual(await accounts.history({ accountId, page: 1 }), before);
+  });
 });

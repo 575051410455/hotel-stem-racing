@@ -31,7 +31,7 @@ See the spec (Part 2, "Signed-in devices", stories 61–66).
 - [x] **Tests against a real database:**
   - `signOutDevice` deletes another of the Account's sessions, and refuses the current session and another Account's session;
   - `signOutOtherDevices` keeps only the current session;
-  - no Account Change is recorded (once 04 is merged).
+  - no Account Change is recorded (added by the integrator after 04 merged: "listing devices and signing them out records no Account Change").
 - [x] typecheck, lint, test and build pass. The hand-off records a check against `next start`, with three browser contexts signed in to one Account:
   - "Sign out" on one device: the toast, and that device is signed out on its next request;
   - "Sign out all other devices" asks first, then leaves only this one; the button then disappears;
