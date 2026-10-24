@@ -16,20 +16,29 @@ import { toastError, toastInfo, toastSuccess } from "../_shell/toasts";
 import { BackOfficeRequestError } from "../query-provider";
 import { bulkSendSummaryKey, bulkSendSummaryQuery, postEventPassBatch } from "./bulk-send-api";
 
-const formatCount = new Intl.NumberFormat("th-TH").format;
+const formatCount = new Intl.NumberFormat("en-GB").format;
+
+/** "emails" after any count but 1. */
+const emailsUnit = (count: number) => (count === 1 ? "email" : "emails");
+
+/** "1 email" / "1,234 emails". */
+const formatEmails = (count: number) => `${formatCount(count)} ${emailsUnit(count)}`;
+
+/** "1 person" / "1,234 people". */
+const formatPeople = (count: number) => `${formatCount(count)} ${count === 1 ? "person" : "people"}`;
 
 const modeOptions: { mode: BulkSendMode; title: string; description: string; recipients: string }[] = [
   {
     mode: "unsent",
-    title: "เฉพาะผู้ที่ยังไม่เคยได้รับ",
-    description: "ผู้ลงทะเบียนที่ยังไม่เคยส่งอีเมล Event Pass สำเร็จ เช่น ช่วงที่ระบบอีเมลขัดข้อง",
-    recipients: "ผู้ลงทะเบียนที่ยังไม่เคยได้รับ Event Pass",
+    title: "Only those not yet sent",
+    description: "Attendees never successfully sent an Event Pass, for example during an email outage",
+    recipients: "Attendees not yet sent an Event Pass",
   },
   {
     mode: "all",
-    title: "ทุกคน",
-    description: "ผู้ลงทะเบียนทุกคน ผู้ที่เคยได้รับแล้วจะได้รับอีกฉบับ",
-    recipients: "ผู้ลงทะเบียนทุกคน",
+    title: "Everyone",
+    description: "Every Attendee. Those already sent one get another.",
+    recipients: "every Attendee",
   },
 ];
 
@@ -136,7 +145,7 @@ export function BulkSend() {
       setRun(current);
       void queryClient.invalidateQueries({ queryKey: bulkSendSummaryKey });
       void queryClient.invalidateQueries({ queryKey: registrationListKey });
-      // The overview numbers (ยังไม่ได้ส่งอีเมล Event Pass) are server-rendered.
+      // The overview numbers (Event Pass email not sent) are server-rendered.
       router.refresh();
       toastRunEnded(current);
     }
@@ -172,7 +181,7 @@ export function BulkSend() {
   return (
     <div className="mt-6 space-y-6">
       <fieldset disabled={locked} className="disabled:opacity-60">
-        <legend className="text-sm leading-normal font-medium">ส่งถึง</legend>
+        <legend className="text-sm leading-normal font-medium">Send to</legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {modeOptions.map((option) => (
             <label
@@ -235,20 +244,20 @@ function SummaryPanel({
       return (
         <section aria-labelledby="bulk-send-summary-heading" className="rounded-xl border bg-white p-5">
           <h2 id="bulk-send-summary-heading" className="font-semibold leading-normal">
-            สรุปก่อนส่ง
+            Summary before sending
           </h2>
           {signedOut ? (
             <p className="mt-2 leading-normal">
-              หมดเวลาการเข้าสู่ระบบ{" "}
+              Session expired.{" "}
               <Link href={SIGN_IN_PATH} className="font-medium underline underline-offset-4">
-                เข้าสู่ระบบอีกครั้ง
+                Sign in again
               </Link>
             </p>
           ) : (
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <p className="leading-normal">นับจำนวนอีเมลไม่สำเร็จ</p>
+              <p className="leading-normal">Couldn&apos;t count the emails</p>
               <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
-                ลองอีกครั้ง
+                Try again
               </Button>
             </div>
           )}
@@ -257,7 +266,7 @@ function SummaryPanel({
     }
     return (
       <p role="status" className="text-sm leading-normal text-muted-foreground">
-        กำลังนับจำนวนอีเมล…
+        Counting emails…
       </p>
     );
   }
@@ -268,43 +277,43 @@ function SummaryPanel({
   return (
     <section aria-labelledby="bulk-send-summary-heading" className="rounded-xl border bg-white p-5">
       <h2 id="bulk-send-summary-heading" className="font-semibold leading-normal">
-        สรุปก่อนส่ง
+        Summary before sending
       </h2>
       <p className="mt-3 leading-normal">
         <span className="text-4xl font-semibold tabular-nums">{formatCount(shown.emails)}</span>{" "}
-        <span className="text-muted-foreground">ฉบับ</span>
+        <span className="text-muted-foreground">{emailsUnit(shown.emails)}</span>
       </p>
       <p className="text-sm leading-normal text-muted-foreground">
-        อีเมลที่จะส่งทั้งหมด ถึง{recipients} (1 ฉบับต่อผู้ลงทะเบียน 1 คน)
+        Emails to send, to {recipients} (one per Registration)
       </p>
 
-      <h3 className="mt-5 text-sm leading-normal font-medium">แยกตามวันเข้าร่วมงานที่เลือก</h3>
+      <h3 className="mt-5 text-sm leading-normal font-medium">By Event Day chosen</h3>
       <dl className="mt-1 divide-y border-y">
         {shown.eventDays.map((day) => (
           <div key={day.eventDay} className="flex items-baseline justify-between gap-4 py-2 text-sm leading-normal">
-            <dt>{eventDayLabel(day.eventDay, "th")}</dt>
-            <dd className="font-medium tabular-nums">{formatCount(day.registrations)} คน</dd>
+            <dt>{eventDayLabel(day.eventDay, "en")}</dt>
+            <dd className="font-medium tabular-nums">{formatPeople(day.registrations)}</dd>
           </div>
         ))}
       </dl>
       <p className="mt-2 text-sm leading-normal text-muted-foreground">
-        ผู้ที่เลือกทั้ง 2 วันนับในแต่ละวัน แต่ได้รับอีเมลฉบับเดียว
+        People who chose both days count on each day but get one email.
       </p>
 
       {!shown.emailConfigured && (
         <p className="mt-4 rounded-lg border-2 border-orange-700 bg-orange-50 p-3 text-sm leading-normal font-medium text-orange-900">
-          ยังไม่ได้ตั้งค่าการส่งอีเมล (SMTP) จึงยังส่ง Event Pass ทางอีเมลไม่ได้
+          Email (SMTP) isn&apos;t set up, so Event Passes can&apos;t be emailed yet.
         </p>
       )}
       {shown.emailConfigured && shown.emails === 0 && (
-        <p className="mt-4 text-sm leading-normal font-medium">ไม่มีอีเมลที่ต้องส่ง</p>
+        <p className="mt-4 text-sm leading-normal font-medium">No emails to send</p>
       )}
 
       {confirming ? (
         <ConfirmBox summary={confirming} recipients={recipients ?? ""} onCancel={onCancel} onConfirm={onConfirm} />
       ) : (
         <Button className="mt-5" disabled={!canSend} onClick={() => onSend(shown)}>
-          ส่งอีเมล {formatCount(shown.emails)} ฉบับ…
+          Send {formatEmails(shown.emails)}…
         </Button>
       )}
     </section>
@@ -328,18 +337,18 @@ function ConfirmBox({
   return (
     <div role="group" aria-labelledby="bulk-send-confirm-heading" className="mt-5 rounded-lg bg-neutral-100 p-4">
       <h3 id="bulk-send-confirm-heading" ref={heading} tabIndex={-1} className="font-semibold leading-normal outline-none">
-        ยืนยันการส่งอีเมล Event Pass {formatCount(summary.emails)} ฉบับ
+        Send {formatCount(summary.emails)} Event Pass {emailsUnit(summary.emails)}?
       </h3>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-normal">
-        <li>ส่งถึง{recipients}</li>
-        {summary.mode === "all" && <li>ผู้ที่เคยได้รับ Event Pass แล้วจะได้รับอีกฉบับ</li>}
-        <li>ส่งทีละชุด ชุดละไม่เกิน 25 ฉบับ เปิดหน้านี้ไว้จนกว่าจะส่งเสร็จ</li>
-        <li>Gmail จำกัดจำนวนอีเมลต่อวัน (ประมาณ 500 ฉบับ หรือ 2,000 ฉบับสำหรับ Google Workspace)</li>
+        <li>To {recipients}</li>
+        {summary.mode === "all" && <li>Attendees already sent an Event Pass get another one</li>}
+        <li>Sent in batches of up to 25. Keep this page open until it finishes.</li>
+        <li>Gmail limits emails per day (about 500, or 2,000 for Google Workspace).</li>
       </ul>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Button onClick={() => onConfirm(summary)}>ยืนยัน ส่ง {formatCount(summary.emails)} ฉบับ</Button>
+        <Button onClick={() => onConfirm(summary)}>Confirm: send {formatCount(summary.emails)}</Button>
         <Button variant="outline" onClick={onCancel}>
-          ยกเลิก
+          Cancel
         </Button>
       </div>
     </div>
@@ -347,28 +356,28 @@ function ConfirmBox({
 }
 
 const pauseMessages: Record<PauseReason, string> = {
-  stopped: "หยุดการส่งแล้ว กด “ส่งต่อ” เพื่อส่งส่วนที่เหลือ",
-  "all-failed": "อีเมลในชุดล่าสุดส่งไม่สำเร็จทั้งหมด จึงหยุดไว้ก่อน ตรวจสอบสาเหตุด้านล่าง แล้วกด “ส่งต่อ”",
-  "request-failed": "ติดต่อเซิร์ฟเวอร์ไม่สำเร็จ ชุดล่าสุดอาจส่งไปแล้วบางส่วน กด “ส่งต่อ” เพื่อลองอีกครั้ง",
-  "signed-out": "หมดเวลาการเข้าสู่ระบบ เข้าสู่ระบบในแท็บใหม่ แล้วกลับมากด “ส่งต่อ”",
-  "email-not-configured": "ยังไม่ได้ตั้งค่าการส่งอีเมล (SMTP) จึงส่งไม่ได้",
+  stopped: "Sending stopped. Press “Resume” to send the rest.",
+  "all-failed": "Every email in the last batch failed, so sending is paused. Check the reasons below, then press “Resume”.",
+  "request-failed": "Couldn't reach the server. Part of the last batch may have been sent. Press “Resume” to try again.",
+  "signed-out": "Session expired. Sign in in a new tab, then come back and press “Resume”.",
+  "email-not-configured": "Email (SMTP) isn't set up, so nothing can be sent.",
 };
 
 /**
  * The run's result once it ends or stops. It may show on another page (leaving this one stops the
- * run), so the title names the bulk send. A clean finish and a stop (หยุด, or leaving the page)
+ * run), so the title names the bulk send. A clean finish and a stop (Stop, or leaving the page)
  * close by themselves; failed emails and the other pauses need Staff, so they stay.
  */
 function toastRunEnded(run: Run) {
-  const tally = `ส่งสำเร็จ ${formatCount(run.sent)} ฉบับ · ไม่สำเร็จ ${formatCount(run.failures.length)} ฉบับ`;
+  const tally = `${formatCount(run.sent)} sent · ${formatCount(run.failures.length)} failed`;
   if (run.state === "done") {
     const toast = run.failures.length > 0 ? toastError : toastSuccess;
-    toast("ส่งอีเมล Event Pass เสร็จแล้ว", { description: tally });
+    toast("Event Pass emails sent", { description: tally });
     return;
   }
   const reason = run.pauseReason ?? "stopped";
   const toast = reason === "stopped" ? toastInfo : toastError;
-  toast("หยุดการส่งอีเมล Event Pass ไว้", {
+  toast("Event Pass emails paused", {
     description: (
       <>
         <span className="block">{tally}</span>
@@ -392,7 +401,7 @@ function RunPanel({
   onStartOver: () => void;
 }) {
   const percent = run.state === "done" ? 100 : Math.min(100, Math.floor((run.processed / Math.max(run.total, 1)) * 100));
-  const heading = { running: "กำลังส่งอีเมล Event Pass…", paused: "หยุดการส่งไว้", done: "ส่งเสร็จแล้ว" }[run.state];
+  const heading = { running: "Sending Event Pass emails…", paused: "Paused", done: "Finished" }[run.state];
 
   return (
     <section aria-labelledby="bulk-send-run-heading" className="rounded-xl border bg-white p-5">
@@ -404,7 +413,7 @@ function RunPanel({
         </h2>
         {run.state === "running" && (
           <Button variant="outline" onClick={onStop} disabled={stopPending}>
-            {stopPending ? "กำลังหยุดเมื่อจบชุดนี้…" : "หยุด"}
+            {stopPending ? "Stopping after this batch…" : "Stop"}
           </Button>
         )}
       </div>
@@ -415,7 +424,7 @@ function RunPanel({
         aria-valuemin={0}
         aria-valuemax={run.total}
         aria-valuenow={Math.min(run.processed, run.total)}
-        aria-valuetext={`${formatCount(run.processed)} จาก ${formatCount(run.total)} ฉบับ`}
+        aria-valuetext={`${formatCount(run.processed)} of ${formatEmails(run.total)}`}
         className="mt-4 h-3 overflow-hidden rounded-full bg-neutral-200"
       >
         <div
@@ -426,15 +435,15 @@ function RunPanel({
 
       <div role="status" aria-live="polite" className="mt-3">
         <p className="leading-normal">
-          ดำเนินการแล้ว <span className="font-semibold tabular-nums">{formatCount(run.processed)}</span> จาก{" "}
-          <span className="tabular-nums">{formatCount(run.total)}</span> ฉบับ
+          Processed <span className="font-semibold tabular-nums">{formatCount(run.processed)}</span> of{" "}
+          <span className="tabular-nums">{formatCount(run.total)}</span> {emailsUnit(run.total)}
         </p>
         <p className="text-sm leading-normal">
-          ส่งสำเร็จ <span className="font-medium tabular-nums">{formatCount(run.sent)}</span> ฉบับ · ไม่สำเร็จ{" "}
+          <span className="font-medium tabular-nums">{formatCount(run.sent)}</span> sent ·{" "}
           <span className={cn("font-medium tabular-nums", run.failures.length > 0 && "text-destructive")}>
             {formatCount(run.failures.length)}
           </span>{" "}
-          ฉบับ
+          failed
         </p>
         {run.state === "paused" && run.pauseReason && (
           <p className="mt-3 rounded-lg border-2 border-orange-700 bg-orange-50 p-3 text-sm leading-normal font-medium text-orange-900">
@@ -445,7 +454,7 @@ function RunPanel({
 
       {run.state === "running" && (
         <p className="mt-3 text-sm leading-normal text-muted-foreground">
-          เปิดหน้านี้ไว้จนกว่าจะส่งเสร็จ ถ้าออกจากหน้านี้ การส่งจะหยุดเมื่อจบชุดที่กำลังส่ง
+          Keep this page open until it finishes. If you leave, sending stops after the current batch.
         </p>
       )}
 
@@ -453,15 +462,15 @@ function RunPanel({
         <div className="mt-4 flex flex-wrap gap-3">
           {run.state === "paused" && (
             <>
-              <Button onClick={onResume}>ส่งต่อ</Button>
+              <Button onClick={onResume}>Resume</Button>
               <Button variant="outline" onClick={onStartOver}>
-                ยกเลิกส่วนที่เหลือ
+                Cancel the rest
               </Button>
             </>
           )}
           {run.state === "done" && (
             <Button variant="outline" onClick={onStartOver}>
-              เริ่มการส่งใหม่
+              Start a new send
             </Button>
           )}
         </div>
@@ -475,10 +484,10 @@ function RunPanel({
 function FailureList({ failures, done }: { failures: Failure[]; done: boolean }) {
   return (
     <div className="mt-6">
-      <h3 className="text-sm leading-normal font-semibold">ส่งไม่สำเร็จ {formatCount(failures.length)} ฉบับ</h3>
+      <h3 className="text-sm leading-normal font-semibold">{formatCount(failures.length)} failed</h3>
       {done && (
         <p className="mt-1 text-sm leading-normal text-muted-foreground">
-          ผู้ที่ยังไม่เคยได้รับ Event Pass จะรวมอยู่ในการส่งแบบ “เฉพาะผู้ที่ยังไม่เคยได้รับ” ครั้งถัดไป
+          Attendees never sent an Event Pass are included in the next “Only those not yet sent” send.
         </p>
       )}
       <ul className="mt-2 divide-y border-y">
