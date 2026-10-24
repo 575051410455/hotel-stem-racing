@@ -31,7 +31,7 @@ export type StaffAuthConfig = {
 };
 
 /**
- * Builds the Better Auth instance for Account sign-in (Staff and Kiosk Accounts) on the given database.
+ * Builds the Better Auth instance for Account sign-in (Admin, Staff and Kiosk Accounts) on the given database.
  * The app builds one from env in `src/lib/auth/server.ts`; tests, `scripts/staff.ts` and
  * `scripts/seed.ts` build their own.
  */
@@ -43,14 +43,15 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
     database: drizzleAdapter(db, { provider: "pg", schema: authSchema, usePlural: true }),
     emailAndPassword: {
       enabled: true,
-      // Accounts are created only by the server command (ADR 0001).
+      // No sign-up: Accounts are created only through the Accounts module, by an Admin on the Back
+      // Office's New Account page or with the server command (ADR 0001, ADR 0004).
       disableSignUp: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
     },
     user: {
       additionalFields: {
-        // Staff Account or Kiosk Account (`users.kind`, ADR 0003), returned on every session.
+        // Admin, Staff or Kiosk Account (`users.kind`, ADR 0003, ADR 0004), returned on every session.
         // `input: false`: no request can set it, not even /update-user from a signed-in Kiosk.
         kind: { type: [...ACCOUNT_KINDS], required: true, defaultValue: "staff", input: false },
         // Part 2 (account-management ticket 03), also returned on every session and never set from

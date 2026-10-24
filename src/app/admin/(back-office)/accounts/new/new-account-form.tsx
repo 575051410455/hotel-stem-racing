@@ -1,0 +1,264 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { type FormEvent, type ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { type AccountKind, canChangeOwnPassword, isAccountKind } from "@/lib/auth/access";
+import { isValidAccountEmail } from "@/lib/auth/email-rules";
+import { KIND_LABELS } from "@/lib/auth/kind-labels";
+import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
+import { toastSuccess } from "../../_shell/toasts";
+import { type CreateAccountActionResult, createAccount } from "./actions";
+
+/** Where the Admin goes once the Account is created. */
+const ACCOUNTS_PATH = "/admin/accounts";
+
+/** The kinds on offer, in this order, each with what it opens (ADR 0003, ADR 0004). */
+const KIND_CHOICES = [
+  { kind: "staff", explanation: "Check-In desk only" },
+  { kind: "admin", explanation: "The whole Back Office, including Accounts" },
+  { kind: "kiosk", explanation: "Kiosk only, for an unattended iPad" },
+] as const satisfies readonly { kind: AccountKind; explanation: string }[];
+
+/** Chosen to begin with: a helper at the entrance is the commonest new Account, and the least a person can be given. */
+const FIRST_KIND: AccountKind = "staff";
+
+type FieldName = "name" | "email" | "kind" | "password" | "confirmation";
+
+/** What went wrong: next to a field, or (`form`) for the whole form, above the button. */
+type Problems = Partial<Record<FieldName, string>> & { form?: ReactNode };
+
+const NAME_EMPTY = "Please enter a name";
+const NAME_TOO_LONG = `The name can be at most ${MAX_NAME_LENGTH} characters`;
+const EMAIL_INVALID = "Please enter a valid email";
+const EMAIL_TAKEN = "This email already belongs to an Account";
+const PASSWORD_TOO_SHORT = `The password needs at least ${MIN_PASSWORD_LENGTH} characters`;
+const PASSWORD_TOO_LONG = `The password can be at most ${MAX_PASSWORD_LENGTH} characters`;
+
+type Typed = { name: string; email: string; password: string; confirmation: string };
+
+/**
+ * Checked in the browser so the Admin can fix them without a request; the Accounts module enforces
+ * the same rules, except the confirmation, which only guards against a typo here.
+ */
+function checkInput({ name, email, password, confirmation }: Typed): Problems {
+  const problems: Problems = {};
+  if (!name) problems.name = NAME_EMPTY;
+  else if (name.length > MAX_NAME_LENGTH) problems.name = NAME_TOO_LONG;
+  if (!email) problems.email = "Please enter an email";
+  else if (!isValidAccountEmail(email)) problems.email = EMAIL_INVALID;
+  if (password.length < MIN_PASSWORD_LENGTH) problems.password = PASSWORD_TOO_SHORT;
+  else if (password.length > MAX_PASSWORD_LENGTH) problems.password = PASSWORD_TOO_LONG;
+  if (!confirmation) problems.confirmation = "Please enter the password again";
+  else if (confirmation !== password) problems.confirmation = "The passwords don't match";
+  return problems;
+}
+
+function resultProblems(result: CreateAccountActionResult | null): Problems {
+  switch (result?.status) {
+    case "created":
+      return {};
+    case "invalid-name":
+      return { name: NAME_EMPTY };
+    case "name-too-long":
+      return { name: NAME_TOO_LONG };
+    case "invalid-email":
+      return { email: EMAIL_INVALID };
+    case "email-taken":
+      return { email: EMAIL_TAKEN };
+    case "password-too-short":
+      return { password: PASSWORD_TOO_SHORT };
+    case "password-too-long":
+      return { password: PASSWORD_TOO_LONG };
+    case "invalid-kind":
+      // The radio group always sends one of the three, so only a bug lands here.
+      return { kind: "Choose a kind of Account" };
+    case "signed-out":
+      return { form: <SessionExpired /> };
+    case undefined:
+      return { form: CANT_REACH_SERVER };
+  }
+}
+
+/**
+ * An Admin creates an Account of any kind, with a password they type twice, on
+ * /admin/accounts/new. It goes through a Server Action to the Accounts module, which records it
+ * with the Admin as actor; then "Account created" and back to the list. A Staff or Admin Account's
+ * owner chooses their own password at the first sign-in, and the form says so.
+ */
+export function NewAccountForm() {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const ids = { form: useId(), passwordHint: useId(), firstSignIn: useId() };
+  const [kind, setKind] = useState<AccountKind>(FIRST_KIND);
+  const [problems, setProblems] = useState<Problems>({});
+  const [pending, setPending] = useState(false);
+
+  // Next keeps this page alive, hidden, after navigating away (Activity). Each visit starts afresh,
+  // and no typed password stays behind in the hidden page.
+  useLayoutEffect(() => {
+    const form = formRef.current;
+    return () => {
+      form?.reset();
+      setKind(FIRST_KIND);
+      setProblems({});
+      setPending(false);
+    };
+  }, []);
+
+  /** Puts the cursor in the first field with a problem, its text selected for retyping. */
+  function focusFirstProblem(found: Problems) {
+    const first = (["name", "email", "kind", "password", "confirmation"] as const).find((name) => found[name]);
+    if (first === "kind") {
+      formRef.current?.querySelector<HTMLButtonElement>('[role="radio"][data-state="checked"]')?.focus();
+      return;
+    }
+    const input = first && formRef.current?.elements.namedItem(first);
+    if (input instanceof HTMLInputElement) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function showProblems(found: Problems) {
+    setProblems(found);
+    focusFirstProblem(found);
+  }
+
+  async function handleSubmit(formEvent: FormEvent<HTMLFormElement>) {
+    formEvent.preventDefault();
+    const form = new FormData(formEvent.currentTarget);
+    const typed = {
+      name: String(form.get("name") ?? "").trim(),
+      email: String(form.get("email") ?? "").trim(),
+      password: String(form.get("password") ?? ""),
+      confirmation: String(form.get("confirmation") ?? ""),
+    };
+
+    const inputProblems = checkInput(typed);
+    if (Object.keys(inputProblems).length > 0) return showProblems(inputProblems);
+
+    setPending(true);
+    setProblems({});
+    let result: CreateAccountActionResult | null = null;
+    try {
+      result = await createAccount({ name: typed.name, email: typed.email, kind, password: typed.password });
+    } catch {
+      result = null;
+    }
+
+    if (result?.status === "created") {
+      // Stays pending until the list shows: the form is done. Hiding the page resets it.
+      toastSuccess("Account created");
+      router.push(ACCOUNTS_PATH);
+      return;
+    }
+    setPending(false);
+    showProblems(resultProblems(result));
+  }
+
+  function fieldProps(name: Exclude<FieldName, "kind">, describedBy?: string) {
+    const problem = problems[name];
+    const errorId = `${ids.form}-${name}-error`;
+    return {
+      id: `${ids.form}-${name}`,
+      name,
+      required: true,
+      "aria-invalid": problem ? true : undefined,
+      "aria-describedby": [describedBy, problem && errorId].filter(Boolean).join(" ") || undefined,
+    } as const;
+  }
+
+  function fieldError(name: FieldName) {
+    return <FieldError id={`${ids.form}-${name}-error`}>{problems[name]}</FieldError>;
+  }
+
+  return (
+    // method="dialog" makes a submit before hydration a no-op instead of a GET that would put the
+    // password in the URL. Once hydrated, handleSubmit handles everything.
+    <form ref={formRef} method="dialog" onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
+      <FieldGroup>
+        <Field data-invalid={problems.name ? true : undefined}>
+          <FieldLabel htmlFor={`${ids.form}-name`}>Name</FieldLabel>
+          <Input {...fieldProps("name")} type="text" autoComplete="off" />
+          {fieldError("name")}
+        </Field>
+        <Field data-invalid={problems.email ? true : undefined}>
+          <FieldLabel htmlFor={`${ids.form}-email`}>Email</FieldLabel>
+          <Input {...fieldProps("email")} type="email" autoComplete="off" autoCapitalize="none" spellCheck={false} />
+          {fieldError("email")}
+        </Field>
+        <FieldSet>
+          <FieldLegend variant="label">Kind</FieldLegend>
+          <RadioGroup
+            name="kind"
+            value={kind}
+            onValueChange={(value) => {
+              if (isAccountKind(value)) setKind(value);
+            }}
+            aria-invalid={problems.kind ? true : undefined}
+            aria-describedby={problems.kind ? `${ids.form}-kind-error` : undefined}
+          >
+            {KIND_CHOICES.map(({ kind: choice, explanation }) => (
+              <Field key={choice} orientation="horizontal">
+                <RadioGroupItem
+                  value={choice}
+                  id={`${ids.form}-kind-${choice}`}
+                  aria-describedby={`${ids.form}-kind-${choice}-explanation`}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${ids.form}-kind-${choice}`}>{KIND_LABELS[choice]}</FieldLabel>
+                  <FieldDescription id={`${ids.form}-kind-${choice}-explanation`}>{explanation}</FieldDescription>
+                </FieldContent>
+              </Field>
+            ))}
+          </RadioGroup>
+          {fieldError("kind")}
+        </FieldSet>
+        <Field data-invalid={problems.password ? true : undefined}>
+          <FieldLabel htmlFor={`${ids.form}-password`}>Password</FieldLabel>
+          <Input {...fieldProps("password", ids.passwordHint)} type="password" autoComplete="new-password" />
+          <FieldDescription id={ids.passwordHint}>
+            {MIN_PASSWORD_LENGTH} to {MAX_PASSWORD_LENGTH} characters
+          </FieldDescription>
+          {fieldError("password")}
+        </Field>
+        <Field data-invalid={problems.confirmation ? true : undefined}>
+          <FieldLabel htmlFor={`${ids.form}-confirmation`}>Confirm password</FieldLabel>
+          <Input {...fieldProps("confirmation")} type="password" autoComplete="new-password" />
+          {fieldError("confirmation")}
+        </Field>
+        <Field>
+          {/* Someone else chose the password (the Admin), so a Staff or Admin Account's owner chooses their own. */}
+          {canChangeOwnPassword(kind) && (
+            <FieldDescription id={ids.firstSignIn}>
+              They&apos;ll be asked to choose their own password when they first sign in.
+            </FieldDescription>
+          )}
+          <FormAlert>{problems.form}</FormAlert>
+          <Button
+            type="submit"
+            disabled={pending}
+            aria-describedby={canChangeOwnPassword(kind) ? ids.firstSignIn : undefined}
+          >
+            {pending ? "Creating Account…" : "Create Account"}
+          </Button>
+        </Field>
+      </FieldGroup>
+    </form>
+  );
+}

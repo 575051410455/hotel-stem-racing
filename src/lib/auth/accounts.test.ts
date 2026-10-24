@@ -229,6 +229,37 @@ describe("Accounts", () => {
     assert.deepEqual(result, { status: "email-taken" });
   });
 
+  test("an email that a disabled Account has is taken too", async () => {
+    const created = await accounts.create({ email: "helper@example.org", name: "Helper", password }, "server-command");
+    assert.equal(created.status, "created");
+    // Until ticket 08's `disable`, disable it the way the module will: through Better Auth.
+    await (await auth.$context).internalAdapter.updateUser(created.accountId, { disabledAt: new Date() });
+
+    const result = await accounts.create(
+      { email: "Helper@Example.org", name: "Someone else", password, kind: "admin" },
+      "server-command",
+    );
+
+    assert.deepEqual(result, { status: "email-taken" });
+    assert.deepEqual((await accounts.list()).map(({ name, kind }) => [name, kind]), [["Helper", "staff"]]);
+  });
+
+  test("a new Account's name is trimmed, and an empty one or one over 100 characters is refused", async () => {
+    const empty = await accounts.create({ email: "empty@example.org", name: "   ", password }, "server-command");
+    const tooLong = await accounts.create({ email: "long@example.org", name: "a".repeat(101), password }, "server-command");
+    const longest = await accounts.create(
+      { email: "longest@example.org", name: `  ${"a".repeat(100)}  `, password },
+      "server-command",
+    );
+
+    assert.deepEqual(empty, { status: "invalid-name" });
+    assert.deepEqual(tooLong, { status: "name-too-long", maxLength: 100 });
+    assert.equal(longest.status, "created");
+    assert.deepEqual((await accounts.list()).map(({ email, name }) => [email, name]), [
+      ["longest@example.org", "a".repeat(100)],
+    ]);
+  });
+
   test("signing up through the public API is refused", async () => {
     const clientIp = nextClientIp();
     const response = await post(
@@ -625,6 +656,44 @@ describe("Accounts: Account History", () => {
     for (const { changedAt } of history.changes) {
       assert.ok(changedAt >= before && changedAt <= after, String(changedAt));
     }
+  });
+
+  test("an Admin creating an Account of each kind records it with that Admin; a refused one records nothing", async () => {
+    const adminId = await createAccount("admin@example.org", "Napat Wongsa", "admin");
+    const byAdmin = { accountId: adminId };
+    const created = new Map<AccountKind, string>();
+    for (const kind of ["staff", "admin", "kiosk"] as const) {
+      const result = await accounts.create({ email: `new-${kind}@example.org`, name: `New ${kind}`, password, kind }, byAdmin);
+      assert.equal(result.status, "created");
+      created.set(kind, result.accountId);
+    }
+
+    const refused = [
+      await accounts.create({ email: "not an email", name: "Someone", password }, byAdmin),
+      await accounts.create({ email: "NEW-KIOSK@example.org", name: "Someone", password }, byAdmin),
+      await accounts.create({ email: "someone@example.org", name: " ", password }, byAdmin),
+      await accounts.create({ email: "someone@example.org", name: "a".repeat(101), password }, byAdmin),
+      await accounts.create({ email: "someone@example.org", name: "Someone", password: "too short" }, byAdmin),
+      await accounts.create({ email: "someone@example.org", name: "Someone", password: "x".repeat(129) }, byAdmin),
+    ];
+
+    assert.deepEqual(
+      refused.map(({ status }) => status),
+      ["invalid-email", "email-taken", "invalid-name", "name-too-long", "password-too-short", "password-too-long"],
+    );
+    const admin = { accountId: adminId, name: "Napat Wongsa" };
+    assert.deepEqual(await changes(), [
+      { account: created.get("kiosk"), change: { action: "created", details: { kind: "kiosk" } }, actor: admin },
+      { account: created.get("admin"), change: { action: "created", details: { kind: "admin" } }, actor: admin },
+      { account: created.get("staff"), change: { action: "created", details: { kind: "staff" } }, actor: admin },
+      { account: adminId, change: { action: "created", details: { kind: "admin" } }, actor: "server-command" },
+    ]);
+    // The Admin chose the password, so Staff and Admin owners choose their own; a Kiosk never does.
+    const flags = await Promise.all(
+      (["staff", "admin", "kiosk"] as const).map(async (kind) => (await accounts.get(created.get(kind)!))?.mustChangePassword),
+    );
+    assert.deepEqual(flags, [true, true, false]);
+    assert.equal((await accounts.list()).length, 4);
   });
 
   test("the first Admin Account is recorded as created by the server command, and a skipped one records nothing", async () => {

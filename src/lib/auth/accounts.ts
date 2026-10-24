@@ -2,6 +2,7 @@ import type { Database } from "@/lib/db/client";
 import { type AccountKind, canChangeOwnPassword, canEditOwnName, isAccountKind } from "./access";
 import type { AccountChange, Actor } from "./account-changes";
 import { type AccountHistoryPage, readAccountHistory, recordAccountChange } from "./account-history";
+import { isValidAccountEmail } from "./email-rules";
 import { MAX_NAME_LENGTH } from "./name-rules";
 import type { StaffAuth } from "./staff-auth";
 
@@ -19,7 +20,11 @@ type PasswordProblem =
   | { status: "password-too-short"; minLength: number }
   | { status: "password-too-long"; maxLength: number };
 
-type NewAccountProblem = { status: "invalid-email" } | { status: "invalid-name" } | PasswordProblem;
+type NewAccountProblem =
+  | { status: "invalid-email" }
+  | { status: "invalid-name" }
+  | { status: "name-too-long"; maxLength: number }
+  | PasswordProblem;
 
 export type CreateAccountResult =
   | { status: "created"; accountId: string; email: string; kind: AccountKind }
@@ -79,9 +84,6 @@ export type SignOutDeviceResult = { status: "device-signed-out" } | { status: "n
 
 export type SignOutOtherDevicesResult = { status: "other-devices-signed-out"; count: number };
 
-// Deliberately loose: the operator types the address, and Better Auth lower-cases and stores it as given.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
 /** The internal adapter types users without our additional field; the column is never null. */
@@ -129,11 +131,12 @@ function enabledFirstByName(a: Account, b: Account): number {
 /**
  * The Accounts module (ADR 0004): creates Accounts of every kind (Admin, Staff, Kiosk), promotes
  * them to Admin, renames them and resets their passwords. It is the code path behind `npm run staff`,
- * `npm run seed` and My Account, and the one place that writes Accounts. Public sign-up is disabled
- * (ADR 0001), so this writes through Better Auth's server-side context (`auth.$context`), with the
- * same steps as its sign-up endpoint: hash, create user, link credential. It is also the only way
- * to set an Account's kind or name, which Better Auth refuses from requests. Password length
- * limits come from the auth config, so the commands and sign-in always agree, for every kind.
+ * `npm run seed`, My Account and the Accounts pages, and the one place that writes Accounts. Public
+ * sign-up is disabled (ADR 0001), so this writes through Better Auth's server-side context
+ * (`auth.$context`), with the same steps as its sign-up endpoint: hash, create user, link
+ * credential. It is also the only way to set an Account's kind or name, which Better Auth refuses
+ * from requests. Password length limits come from the auth config, so the commands and sign-in
+ * always agree, for every kind.
  * Every write takes an `actor` and records an Account Change (the Account History) on `db`. A
  * password it sets (`create`, `createFirst`, `resetPassword`) is someone else's choice, so a Staff
  * or Admin Account's owner must choose their own at the next sign-in (`mustChangePassword`); the
@@ -161,8 +164,11 @@ export function createAccounts(auth: StaffAuth, db: Database) {
   }
 
   async function checkNewAccount(input: CreateAccountInput): Promise<NewAccountProblem | null> {
-    if (!EMAIL_PATTERN.test(normaliseEmail(input.email))) return { status: "invalid-email" };
-    if (!input.name.trim()) return { status: "invalid-name" };
+    if (!isValidAccountEmail(input.email)) return { status: "invalid-email" };
+    const name = input.name.trim();
+    if (!name) return { status: "invalid-name" };
+    // The same limit as the owner's rename, so an Account never starts with a name its owner couldn't save.
+    if (name.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
     return checkPassword(input.password);
   }
 
@@ -185,6 +191,11 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       return accounts.create(account, actor);
     },
 
+    /**
+     * Creates an Account of any kind, for an Admin on the Back Office's New Account page or the
+     * commands. An email that any Account already has, enabled or disabled, is taken: one person,
+     * one Account.
+     */
     async create(input: CreateAccountInput, actor: Actor): Promise<CreateAccountResult> {
       const problem = await checkNewAccount(input);
       if (problem) return problem;
