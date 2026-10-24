@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, type ReactNode, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
 import { toastSuccess } from "../_shell/toasts";
 import { type RenameOwnAccountResult, renameOwnAccount } from "./actions";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "./form-messages";
 
 const EMPTY = "Please enter your name";
 const TOO_LONG = `Your name can be at most ${MAX_NAME_LENGTH} characters`;
@@ -32,18 +31,9 @@ function resultProblems(result: RenameOwnAccountResult | null): Problems {
     case "name-too-long":
       return { name: TOO_LONG };
     case "signed-out":
-      return {
-        form: (
-          <>
-            Session expired.{" "}
-            <Link href={SIGN_IN_PATH} className="font-medium underline underline-offset-4">
-              Sign in again
-            </Link>
-          </>
-        ),
-      };
+      return { form: <SessionExpired /> };
     case undefined:
-      return { form: "Can't reach the server. Check your internet connection and try again." };
+      return { form: CANT_REACH_SERVER };
     default:
       // not-allowed or not-found: a Kiosk Account never reaches this page, so only a race lands here.
       return { form: "Couldn't save your name. Please try again." };
@@ -95,7 +85,8 @@ export function RenameForm({ name }: { name: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
+    // method="dialog": a submit before hydration does nothing, rather than a GET to this page.
+    <form method="dialog" onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
       <FieldGroup>
         <Field data-invalid={problems.name ? true : undefined}>
           <FieldLabel htmlFor={`${ids.form}-name`}>Name</FieldLabel>
@@ -113,10 +104,7 @@ export function RenameForm({ name }: { name: string }) {
           <FieldError id={errorId}>{problems.name}</FieldError>
         </Field>
         <Field>
-          {/* Always rendered, even empty, so screen readers announce each new message. */}
-          <p role="alert" className="text-sm leading-normal text-destructive">
-            {problems.form}
-          </p>
+          <FormAlert>{problems.form}</FormAlert>
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save name"}
           </Button>

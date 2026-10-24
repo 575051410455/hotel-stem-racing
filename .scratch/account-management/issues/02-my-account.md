@@ -63,9 +63,9 @@ Done on branch `account-02-my-account`.
 | Name form (client): browser checks, then the Server Action; inline errors, the toast "Name saved" | `(back-office)/account/rename-form.tsx` |
 | `renameOwnAccount`: re-checks `getCurrentStaff()`, calls the module, then `refresh()` so the account menu shows the new name | `(back-office)/account/actions.ts` |
 | Change password form, moved from `password/` and now in English (copy deck "Change password" rows, plus the shell's "Session expired. Sign in again" and the connection message) | `(back-office)/account/change-password-form.tsx` |
-| `rename(accountId, name)`: trims; refuses empty, over 100, or a Kiosk Account; not-found | `src/lib/auth/staff-accounts.ts` (+ tests) |
+| `rename(accountId, name)`: trims; refuses empty, over 100, or a Kiosk Account; not-found | `src/lib/auth/accounts.ts` (+ tests; was `staff-accounts.ts`) |
 | `MAX_NAME_LENGTH = 100`, browser-safe | `src/lib/auth/name-rules.ts` |
-| `staffAccounts()` on the app's auth instance | `src/lib/auth/server.ts` |
+| `accounts()` on the app's auth instance | `src/lib/auth/server.ts` |
 | `/update-user` refused for everyone (403 `UPDATE_USER_NOT_ALLOWED`) | `src/lib/auth/staff-auth.ts` `hooks.before` |
 | `/admin/password` → `/admin/account`, permanent (308) | `next.config.ts` `redirects()` |
 | Account menu: "My Account" (lucide `UserRoundIcon`) | `_shell/staff-account-dropdown.tsx` |
@@ -97,6 +97,50 @@ Done on branch `account-02-my-account`.
   - No horizontal scroll at 375 px.
 - **Admin:** "Admin · the whole Back Office", no horizontal scroll at 1280 px.
 - **Kiosk:** `/admin/account` sends it to `/kiosk`.
-- **Not checked in the browser:**
-  - an Admin renaming. It is the same form and action; the module test renames an Admin Account.
-  - the change-password rate-limit wait. Its logic is unchanged and only translated.
+- **Not checked in the browser:** the change-password rate-limit wait. Its logic is unchanged and only translated.
+
+### Guards (audit)
+
+| Page / handler | Guard |
+| --- | --- |
+| `/admin/account` | `requireStaff()` (Staff or Admin; Kiosk to `/kiosk`) |
+| `renameOwnAccount` Server Action | `getCurrentStaff()`, else `signed-out`; the module refuses a Kiosk Account too |
+| Better Auth `/update-user` | refused for everyone (`hooks.before`, 403) |
+| Better Auth `/change-password` | unchanged: Kiosk Accounts refused (`hooks.before`) |
+| `/admin/password` | permanent redirect to `/admin/account` (`next.config.ts`) |
+
+## Review fixes (2026-10-24)
+
+The two-axis review of 01–02 found the following. All of them were fixed on `account-review-fixes`:
+
+1. **Stale names and comments:**
+   - `AdminOnlyRegistrationList` / `AdminOnlyBulkSend`;
+   - "an Admin-only" (the sed had left "a Admin-only");
+   - the delete route's comment says Admin Account;
+   - the seed's missing-email message and `random-password.ts` say Admin Account.
+2. **Kind labels on My Account:**
+   - The labels are "Admin · the whole Back Office" and "Staff · the check-in desk" (lower-case "check-in desk", as in the glossary and `access.ts`).
+   - The description after the dot is deliberate: owners see what their kind opens, not just its name. The spec only said "Admin" / "Staff".
+   - The label map covers only the kinds that reach the page.
+3. **`access.ts`:** `canChooseCheckInDay`, `canChangeOwnPassword` and `canEditOwnName` call `canUseCheckInDesk`. `canUseBackOffice` and `canUseCheckInDesk` are type guards.
+4. **`scripts/staff.ts`:** one function per action. `prepare()` asks for a password only for `create*` and `reset-password`, before the database opens, so `make-admin` no longer passes `""`.
+5. **This hand-off:** a guards table here, and the missing rows in 01's. The Admin rename was checked in the browser (below).
+6. **`session.ts`:**
+   - `CurrentStaff` has `kind: "admin" | "staff"` and `CurrentAdmin` has `kind: "admin"`. `getCurrentAdmin`/`requireAdmin` return `CurrentAdmin`.
+   - The four helpers share `signedInAccountThat(rule)` / `requireAccountThat(rule)`, which take the access rule as a type guard.
+7. **The My Account forms** share `form-messages.tsx`: `SessionExpired`, `CANT_REACH_SERVER` and `FormAlert`.
+8. **The Accounts module** is now `src/lib/auth/accounts.ts`:
+   - `createAccounts` / `Accounts`;
+   - `CreateAccountInput`, `CreateFirstAdminAccountInput`, `ResetPasswordInput` and their results;
+   - `accounts()` in `server.ts`;
+   - `describe("Accounts")`.
+
+**Also fixed, found while re-checking:** both My Account forms now use `method="dialog"`, like the check-in desk. A submit before hydration does nothing, instead of a GET that would put the current and new passwords in the URL. The sign-in form has the same gap. It predates this work and is not changed here.
+
+**Re-check:**
+- `npm run typecheck`, `npm run lint`, `npm test` (249 pass) and `npm run build` pass.
+- **Roles in the browser (Admin, Staff, Kiosk):** same results as ticket 01's check.
+- **My Account in the browser:**
+  - Staff: each name error, rename, each password error, change with the second device signed out, old password refused and new one accepted;
+  - Admin renamed: empty → "Please enter your name"; " ผู้จัดงาน หลัก " → "Name saved" and the account menu updated;
+  - a Kiosk Account goes to `/kiosk`.

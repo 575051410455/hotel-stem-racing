@@ -77,7 +77,7 @@ Done on branch `account-01-admin-accounts`.
 | Rules per kind: `canUseBackOffice` (Admin), new `canUseCheckInDesk`, `canEditOwnName`, `canManageAccounts`; `homePath` per kind | `src/lib/auth/access.ts` (+ tests) |
 | `kind` accepts `admin` | `src/lib/db/auth-schema.ts`, `drizzle/0003_admin_accounts.sql` (drops and re-adds `users_kind_check`) |
 | `requireAdmin()` / `getCurrentAdmin()`; `requireStaff()` / `getCurrentStaff()` now mean Staff or Admin; `CurrentStaff` carries `kind` | `src/lib/auth/session.ts` |
-| `createFirst` makes an Admin (skip status `admin-account-exists`); `makeAdmin(email)` | `src/lib/auth/staff-accounts.ts` (+ tests) |
+| `createFirst` makes an Admin (skip status `admin-account-exists`); `makeAdmin(email)` | `src/lib/auth/accounts.ts` (+ tests; was `staff-accounts.ts`) |
 | Sidebar links per kind: `BackOfficeNav({ kind })` filters by each item's rule; `CurrentBackOfficeNav` reads the session under the layout's `<Suspense>` | `_shell/back-office-nav.tsx`, `_shell/current-back-office-nav.tsx`, `_shell/back-office-sidebar.tsx`, `layout.tsx` |
 | `create-admin`, `make-admin`; per-kind "created" messages | `scripts/staff.ts` |
 | First Admin; email-taken suggests `make-admin` | `scripts/seed.ts` |
@@ -97,6 +97,9 @@ Done on branch `account-01-admin-accounts`.
 | `/kiosk` | `requireCheckInAccount()` (any kind) |
 | `GET /api/back-office/registrations`, `…/export`, `DELETE …/[id]`, `POST …/[id]/resend`, `GET /bulk-send/summary`, `POST /bulk-send/batch` | `getCurrentAdmin()`, else 401 |
 | Sign-in form | lands on `homePath(kind)` |
+| `signOut` Server Action (`src/app/admin/actions.ts`) | none: ends whatever session there is, any kind |
+| Back Office layout | none: protects nothing; the nav and account menu read `getCurrentStaff()` under their own `<Suspense>` |
+| `/admin/account` page, `renameOwnAccount` Server Action (ticket 02) | `requireStaff()`, `getCurrentStaff()` |
 
 ### Decisions
 

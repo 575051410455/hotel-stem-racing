@@ -21,14 +21,14 @@ export function RegistrationListSection() {
           </p>
         }
       >
-        <StaffOnlyRegistrationList />
+        <AdminOnlyRegistrationList />
       </Suspense>
     </section>
   );
 }
 
-async function StaffOnlyRegistrationList() {
-  // The rows come from a Admin-only endpoint; this keeps the controls from signed-out visitors too.
+async function AdminOnlyRegistrationList() {
+  // The rows come from an Admin-only endpoint; this keeps the controls from signed-out visitors too.
   await requireAdmin();
   return (
     <>

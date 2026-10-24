@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, type ReactNode, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { staffAuthClient } from "@/lib/auth/client";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 import { toastSuccess } from "../_shell/toasts";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "./form-messages";
 
 type FieldName = "currentPassword" | "newPassword" | "confirmation";
 
@@ -40,18 +39,7 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
         : "Too many attempts. Wait a moment and try again.",
     };
   }
-  if (status === 401) {
-    return {
-      form: (
-        <>
-          Session expired.{" "}
-          <Link href={SIGN_IN_PATH} className="font-medium underline underline-offset-4">
-            Sign in again
-          </Link>
-        </>
-      ),
-    };
-  }
+  if (status === 401) return { form: <SessionExpired /> };
   if (code === "INVALID_PASSWORD") return { currentPassword: WRONG_CURRENT_PASSWORD };
   if (code === "PASSWORD_TOO_SHORT") return { newPassword: TOO_SHORT };
   // The server also refuses a current password over the limit, which can't be the right one.
@@ -60,7 +48,7 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
       ? { newPassword: TOO_LONG }
       : { currentPassword: WRONG_CURRENT_PASSWORD };
   }
-  if (status === 0) return { form: "Can't reach the server. Check your internet connection and try again." };
+  if (status === 0) return { form: CANT_REACH_SERVER };
   return { form: "Couldn't change the password. Please try again." };
 }
 
@@ -147,7 +135,9 @@ export function ChangePasswordForm({ email }: { email: string }) {
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
+    // method="dialog" makes a submit before hydration a no-op instead of a GET that would put the
+    // passwords in the URL. Once hydrated, handleSubmit handles everything.
+    <form ref={formRef} method="dialog" onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
       {/* Tells password managers which Account the new password belongs to. */}
       <input
         type="email"
@@ -176,10 +166,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
         </Field>
         <Field>
           <FieldDescription id={ids.warning}>Other devices using this Account will have to sign in again.</FieldDescription>
-          {/* Always rendered, even empty, so screen readers announce each new message. */}
-          <p role="alert" className="text-sm leading-normal text-destructive">
-            {problems.form}
-          </p>
+          <FormAlert>{problems.form}</FormAlert>
           <Button type="submit" disabled={pending} aria-describedby={ids.warning}>
             {pending ? "Changing password…" : "Change password"}
           </Button>

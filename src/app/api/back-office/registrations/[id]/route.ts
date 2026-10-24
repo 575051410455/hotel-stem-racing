@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/back-
 
   const { id } = await ctx.params;
   const result: DeleteRegistrationResult = await registrations().deleteRegistration(registrationIdFromPath(id));
-  // There is no undo, so leave a trace for the operator: which Pass Code, and which Staff Account.
+  // There is no undo, so leave a trace for the operator: which Pass Code, and which Admin Account.
   if (result.status === "deleted") console.info(`Registration ${result.passCode} deleted by Admin Account ${admin.id}`);
   return noStoreJson(result, { status: result.status === "not-found" ? 404 : 200 });
 }

@@ -14,11 +14,17 @@ export type CurrentAccount = {
   kind: AccountKind;
 };
 
-/** A Staff member signed in with a Staff Account or an Admin Account (GLOSSARY: Staff). */
-export type CurrentStaff = CurrentAccount;
+/** A Staff member, signed in with a Staff Account or an Admin Account (GLOSSARY: Staff). */
+export type CurrentStaff = CurrentAccount & { kind: "admin" | "staff" };
+
+/** The signed-in Admin Account. */
+export type CurrentAdmin = CurrentAccount & { kind: "admin" };
 
 /** The signed-in Account on the Check-In path: any kind of Account. */
 export type CurrentCheckInAccount = CurrentAccount;
+
+/** An access rule from access.ts that also narrows the kind it lets through. */
+type KindRule<Kind extends AccountKind> = (kind: AccountKind) => kind is Kind;
 
 /**
  * Reads and validates the session from the request cookies (a database lookup, no cookie cache),
@@ -36,27 +42,45 @@ const getSignedInAccount = cache(async (): Promise<CurrentAccount | null> => {
   return { id, name, email, kind };
 });
 
+/** The signed-in Account if `rule` lets its kind through, else null. */
+async function signedInAccountThat<Kind extends AccountKind>(
+  rule: KindRule<Kind>,
+): Promise<(CurrentAccount & { kind: Kind }) | null> {
+  const account = await getSignedInAccount();
+  if (!account || !rule(account.kind)) return null;
+  return { ...account, kind: account.kind };
+}
+
+/**
+ * Like `signedInAccountThat`, but redirects instead of returning null: to the sign-in page when
+ * nobody is signed in, and otherwise to where the Account belongs (`homePath`), so a signed-in
+ * Account never shows the sign-in page.
+ */
+async function requireAccountThat<Kind extends AccountKind>(
+  rule: KindRule<Kind>,
+): Promise<CurrentAccount & { kind: Kind }> {
+  const account = await getSignedInAccount();
+  if (!account) redirect(SIGN_IN_PATH);
+  if (!rule(account.kind)) redirect(homePath(account.kind));
+  return { ...account, kind: account.kind };
+}
+
 /**
  * The signed-in Admin Account, or null when nobody is signed in or the Account is a Staff or Kiosk
  * Account (ADR 0004). The overview, the Registration list and detail, email and every
  * `/api/back-office/*` Route Handler check with this or `requireAdmin()`, so any other Account is
  * refused exactly like a signed-out request. Request-time: see `getSignedInAccount`.
  */
-export async function getCurrentAdmin(): Promise<CurrentStaff | null> {
-  const account = await getSignedInAccount();
-  return account && canUseBackOffice(account.kind) ? account : null;
+export function getCurrentAdmin(): Promise<CurrentAdmin | null> {
+  return signedInAccountThat(canUseBackOffice);
 }
 
 /**
- * Like `getCurrentAdmin`, but redirects when there's no Admin: to the sign-in page when nobody is
- * signed in, and otherwise to where the Account belongs (`homePath`): the check-in desk for a Staff
- * Account, the Kiosk for a Kiosk Account.
+ * Like `getCurrentAdmin`, but redirects when there's no Admin: to the sign-in page, the check-in
+ * desk for a Staff Account, or the Kiosk for a Kiosk Account.
  */
-export async function requireAdmin(): Promise<CurrentStaff> {
-  const account = await getSignedInAccount();
-  if (!account) redirect(SIGN_IN_PATH);
-  if (!canUseBackOffice(account.kind)) redirect(homePath(account.kind));
-  return account;
+export function requireAdmin(): Promise<CurrentAdmin> {
+  return requireAccountThat(canUseBackOffice);
 }
 
 /**
@@ -64,9 +88,8 @@ export async function requireAdmin(): Promise<CurrentStaff> {
  * Account is a Kiosk Account (ADR 0003). For the check-in desk and the Account's own pages.
  * Request-time: see `getSignedInAccount`.
  */
-export async function getCurrentStaff(): Promise<CurrentStaff | null> {
-  const account = await getSignedInAccount();
-  return account && canUseCheckInDesk(account.kind) ? account : null;
+export function getCurrentStaff(): Promise<CurrentStaff | null> {
+  return signedInAccountThat(canUseCheckInDesk);
 }
 
 /**
@@ -74,11 +97,8 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
  * nobody is signed in, and to the Kiosk page for a Kiosk Account, so a Kiosk never shows the
  * sign-in page while it is signed in.
  */
-export async function requireStaff(): Promise<CurrentStaff> {
-  const account = await getSignedInAccount();
-  if (!account) redirect(SIGN_IN_PATH);
-  if (!canUseCheckInDesk(account.kind)) redirect(homePath(account.kind));
-  return account;
+export function requireStaff(): Promise<CurrentStaff> {
+  return requireAccountThat(canUseCheckInDesk);
 }
 
 /**

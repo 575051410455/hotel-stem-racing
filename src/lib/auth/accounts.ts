@@ -2,15 +2,15 @@ import { type AccountKind, canEditOwnName, isAccountKind } from "./access";
 import { MAX_NAME_LENGTH } from "./name-rules";
 import type { StaffAuth } from "./staff-auth";
 
-export type CreateStaffAccountInput = {
+export type CreateAccountInput = {
   email: string;
   name: string;
   password: string;
   /** A Staff Account (the default; check-in desk only), an Admin Account, or a Kiosk Account (ADR 0003, ADR 0004). */
   kind?: AccountKind;
 };
-export type CreateFirstStaffAccountInput = Omit<CreateStaffAccountInput, "kind">;
-export type ResetStaffPasswordInput = { email: string; password: string };
+export type CreateFirstAdminAccountInput = Omit<CreateAccountInput, "kind">;
+export type ResetPasswordInput = { email: string; password: string };
 
 type PasswordProblem =
   | { status: "password-too-short"; minLength: number }
@@ -18,12 +18,12 @@ type PasswordProblem =
 
 type NewAccountProblem = { status: "invalid-email" } | { status: "invalid-name" } | PasswordProblem;
 
-export type CreateStaffAccountResult =
+export type CreateAccountResult =
   | { status: "created"; accountId: string; email: string; kind: AccountKind }
   | { status: "email-taken" }
   | NewAccountProblem;
 
-export type CreateFirstStaffAccountResult = CreateStaffAccountResult | { status: "admin-account-exists" };
+export type CreateFirstAdminAccountResult = CreateAccountResult | { status: "admin-account-exists" };
 
 export type MakeAdminResult =
   | { status: "promoted"; accountId: string; from: AccountKind }
@@ -37,7 +37,7 @@ export type RenameResult =
   | { status: "not-allowed" }
   | { status: "not-found" };
 
-export type ResetStaffPasswordResult =
+export type ResetPasswordResult =
   | { status: "password-reset"; accountId: string; kind: AccountKind }
   | { status: "not-found" }
   | PasswordProblem;
@@ -55,15 +55,15 @@ function kindOf(user: { email: string }): AccountKind {
 }
 
 /**
- * Creates Accounts of every kind (Admin, Staff, Kiosk), promotes them to Admin, and resets their
- * passwords. This is the code path behind
- * `npm run staff` and `npm run seed`. Public sign-up is disabled (ADR 0001), so this writes
- * through Better Auth's server-side context (`auth.$context`), with the same steps as its sign-up
- * endpoint: hash, create user, link credential. It is also the only way to set an Account's kind,
- * which Better Auth refuses from requests. Password length limits come from the auth config, so
- * the commands and sign-in always agree, for both kinds.
+ * The Accounts module (ADR 0004): creates Accounts of every kind (Admin, Staff, Kiosk), promotes
+ * them to Admin, renames them and resets their passwords. It is the code path behind `npm run staff`,
+ * `npm run seed` and My Account, and the one place that writes Accounts. Public sign-up is disabled
+ * (ADR 0001), so this writes through Better Auth's server-side context (`auth.$context`), with the
+ * same steps as its sign-up endpoint: hash, create user, link credential. It is also the only way
+ * to set an Account's kind or name, which Better Auth refuses from requests. Password length
+ * limits come from the auth config, so the commands and sign-in always agree, for every kind.
  */
-export function createStaffAccounts(auth: StaffAuth) {
+export function createAccounts(auth: StaffAuth) {
   async function checkPassword(password: string): Promise<PasswordProblem | null> {
     const { minPasswordLength, maxPasswordLength } = (await auth.$context).password.config;
     if (password.length < minPasswordLength) {
@@ -75,20 +75,20 @@ export function createStaffAccounts(auth: StaffAuth) {
     return null;
   }
 
-  async function checkNewAccount(input: CreateStaffAccountInput): Promise<NewAccountProblem | null> {
+  async function checkNewAccount(input: CreateAccountInput): Promise<NewAccountProblem | null> {
     if (!EMAIL_PATTERN.test(normaliseEmail(input.email))) return { status: "invalid-email" };
     if (!input.name.trim()) return { status: "invalid-name" };
     return checkPassword(input.password);
   }
 
-  const staffAccounts = {
+  const accounts = {
     /**
      * Creates an Admin Account only while none exists, for `npm run seed` on a fresh deploy. Staff
      * and Kiosk Accounts don't count, so a database without an Admin still gets one. Never changes
      * an Account: an email that is already taken (by any kind) is reported, not promoted.
      */
-    async createFirst(input: CreateFirstStaffAccountInput): Promise<CreateFirstStaffAccountResult> {
-      const account = { ...input, kind: "admin" } satisfies CreateStaffAccountInput;
+    async createFirst(input: CreateFirstAdminAccountInput): Promise<CreateFirstAdminAccountResult> {
+      const account = { ...input, kind: "admin" } satisfies CreateAccountInput;
       // Checked first, so a wrong `.env` is reported even when there is nothing to create.
       const problem = await checkNewAccount(account);
       if (problem) return problem;
@@ -97,10 +97,10 @@ export function createStaffAccounts(auth: StaffAuth) {
       if ((await ctx.internalAdapter.countTotalUsers([{ field: "kind", value: account.kind }])) > 0) {
         return { status: "admin-account-exists" };
       }
-      return staffAccounts.create(account);
+      return accounts.create(account);
     },
 
-    async create(input: CreateStaffAccountInput): Promise<CreateStaffAccountResult> {
+    async create(input: CreateAccountInput): Promise<CreateAccountResult> {
       const problem = await checkNewAccount(input);
       if (problem) return problem;
       const email = normaliseEmail(input.email);
@@ -164,7 +164,7 @@ export function createStaffAccounts(auth: StaffAuth) {
     },
 
     /** Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. */
-    async resetPassword(input: ResetStaffPasswordInput): Promise<ResetStaffPasswordResult> {
+    async resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResult> {
       const passwordProblem = await checkPassword(input.password);
       if (passwordProblem) return passwordProblem;
 
@@ -189,7 +189,7 @@ export function createStaffAccounts(auth: StaffAuth) {
       return { status: "password-reset", accountId: userId, kind };
     },
   };
-  return staffAccounts;
+  return accounts;
 }
 
-export type StaffAccounts = ReturnType<typeof createStaffAccounts>;
+export type Accounts = ReturnType<typeof createAccounts>;
