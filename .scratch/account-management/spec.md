@@ -22,7 +22,7 @@ Accounts are disabled, never deleted.
 
 **Two parts, two timings:**
 - **Part 1, before the Event:** tickets 01–02, merged into `main` by **28 October 2026**. It covers the Admin Account kind, check-in-only Staff Accounts, My Account, and the commands. It goes **before** the English Back Office (thai-english 06–09). Both must reach `main` by 28 October: the whole Back Office is in English at the Event.
-- **Part 2, after the Event:** tickets 03–10, on the integration branch `account-management`, merged into `main` after 1 November 2026. It covers the Accounts pages, the Account History, forced password change, and creating, editing, disabling and enabling Accounts. Since the second grilling (24 October 2026, below) it also covers each Account's last sign-in, the owner's signed-in devices, generated passwords, and Account names in English. The Back Office is frozen from 29 October to 1 November.
+- **Part 2, after the Event:** tickets 03–13, on the integration branch `account-management`, merged into `main` after 1 November 2026. Work on the branch started on 24 October 2026; nothing reaches `main` before 2 November. It covers the Accounts pages, the Account History, forced password change, and creating, editing, disabling and enabling Accounts. Since the second grilling (24 October 2026, below) it also covers each Account's last sign-in, the owner's signed-in devices, generated passwords, and Account names in English. The Back Office is frozen from 29 October to 1 November.
 - **Copy:** all new Back Office copy is English.
 - **Contingency:** if thai-english ticket 10 can't merge by 28 October, Part 1's new strings are translated to Thai on `main` before the freeze, so the Back Office never ships half Thai, half English. The thai-english spec's rule still holds.
 
@@ -289,7 +289,7 @@ A second grilling, on 24 October 2026, worked through the "User Manager Blueprin
 - **Kiosk Accounts:** they are sent to `/kiosk` by `requireStaff()`, as now.
 - **History:** a name changed before Part 2 isn't recorded in the Account History. Part 2 doesn't backfill.
 
-### Part 2: the Accounts module grows (tickets 03–10)
+### Part 2: the Accounts module grows (tickets 03–13)
 
 - **Actor:** every operation takes an `actor`, either `{ accountId }` or `"server-command"`. Rules about "yourself" apply only to an Account actor.
 - **Operations:**
@@ -298,7 +298,7 @@ A second grilling, on 24 October 2026, worked through the "User Manager Blueprin
   - `create(input, actor)`: flags Staff and Admin (never Kiosk) and records `created`.
   - `update(id, { name?, email?, kind? }, actor)`:
     - **Refusals:** email taken (case-insensitive), invalid email or name, your own kind, demoting the last enabled Admin.
-    - **Name rule (ticket 10):** checked only when the name actually changes, so an old Thai name doesn't block an email or kind change.
+    - **Name rule (ticket 11):** checked only when the name actually changes, so an old Thai name doesn't block an email or kind change.
     - **Kind change:** deletes sessions.
     - **History:** one change per field.
     - `rename` from Part 1 becomes a thin call into it (owner as actor), recording `name-changed`.
@@ -374,7 +374,7 @@ A second grilling, on 24 October 2026, worked through the "User Manager Blueprin
   - A pure formatter turns an Account Change into its English line.
 - **Commands:** `reset-password` uses `setPassword` and prints when the Account stays disabled. `make-admin` prints what changed.
 
-### Part 2: additions from the User Manager Blueprint (tickets 03, 06–10)
+### Part 2: additions from the User Manager Blueprint (tickets 03, 08–13)
 
 The second grilling (24 October 2026) mapped the blueprint onto this design. Better Auth, the three kinds, ADR 0004 and the 12–128 password rule are unchanged.
 
@@ -382,7 +382,7 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
   - A Better Auth `databaseHooks.session.create.after` sets `last_signed_in_at` to now. It runs after the disabled check in `.before`, so only a real sign-in counts.
   - Every kind counts.
   - Shown with the Back Office's English date and time ("22 Oct 2026, 14:05", Bangkok), or "Never" when null.
-- **Avatars and Badges (ticket 03, used again on `/admin/accounts/[id]`):**
+- **Avatars and Badges (ticket 13: the list, and the header of `/admin/accounts/[id]`):**
   - shadcn `Avatar` with only the fallback (no images), on a muted background.
   - **Initials, a pure function of the name and email:**
     - the first character of the first word and of the last word, upper-cased: "Napat Wongsa" → "NW", "Kiosk 1" → "K1", "Admin" → "A";
@@ -391,14 +391,14 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
     - kind: "Admin", "Staff" or "Kiosk";
     - status: "Enabled" (outline, green dot), "Disabled" (secondary), plus "Must change password" (outline) when flagged.
   - The sidebar's account menu keeps its icon.
-- **Generated passwords (tickets 06 and 07):**
+- **Generated passwords (ticket 12, on the forms from 06 and 07):**
   - Generate uses the existing pure `randomPassword()` (24 lower-case characters, no o, 0, i or 1). It is browser-safe, so it runs in the browser.
   - Generate fills Password and Confirm and switches both to plain text.
   - Copy writes the password to the clipboard with the toast "Password copied". Its `aria-label` is "Copy password".
   - Typed passwords are masked, with a show/hide toggle ("Show password" / "Hide password").
   - The password is still sent and checked by the same Server Action; nothing about storing it changes.
 - **Enabling (ticket 08):** "Enable Account" calls `enable` directly, with no `AlertDialog`. "Disable Account" keeps its `AlertDialog`.
-- **Signed-in devices (ticket 09):**
+- **Signed-in devices (ticket 09 lists them; ticket 10 signs them out):**
   - **Accounts module, three new operations:**
     - `listDevices(accountId, currentSessionId)`: the Account's unexpired sessions as id, user agent, IP, `createdAt` and `isCurrent`. **Never the session token.**
     - `signOutDevice(accountId, sessionId)`: deletes that session only if it belongs to the Account and isn't the current one; otherwise not found.
@@ -425,7 +425,7 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
     - no new dependency;
     - iPadOS Safari that reports itself as a Mac reads "Safari on macOS". That is accepted.
   - The IP is what Better Auth stored at sign-in: the visitor IP that nginx restores from Cloudflare's header (ADR 0005). It is left out when empty.
-- **Names in English (ticket 10):**
+- **Names in English (ticket 11):**
   - **The rule lives in the existing pure name-rules module, shared with the browser forms:**
     - trimmed;
     - at most 100 characters;
@@ -449,8 +449,8 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
 - **Pure modules:**
   - `access.ts` rules for all three kinds, every rule in the table above, plus fail-closed for unknown kinds and `homePath` per kind;
   - in Part 2, the Account Change formatter;
-  - **the English-name rule** (ticket 10): accepts "Napat Wongsa", "Kiosk 1", "Mary-Jane", "O'Neil", "J. Smith"; refuses Thai, "123", empty, over 100 characters; trims;
-  - **initials** (ticket 03): "NW", "K1", "A", extra spaces, and an old Thai name falling back to the email's first letter;
+  - **the English-name rule** (ticket 11): accepts "Napat Wongsa", "Kiosk 1", "Mary-Jane", "O'Neil", "J. Smith"; refuses Thai, "123", empty, over 100 characters; trims;
+  - **initials** (ticket 13): "NW", "K1", "A", extra spaces, and an old Thai name falling back to the email's first letter;
   - **the device label** (ticket 09): a table of real user-agent strings (Safari on iPhone and iPad, Chrome on Android, Windows and macOS, Edge, Firefox, Samsung Internet) and "Unknown browser" for an empty or unknown one.
 - **Accounts module, against a real database** (prior art: `src/lib/auth/accounts.test.ts`, `reset()` in `beforeEach`).
   - **Part 1:**
@@ -467,9 +467,9 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
     - `makeAdmin` enables;
     - the owner's change through `auth.api.changePassword` clears the flag and records `password-changed`;
     - history order, paging and filter, never a password.
-    - **Last sign-in (03):** null for a new Account; set by a successful `signInEmail` for every kind; unchanged by a sign-in refused as disabled; returned by `list()` and `get()`.
-    - **Names (10):** `create` and `update` refuse a Thai name with the message; `update` of email or kind on an Account whose stored name is Thai succeeds; `rename` follows the rule.
-    - **Devices (09):**
+    - **Last sign-in (03; the disabled case in 08):** null for a new Account; set by a successful `signInEmail` for every kind; unchanged by a sign-in refused as disabled; returned by `list()` and `get()`.
+    - **Names (11):** `create` and `update` refuse a Thai name with the message; `update` of email or kind on an Account whose stored name is Thai succeeds; `rename` follows the rule.
+    - **Devices (09, 10):**
       - `listDevices` returns only the Account's own sessions, current first then newest, with no token in any row;
       - `signOutDevice` deletes another of its sessions, and refuses the current session and another Account's session;
       - `signOutOtherDevices` keeps only the current session.
@@ -533,9 +533,9 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
   1. account-management 01, then 02, each on its own branch, merged `--no-ff` into `main`;
   2. thai-english 06–09 on `back-office-english`, merged by ticket 10.
 - **Part 2:**
-  - starts after the Event, on `account-management`, branching from `main`;
-  - tickets in this order: 03, 04, 05, 10, 06, 07, 08, 09 (06 and 07 use ticket 10's name rule; 09 needs only 02);
-  - merged into `main` after 1 November.
+  - started on 24 October 2026 on `account-management`, branching from `main`;
+  - tickets in this order: 03, 04, 05, 06, 07, then 08, 11 and 12, then 13. 09 and then 10 run alongside, since they need only 02. 11 adds the English-name rule to the forms from 06, 07 and 02; 13 uses 11's rule for its initials;
+  - merged into `main` after 1 November, once 08, 10, 12 and 13 are done.
 - **The User Manager Blueprint:** the organisers' notes from hotel-e-voucher, at https://claude.ai/artifact/L8g4M7T7dSCZjg5DBmYA3W. The second grilling took last sign-in, avatars and Badges, generated passwords, enabling without confirmation and signed-in devices from it. English names came up in that grilling. Everything else is under "Out of Scope".
 - **Operator guide:** when Part 2 merges, `docs/deploy-guide/index.html` and `.env.example` get the new seed default ("Admin") and the English-name rule for the commands.
 - **Deploy (Part 1):**

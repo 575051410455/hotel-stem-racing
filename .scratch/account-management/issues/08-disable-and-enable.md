@@ -1,6 +1,6 @@
 # 08: Admins disable and enable Accounts
 
-**What to build:** "Disable Account" and "Enable Account" on `/admin/accounts/[id]`, each confirmed in a dialog.
+**What to build:** "Disable Account" and "Enable Account" on `/admin/accounts/[id]`. Disabling is confirmed in a dialog; enabling acts at once.
 - **Disabling** sets `disabled_at`, signs the Account out everywhere at once, and makes sign-in fail. The sign-in page says "This Account is disabled. Ask an Admin to turn it back on." only after the right password.
 - **Enabling** restores it as it was.
 - **Guards:** an Admin can't disable themself or the last enabled Admin.
@@ -8,7 +8,7 @@
 
 See the spec (Part 2, "sign-in, forced change, pages", "The Accounts module grows").
 
-**Part:** 2, after the Event, on `account-management`. Ticket 08 is the last: after it, `account-management` merges `--no-ff` into `main`.
+**Part:** 2, after the Event, on `account-management`. `account-management` merges `--no-ff` into `main` after 1 November, once 08, 10, 12 and 13 are done.
 
 **Blocked by:** 07
 
@@ -25,8 +25,9 @@ See the spec (Part 2, "sign-in, forced change, pages", "The Accounts module grow
   - `getSignedInAccount` treats a disabled Account as signed out.
 - [ ] **Sign-in form:** maps `ACCOUNT_DISABLED` to "This Account is disabled. Ask an Admin to turn it back on."
 - [ ] **`/admin/accounts/[id]`:**
-  - "Disable Account" / "Enable Account" in a shadcn `AlertDialog` that names the Account and says it will be signed out everywhere;
-  - none on your own Account;
+  - "Disable Account" in a shadcn `AlertDialog` that names the Account and says it will be signed out everywhere;
+  - "Enable Account" calls `enable` at once, with no dialog;
+  - neither on your own Account;
   - toasts "Account disabled" and "Account enabled".
 - [ ] **`/admin/accounts`:** "Disabled" status; disabled Accounts sort after enabled ones.
 - [ ] **Commands:**
@@ -36,13 +37,14 @@ See the spec (Part 2, "sign-in, forced change, pages", "The Accounts module grow
   - disable ends sessions;
   - `auth.api.signInEmail` with the right password fails with `ACCOUNT_DISABLED`, and with a wrong one fails as a wrong password;
   - enable restores sign-in;
+  - a sign-in refused as disabled leaves `last_signed_in_at` unchanged (from 03);
   - the guards;
   - no-ops record nothing;
   - `makeAdmin` enables.
 - [ ] typecheck, lint, test and build pass. The hand-off records a check against `next start`, with a second browser signed in as the target:
-  - disable, and the session ends;
+  - disable asks first, and the session ends;
   - right password, then the disabled message; wrong password, then the usual message;
-  - enable, and sign in works;
+  - enable acts at once, and sign in works;
   - no disable button on your own page;
   - both changes in the History;
   - 375 and 1280 px.
