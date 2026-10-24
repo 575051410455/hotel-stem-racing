@@ -12,12 +12,12 @@ export function RegistrationListSection() {
   return (
     <section aria-labelledby="registration-list-heading" className="mt-10">
       <h2 id="registration-list-heading" className="text-lg leading-normal font-semibold">
-        รายการลงทะเบียน
+        Registrations
       </h2>
       <Suspense
         fallback={
           <p role="status" className="mt-4 text-sm leading-normal text-muted-foreground">
-            กำลังโหลดรายการลงทะเบียน…
+            Loading Registrations…
           </p>
         }
       >

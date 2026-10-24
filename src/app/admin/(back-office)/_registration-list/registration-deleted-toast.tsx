@@ -6,7 +6,7 @@ import { toastSuccess } from "../_shell/toasts";
 import { deletedPassCodeIn, withoutDeletedParam } from "./list-links";
 
 /**
- * "ลบการลงทะเบียน EP-… แล้ว" as a toast on /admin after a delete on the detail page, read from
+ * "Deleted Registration EP-…" as a toast on /admin after a delete on the detail page, read from
  * `?deleted=`. Once shown, the parameter leaves the URL (replacing the entry), so neither a reload
  * nor Back shows it again. An Effect, so a page Next keeps hidden (Activity) can't fire it; the
  * toast's id dedupes a second run (Strict Mode). Renders nothing.
@@ -21,7 +21,7 @@ export function RegistrationDeletedToast() {
     if (!passCode) return;
     toastSuccess(
       <>
-        ลบการลงทะเบียน <span className="font-mono">{passCode}</span> แล้ว
+        Deleted Registration <span className="font-mono">{passCode}</span>
       </>,
       { id: `registration-deleted-${passCode}` },
     );

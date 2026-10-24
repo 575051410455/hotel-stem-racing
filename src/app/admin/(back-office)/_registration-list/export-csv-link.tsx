@@ -28,10 +28,10 @@ export function ExportCsvLink({ view }: { view: RegistrationView }) {
       <a
         href={registrationExportHref(view)}
         download
-        title="ส่งออกทุกรายการที่ตรงกับการค้นหาและตัวกรอง (ทุกหน้า)"
+        title="Export every Registration matching the search and filters (all pages)"
       >
         <DownloadIcon aria-hidden="true" />
-        ส่งออก CSV
+        Export CSV
       </a>
     </Button>
   );

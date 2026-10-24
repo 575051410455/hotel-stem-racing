@@ -12,7 +12,7 @@ import {
 import { columnLabel, type RegistrationListTable } from "./columns";
 
 /**
- * "คอลัมน์": hides and shows the list's columns, one checkbox item per column the table lets
+ * "Columns": hides and shows the list's columns, one checkbox item per column the table lets
  * Staff hide (not the detail link). Choosing an item keeps the menu open, so several columns can
  * be hidden in one go; Escape or a click outside closes it. `columnVisibility` is the table's
  * current visibility, passed in so the menu re-renders when it changes.
@@ -31,7 +31,7 @@ export function ColumnMenu({
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" size="sm">
           <Columns3Icon aria-hidden="true" />
-          คอลัมน์
+          Columns
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

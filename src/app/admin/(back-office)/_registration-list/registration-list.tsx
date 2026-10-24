@@ -53,12 +53,13 @@ import {
   registrationListFeatures,
 } from "./columns";
 import { ExportCsvLink } from "./export-csv-link";
+import { formatEventDay } from "./format";
 import { type RegistrationListItem, registrationListQuery } from "./query";
 import { useRegistrationView } from "./use-registration-view";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const noRows: RegistrationListItem[] = [];
-const formatCount = new Intl.NumberFormat("th-TH").format;
+const formatCount = new Intl.NumberFormat("en-GB").format;
 const eventDayDates: readonly string[] = event.eventDays.map((day) => day.date);
 
 const isOneOf = <T extends string>(options: readonly T[], value: unknown): value is T =>
@@ -69,7 +70,7 @@ const searchText = (typed: string) => typed.trim().slice(0, MAX_QUERY_LENGTH);
 
 /**
  * The Back Office Registration list: a toolbar (search, Event Day and Attendee Role filters, the
- * "คอลัมน์" menu, CSV export), sortable columns and pagination. Search, filters, sort and paging
+ * "Columns" menu, CSV export), sortable columns and pagination. Search, filters, sort and paging
  * run on the server: the view lives in the URL (useRegistrationView), and TanStack Query fetches
  * each page from /api/back-office/registrations, keeping the previous page on screen while the
  * next loads. Hidden columns belong to this screen only: not in the URL, all shown again on
@@ -175,7 +176,7 @@ export function RegistrationList() {
     <div className="mt-4 flex flex-col gap-4">
       {/*
         The toolbar, in dashboard-01's compact size (h-8): one row at 1280 with the sidebar open,
-        even with ล้างตัวกรอง showing; on a narrow screen it wraps, search first.
+        even with "Clear filters" showing; on a narrow screen it wraps, search first.
       */}
       <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
         <form
@@ -186,7 +187,7 @@ export function RegistrationList() {
             submitSearch();
           }}
         >
-          <Label htmlFor={ids.search}>ค้นหา</Label>
+          <Label htmlFor={ids.search}>Search</Label>
           <div className="relative">
             <SearchIcon
               aria-hidden="true"
@@ -198,7 +199,7 @@ export function RegistrationList() {
               value={draft}
               onChange={(changeEvent) => typeSearch(changeEvent.target.value)}
               maxLength={MAX_QUERY_LENGTH}
-              placeholder="ชื่อ นามสกุล เบอร์โทรศัพท์ อีเมล หรือรหัส Event Pass"
+              placeholder="Name, phone, email or Pass Code"
               autoComplete="off"
               enterKeyHint="search"
               className="h-8 pl-9"
@@ -207,7 +208,7 @@ export function RegistrationList() {
         </form>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor={ids.day}>วันเข้าร่วมงาน</Label>
+          <Label htmlFor={ids.day}>Event Day</Label>
           <NativeSelect
             id={ids.day}
             size="sm"
@@ -216,17 +217,17 @@ export function RegistrationList() {
               table.getColumn("eventDays")?.setFilterValue(changeEvent.target.value || undefined)
             }
           >
-            <NativeSelectOption value="">ทุกวัน</NativeSelectOption>
-            {event.eventDays.map(({ date, label }) => (
+            <NativeSelectOption value="">All days</NativeSelectOption>
+            {event.eventDays.map(({ date }) => (
               <NativeSelectOption key={date} value={date}>
-                {label.th}
+                {formatEventDay(date)}
               </NativeSelectOption>
             ))}
           </NativeSelect>
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor={ids.role}>ฐานะการเข้าร่วมงาน</Label>
+          <Label htmlFor={ids.role}>Attendee Role</Label>
           <NativeSelect
             id={ids.role}
             size="sm"
@@ -235,10 +236,10 @@ export function RegistrationList() {
               table.getColumn("role")?.setFilterValue(changeEvent.target.value || undefined)
             }
           >
-            <NativeSelectOption value="">ทุกฐานะ</NativeSelectOption>
+            <NativeSelectOption value="">All roles</NativeSelectOption>
             {attendeeRoles.map((role) => (
               <NativeSelectOption key={role} value={role}>
-                {attendeeRoleShortLabels.th[role]}
+                {attendeeRoleShortLabels.en[role]}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -246,7 +247,7 @@ export function RegistrationList() {
 
         {filtered && (
           <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
-            ล้างตัวกรอง
+            Clear filters
           </Button>
         )}
 
@@ -258,11 +259,11 @@ export function RegistrationList() {
 
       <p role="status" className="min-h-5 text-sm leading-normal text-muted-foreground">
         {data
-          ? `${filtered ? "พบ" : "ทั้งหมด"} ${formatCount(data.total)} รายการ`
+          ? `${formatCount(data.total)} ${filtered ? "found" : "in total"}`
           : isPending
-            ? "กำลังโหลดรายการลงทะเบียน…"
+            ? "Loading Registrations…"
             : null}
-        {data && isFetching && isPlaceholderData ? " · กำลังโหลด…" : null}
+        {data && isFetching && isPlaceholderData ? " · Loading…" : null}
       </p>
 
       <div
@@ -303,19 +304,19 @@ export function RegistrationList() {
                   {error && !data ? (
                     <LoadFailed error={error} onRetry={() => refetch()} />
                   ) : !data ? (
-                    <span className="text-muted-foreground">กำลังโหลด…</span>
+                    <span className="text-muted-foreground">Loading…</span>
                   ) : data.total > 0 ? (
                     <EmptyState
-                      message="ไม่มีรายการในหน้านี้"
-                      action={{ label: "กลับไปหน้าแรก", onClick: () => table.firstPage() }}
+                      message="No Registrations on this page"
+                      action={{ label: "Back to the first page", onClick: () => table.firstPage() }}
                     />
                   ) : filtered ? (
                     <EmptyState
-                      message="ไม่พบการลงทะเบียนที่ตรงกับการค้นหา"
-                      action={{ label: "ล้างตัวกรอง", onClick: clearFilters }}
+                      message="No Registrations match your search"
+                      action={{ label: "Clear filters", onClick: clearFilters }}
                     />
                   ) : (
-                    <EmptyState message="ยังไม่มีการลงทะเบียน" />
+                    <EmptyState message="No Registrations yet" />
                   )}
                 </TableCell>
               </TableRow>
@@ -389,25 +390,25 @@ function LoadFailed({ error, onRetry }: { error: Error; onRetry: () => void }) {
   if (error instanceof BackOfficeRequestError && error.status === 401) {
     return (
       <div className="flex flex-col items-center gap-3">
-        <p className="leading-normal">หมดเวลาการเข้าสู่ระบบ</p>
+        <p className="leading-normal">Session expired</p>
         <Button asChild variant="outline" size="sm">
-          <Link href={SIGN_IN_PATH}>เข้าสู่ระบบอีกครั้ง</Link>
+          <Link href={SIGN_IN_PATH}>Sign in again</Link>
         </Button>
       </div>
     );
   }
   return (
     <div role="alert" className="flex flex-col items-center gap-3">
-      <p className="leading-normal">โหลดรายการลงทะเบียนไม่สำเร็จ</p>
+      <p className="leading-normal">{"Couldn't load Registrations"}</p>
       <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-        ลองอีกครั้ง
+        Try again
       </Button>
     </div>
   );
 }
 
 /**
- * Below the table: the rows on show, rows per page, "หน้า X จาก Y", and buttons for the first,
+ * Below the table: the rows on show, rows per page, "Page X of Y", and buttons for the first,
  * previous, next and last page, disabled at the ends. Every change goes to the URL via the table.
  */
 function Pagination({
@@ -436,12 +437,12 @@ function Pagination({
     <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-sm">
       <p className="leading-normal text-muted-foreground tabular-nums">
         {shownRows > 0
-          ? `แสดง ${formatCount(from)}–${formatCount(to)} จาก ${formatCount(total)} รายการ`
+          ? `Showing ${formatCount(from)}–${formatCount(to)} of ${formatCount(total)}`
           : null}
       </p>
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
         <div className="flex items-center gap-2">
-          <Label htmlFor={pageSizeId}>แถวต่อหน้า</Label>
+          <Label htmlFor={pageSizeId}>Rows per page</Label>
           <NativeSelect
             id={pageSizeId}
             size="sm"
@@ -456,19 +457,19 @@ function Pagination({
           </NativeSelect>
         </div>
         <p className="leading-normal font-medium tabular-nums">
-          หน้า {formatCount(page)} จาก {formatCount(pageCount)}
+          Page {formatCount(page)} of {formatCount(pageCount)}
         </p>
-        <nav aria-label="เลือกหน้า" className="flex items-center gap-2">
-          <PageButton label="หน้าแรก" disabled={onFirstPage} onClick={() => table.firstPage()}>
+        <nav aria-label="Pages" className="flex items-center gap-2">
+          <PageButton label="First page" disabled={onFirstPage} onClick={() => table.firstPage()}>
             <ChevronsLeftIcon />
           </PageButton>
-          <PageButton label="ก่อนหน้า" disabled={onFirstPage} onClick={() => table.previousPage()}>
+          <PageButton label="Previous page" disabled={onFirstPage} onClick={() => table.previousPage()}>
             <ChevronLeftIcon />
           </PageButton>
-          <PageButton label="ถัดไป" disabled={onLastPage} onClick={() => table.nextPage()}>
+          <PageButton label="Next page" disabled={onLastPage} onClick={() => table.nextPage()}>
             <ChevronRightIcon />
           </PageButton>
-          <PageButton label="หน้าสุดท้าย" disabled={onLastPage} onClick={() => table.lastPage()}>
+          <PageButton label="Last page" disabled={onLastPage} onClick={() => table.lastPage()}>
             <ChevronsRightIcon />
           </PageButton>
         </nav>

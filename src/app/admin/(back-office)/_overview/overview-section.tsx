@@ -13,7 +13,7 @@ export function OverviewSection() {
   return (
     <section aria-labelledby="overview-heading" className="@container/overview">
       <h2 id="overview-heading" className="sr-only">
-        ภาพรวม
+        Overview
       </h2>
       {/* dashboard-01's section cards: one column, two from 36rem, four from 64rem. */}
       <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/overview:grid-cols-2 @5xl/overview:grid-cols-4">
