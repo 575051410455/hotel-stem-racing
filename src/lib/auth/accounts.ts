@@ -34,8 +34,26 @@ export type CreateAccountResult =
 export type CreateFirstAdminAccountResult = CreateAccountResult | { status: "admin-account-exists" };
 
 export type MakeAdminResult =
-  | { status: "promoted"; accountId: string; from: AccountKind }
-  | { status: "already-admin"; accountId: string }
+  /** `enabled`: it was disabled, and is now enabled again. */
+  | { status: "promoted"; accountId: string; from: AccountKind; enabled: boolean }
+  /** Already an Admin: nothing changed, unless it was disabled and is now enabled again (`enabled`). */
+  | { status: "already-admin"; accountId: string; enabled: boolean }
+  | { status: "not-found" };
+
+export type DisableAccountResult =
+  /** Disabled now, or it already was (nothing changed, nothing recorded). */
+  | { status: "disabled" }
+  /** An Admin disabling their own Account (rules about yourself apply only to an Account actor). */
+  | { status: "own-account" }
+  | { status: "not-found" }
+  /** The only enabled Admin Account: there is always at least one (ADR 0004). */
+  | { status: "last-enabled-admin" };
+
+export type EnableAccountResult =
+  /** Enabled now, or it already was (nothing changed, nothing recorded). */
+  | { status: "enabled" }
+  /** An Admin enabling their own Account: only a stale page asks, since a disabled Account can't sign in. */
+  | { status: "own-account" }
   | { status: "not-found" };
 
 export type UpdateAccountResult =
@@ -166,7 +184,8 @@ function enabledFirstByName(a: Account, b: Account): number {
  * only to an Account actor, never to the server command. A password it sets (`create`,
  * `createFirst`, `setPassword`) is someone else's choice, so a Staff or Admin Account's owner must
  * choose their own at the next sign-in (`mustChangePassword`); the owner's own change clears it (a
- * hook in staff-auth.ts). Kiosk Accounts are never flagged.
+ * hook in staff-auth.ts). Kiosk Accounts are never flagged. Accounts are disabled and enabled, never
+ * deleted (`disable`, `enable`); an Admin can't do either to their own Account.
  */
 export function createAccounts(auth: StaffAuth, db: Database) {
   /**
@@ -279,23 +298,73 @@ export function createAccounts(auth: StaffAuth, db: Database) {
     /**
      * Makes an existing Account an Admin Account and signs it out everywhere, so no open session
      * keeps its old kind. For `npm run staff -- make-admin`: the way to appoint Admins on a database
-     * that already has Accounts, and back in when no Admin can sign in.
+     * that already has Accounts, and back in when no Admin can sign in. It also enables a disabled
+     * Account (`enabled`), an Admin's included, recorded on its own after the kind.
      */
     async makeAdmin(email: string, actor: Actor): Promise<MakeAdminResult> {
       const ctx = await auth.$context;
       const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(email));
       if (!found) return { status: "not-found" };
-      const userId = found.user.id;
-      const from = kindOf(found.user);
-      if (from === "admin") return { status: "already-admin", accountId: userId };
+      const account = toAccount(found.user);
+      const enables = account.disabledAt !== null;
+      if (account.kind === "admin") {
+        if (enables) {
+          await ctx.internalAdapter.updateUser(account.id, { disabledAt: null });
+          await record(account.id, { action: "enabled" }, actor);
+        }
+        return { status: "already-admin", accountId: account.id, enabled: enables };
+      }
 
-      await ctx.internalAdapter.updateUser(userId, {
+      await ctx.internalAdapter.updateUser(account.id, {
         kind: "admin",
-        mustChangePassword: mustChangePasswordAsKind(toAccount(found.user), "admin"),
+        mustChangePassword: mustChangePasswordAsKind(account, "admin"),
+        ...(enables && { disabledAt: null }),
       });
-      await ctx.internalAdapter.deleteUserSessions(userId);
-      await record(userId, { action: "kind-changed", details: { from, to: "admin" } }, actor);
-      return { status: "promoted", accountId: userId, from };
+      await ctx.internalAdapter.deleteUserSessions(account.id);
+      await record(account.id, { action: "kind-changed", details: { from: account.kind, to: "admin" } }, actor);
+      if (enables) await record(account.id, { action: "enabled" }, actor);
+      return { status: "promoted", accountId: account.id, from: account.kind, enabled: enables };
+    },
+
+    /**
+     * Disables an Account, for an Admin on its page: it is signed out everywhere at once and can't
+     * sign in until it is enabled again (staff-auth.ts refuses its new sessions, after the password
+     * matched). Nothing else about it changes. An Admin can't disable their own Account, and nobody
+     * can disable the last enabled Admin, so someone can always manage Accounts. Disabling a disabled
+     * Account changes and records nothing.
+     */
+    async disable(accountId: string, actor: Actor): Promise<DisableAccountResult> {
+      if (isOwnAccount(accountId, actor)) return { status: "own-account" };
+      const account = await accounts.get(accountId);
+      if (!account) return { status: "not-found" };
+      if (account.disabledAt !== null) return { status: "disabled" };
+      if (account.kind === "admin" && (await otherEnabledAdmins(accountId)) === 0) {
+        return { status: "last-enabled-admin" };
+      }
+
+      const ctx = await auth.$context;
+      // Disabled before its sessions end, so no new one can start in between.
+      await ctx.internalAdapter.updateUser(accountId, { disabledAt: new Date() });
+      await ctx.internalAdapter.deleteUserSessions(accountId);
+      await record(accountId, { action: "disabled" }, actor);
+      return { status: "disabled" };
+    },
+
+    /**
+     * Enables a disabled Account, for an Admin on its page: it can sign in again, exactly as it was
+     * (kind, details, and whether its owner must choose their own password). Enabling an enabled
+     * Account changes and records nothing. An Admin's own Account is refused, like disabling it.
+     */
+    async enable(accountId: string, actor: Actor): Promise<EnableAccountResult> {
+      if (isOwnAccount(accountId, actor)) return { status: "own-account" };
+      const account = await accounts.get(accountId);
+      if (!account) return { status: "not-found" };
+      if (account.disabledAt === null) return { status: "enabled" };
+
+      const ctx = await auth.$context;
+      await ctx.internalAdapter.updateUser(accountId, { disabledAt: null });
+      await record(accountId, { action: "enabled" }, actor);
+      return { status: "enabled" };
     },
 
     /**

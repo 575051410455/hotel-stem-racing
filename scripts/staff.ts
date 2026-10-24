@@ -11,10 +11,11 @@
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
 // 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
-// out everywhere. make-admin is also the way back in when no Admin can sign in. A Staff or Admin
-// Account created or reset here must choose its own password at its next sign-in; a Kiosk Account
-// needn't. A reset never enables a disabled Account, and says so. Every change is recorded in the
-// Account History as made by "Server command".
+// out everywhere. make-admin is also the way back in when no Admin can sign in, and it enables a
+// disabled Account (an Admin's too), saying so. A Staff or Admin Account created or reset here must
+// choose its own password at its next sign-in; a Kiosk Account needn't. A reset never enables a
+// disabled Account, and says so. Every change is recorded in the Account History as made by
+// "Server command".
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
@@ -146,12 +147,17 @@ async function makeAdmin(accounts: Accounts, email: string): Promise<number> {
   switch (result.status) {
     case "promoted":
       console.log(
-        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]}) and signed it out of ` +
-          "every device. It now sees the whole Back Office.",
+        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]})` +
+          (result.enabled ? ", enabled it again (it was disabled)" : "") +
+          " and signed it out of every device. It now sees the whole Back Office.",
       );
       return 0;
     case "already-admin":
-      console.log(`${email} is already an Admin Account. Nothing was changed.`);
+      console.log(
+        result.enabled
+          ? `${email} is already an Admin Account. It was disabled: enabled it again, so it can sign in.`
+          : `${email} is already an Admin Account. Nothing was changed.`,
+      );
       return 0;
     case "not-found":
       console.error(`There is no Account for ${email}. Nothing was changed.`);

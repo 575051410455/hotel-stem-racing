@@ -17,6 +17,8 @@ function signInErrorMessage({ status, code, retryAfterSeconds }: SignInFailure):
       : "Too many sign-in attempts. Wait a moment and try again.";
   }
   if (status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") return "Wrong email or password";
+  // Only after the right password (staff-auth.ts), so it never tells a stranger which emails have Accounts.
+  if (code === "ACCOUNT_DISABLED") return "This Account is disabled. Ask an Admin to turn it back on.";
   if (code === "INVALID_EMAIL") return "Please enter a valid email";
   if (status === 0) return "Can't reach the server. Check your internet connection and try again.";
   return "Sign-in failed. Please try again.";

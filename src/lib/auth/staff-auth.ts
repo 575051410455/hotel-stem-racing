@@ -68,12 +68,28 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
     databaseHooks: {
       session: {
         create: {
+          // A disabled Account can't sign in (account-management ticket 08): its new session is
+          // refused. Better Auth creates it only after the password matched, so a wrong password
+          // still gets the usual "wrong email or password", and only someone who knows the password
+          // learns that the Account is disabled (ADR 0004). Every new session comes through here, a
+          // password change's fresh one too. Read straight from the table, like `.after`.
+          before: async (session) => {
+            const [user] = await db
+              .select({ disabledAt: authSchema.users.disabledAt })
+              .from(authSchema.users)
+              .where(eq(authSchema.users.id, session.userId));
+            if (user?.disabledAt) {
+              throw APIError.from("FORBIDDEN", {
+                message: "This Account is disabled. Ask an Admin to turn it back on.",
+                code: "ACCOUNT_DISABLED",
+              });
+            }
+          },
           // Last sign-in (account-management ticket 03): set as each session is created, for every
           // kind of Account, so an unused Kiosk iPad shows up like an unused helper. A wrong password
-          // never gets here, and neither will a disabled Account once ticket 08 refuses it in
-          // `.before`. Changing a password starts a fresh session too, which counts: its owner is
-          // there. Written straight to the table: the endpoint context, and with it the internal
-          // adapter, can be null here.
+          // never gets here, and neither does a disabled Account, refused in `.before`. Changing a
+          // password starts a fresh session too, which counts: its owner is there. Written straight
+          // to the table: the endpoint context, and with it the internal adapter, can be null here.
           after: async (session) => {
             await db
               .update(authSchema.users)
