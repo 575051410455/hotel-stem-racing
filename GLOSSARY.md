@@ -70,16 +70,24 @@ The staff-only part of the system, entered by signing in.
 _Avoid_: Admin panel, dashboard, CMS
 
 **Staff** (เจ้าหน้าที่):
-A member of the organising team who works with Registrations in the Back Office.
-_Avoid_: Admin (keep for a permission level, if one is ever needed), user, operator
+A member of the organising team who signs in to the Back Office, with a Staff Account or an Admin Account.
+_Avoid_: Admin (that is an Admin Account), user, operator
 
 **Account** (บัญชี):
-A sign-in identity for the Back Office, keyed by email address: either a Staff Account or a Kiosk Account. Attendees never have Accounts.
+A sign-in identity for the Back Office, keyed by email address: a Staff Account, an Admin Account or a Kiosk Account. Attendees never have Accounts. An Account can be disabled: it can't sign in until an Admin Account enables it again. Accounts are never deleted.
 _Avoid_: User, member, profile
 
 **Staff Account** (บัญชีเจ้าหน้าที่):
-The Account of one Staff member, with full access to the Back Office.
+The Account of a Staff member who checks Attendees in at the entrance: it can record Check-Ins and see its own Account, and nothing else in the Back Office.
+
+**Admin Account** (บัญชีผู้ดูแลระบบ):
+The Account of a Staff member with full access to the Back Office: Registrations, Check-Ins, email and managing Accounts. There is always at least one enabled Admin Account.
+_Avoid_: Superuser, owner, role
 
 **Kiosk Account** (บัญชี Kiosk):
 An Account that can only run a Kiosk and record Check-Ins; it can see no Registration data.
 _Avoid_: Device account, guest account
+
+**Account Change** (การเปลี่ยนแปลงบัญชี):
+One recorded change to an Account (created, name, email or kind changed, password set or changed, disabled or enabled), with who made it and when, never a password. All of them together, newest first, are the **Account History** (ประวัติบัญชี).
+_Avoid_: Audit log entry, activity, event (an Event is the competition)

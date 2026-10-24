@@ -35,7 +35,7 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | เช็คอิน (nav) | Check-In |
 | ส่งอีเมล (nav) | Email |
 | เข้าสู่ระบบในชื่อ (screen readers) | Signed in as |
-| เปลี่ยนรหัสผ่าน | Change password |
+| เปลี่ยนรหัสผ่าน (account menu) | My Account (renamed by account-management 02; the item opens `/admin/account`) |
 | ออกจากระบบ | Sign out |
 | เมนู / เลือกหน้าที่จะไป (mobile sheet) | Menu / Choose a page |
 | เปิดหรือปิดเมนู | Open or close the menu |
@@ -69,6 +69,8 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | ลืมรหัสผ่าน? ติดต่อผู้จัดงานเพื่อตั้งรหัสผ่านใหม่ | Forgot your password? Ask the organisers to set a new one. |
 
 ## Change password
+
+Since account-management 02, this form is the "Change password" section of My Account (`/admin/account`), already in English. `/admin/password` redirects there. The strings below are the ones it uses.
 
 | Thai | English |
 | --- | --- |
