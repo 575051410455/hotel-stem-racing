@@ -2,6 +2,7 @@
 // The English dictionary must have exactly these keys (see ./index.ts).
 
 import { event, eventDateRangeLabel, eventVenue } from "@/lib/event";
+import { SUBMISSION_WINDOW_MINUTES } from "@/lib/registrations/bot-protection";
 
 const dateRange = eventDateRangeLabel("th");
 const venue = eventVenue("th");
@@ -19,6 +20,56 @@ export const th = {
     introduction: `ขอเชิญร่วมสัมผัสบรรยากาศการแข่งขัน ${event.name} และส่งกำลังใจให้เยาวชนผู้เข้าร่วมการแข่งขัน`,
     dateAndVenue: `วันที่ ${dateRange} · ${venue}`,
     loading: "กำลังโหลดแบบฟอร์มลงทะเบียน…",
+  },
+  registrationForm: {
+    formName: "แบบฟอร์มลงทะเบียนเข้าร่วมงาน",
+    intro: "กรุณากรอกข้อมูลเพื่อลงทะเบียนเข้าร่วมงาน",
+    requiredKey: "หมายถึงข้อมูลที่จำเป็นต้องกรอก",
+    requiredForScreenReaders: "(จำเป็น)",
+    givenName: "ชื่อ",
+    familyName: "นามสกุล",
+    phone: "เบอร์โทรศัพท์",
+    phonePlaceholder: "081-234-5678",
+    email: "อีเมล",
+    emailPlaceholder: "name@example.com",
+    roleQuestion: "ท่านเข้าร่วมงานในฐานะใด",
+    chooseOne: "(เลือก 1 ข้อ)",
+    chooseOneOrMore: "(เลือกได้มากกว่า 1 ข้อ)",
+    roleOther: "โปรดระบุฐานะการเข้าร่วมงาน",
+    organisationHintSponsor: "กรุณาระบุชื่อบริษัท องค์กร หรือหน่วยงานที่ท่านเป็นตัวแทน",
+    organisationHintOthers: "หากไม่มี สามารถเว้นว่างได้",
+    eventDaysQuestion: "วันที่ต้องการเข้าร่วมงาน",
+    referralQuestion: "ท่านทราบข่าวการจัดงานจากช่องทางใด",
+    referralOther: "โปรดระบุช่องทางที่ทราบข่าว",
+    teamCheeredFor: "ชื่อทีมที่ท่านต้องการมาเชียร์ (ถ้ามี)",
+    accessibilityNeeds: "ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (ถ้ามี)",
+    accessibilityHints: ["เช่น การอำนวยความสะดวกสำหรับผู้ใช้รถเข็น", "ไม่จำเป็นต้องระบุข้อมูลสุขภาพหรือการวินิจฉัยโรค"],
+    comments: "ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม",
+    submit: "ลงทะเบียน",
+    submitting: "กำลังลงทะเบียน…",
+    privacyNote:
+      "ข้อมูลที่ท่านกรอกจะใช้สำหรับจัดการลงทะเบียน ติดต่อเกี่ยวกับการเข้าร่วมงาน และวางแผนรองรับผู้เข้าร่วมงาน",
+    onePerForm: "กรุณาลงทะเบียน 1 คนต่อ 1 แบบฟอร์ม",
+  },
+  botProtection: {
+    loadFailed:
+      "โหลดระบบตรวจสอบความปลอดภัยไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วโหลดหน้านี้ใหม่",
+    error: "ระบบตรวจสอบความปลอดภัยขัดข้อง",
+    unsupported: "เบราว์เซอร์นี้ไม่รองรับระบบตรวจสอบความปลอดภัย กรุณาอัปเดตหรือเปลี่ยนเบราว์เซอร์",
+    didNotPass: "การตรวจสอบความปลอดภัยไม่ผ่าน กรุณารอให้การตรวจสอบด้านบนเสร็จสิ้น แล้วกดลงทะเบียนอีกครั้ง",
+    rateLimited: `มีการส่งแบบฟอร์มจากเครือข่ายนี้บ่อยเกินไป กรุณารอประมาณ ${SUBMISSION_WINDOW_MINUTES} นาที แล้วลองใหม่อีกครั้ง`,
+    retry: "ลองอีกครั้ง",
+  },
+  /** `{email}` marks where the masked email goes. */
+  duplicateRegistration: {
+    heading: "ท่านลงทะเบียนแล้ว",
+    resent: "เราได้ส่ง Event Pass ไปที่ {email} อีกครั้ง",
+    spamHint: "หากไม่พบในกล่องจดหมาย กรุณาตรวจสอบโฟลเดอร์จดหมายขยะ (Spam)",
+    checkInbox: "กรุณาตรวจสอบ Event Pass ในกล่องจดหมายของอีเมลที่ท่านใช้ลงทะเบียน ({email}) รวมถึงโฟลเดอร์จดหมายขยะ (Spam)",
+    registeredWith: "ท่านลงทะเบียนไว้ด้วยอีเมล {email}",
+    stillNotFound: "หากยังไม่พบ กรุณาติดต่อผู้จัดงาน",
+    wantItAgain: "หากต้องการรับ Event Pass อีกครั้ง กรุณาติดต่อผู้จัดงาน",
+    registerSomeoneElse: "ลงทะเบียนให้ผู้อื่น",
   },
   registrationClosed: {
     heading: "ปิดรับลงทะเบียนแล้ว",

@@ -3,7 +3,14 @@
 
 import { bangkokDate } from "@/lib/bangkok-time";
 import { type EventDay, event } from "@/lib/event";
+import type { Language } from "@/lib/language";
 import type { FieldErrors } from "./fields";
+
+/** "{days} has passed", per language (copy-public.md, "Event Day passed" and "Joining two days"). */
+const endedMessages: Record<Language, { join: string; ended: (days: string) => string }> = {
+  th: { join: " และ ", ended: (days) => `${days} ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น` },
+  en: { join: " and ", ended: (days) => `${days} has already passed. Please choose another day.` },
+};
 
 /**
  * Event Days that have not ended at `now`. An Event Day stays open until the end of its date in
@@ -21,17 +28,17 @@ export function isRegistrationClosed(now: Date): boolean {
 }
 
 /**
- * A Thai error on `eventDays` when any chosen Event Day has ended at `now`, otherwise `{}`.
- * Unknown dates are left to Field validation.
+ * An error in `language` on `eventDays` when any chosen Event Day has ended at `now`, otherwise
+ * `{}`. Unknown dates are left to Field validation.
  */
-export function endedEventDayErrors(chosen: readonly string[], now: Date): FieldErrors {
+export function endedEventDayErrors(chosen: readonly string[], now: Date, language: Language): FieldErrors {
   const open = openEventDays(now);
   const ended = event.eventDays.filter(
     (day) => chosen.includes(day.date) && !open.some((openDay) => openDay.date === day.date),
   );
   if (ended.length === 0) return {};
-  const labels = ended.map((day) => day.label.th).join(" และ ");
-  return { eventDays: `${labels} ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น` };
+  const text = endedMessages[language];
+  return { eventDays: text.ended(ended.map((day) => day.label[language]).join(text.join)) };
 }
 
 /** The Event Day that `now` falls on in Bangkok, or undefined when today isn't an Event Day. */

@@ -167,6 +167,18 @@ describe("Registration module", () => {
       });
     });
 
+    test("an English submission's problems, an ended Event Day included, come back in English", async () => {
+      const registrations = at("2026-11-01T08:00:00");
+
+      assert.deepEqual(await registrations.submit({ ...attendee, eventDays: ["2026-10-31"], email: "" }, {}, "en"), {
+        status: "invalid",
+        fieldErrors: {
+          email: "Please enter your email",
+          eventDays: "Saturday 31 October 2026 has already passed. Please choose another day.",
+        },
+      });
+    });
+
     test("after 1 November ends, submitting returns registration closed", async () => {
       const registrations = at("2026-11-02T00:00:00");
 

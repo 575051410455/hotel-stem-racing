@@ -238,7 +238,7 @@ export function RegistrationList() {
             <NativeSelectOption value="">ทุกฐานะ</NativeSelectOption>
             {attendeeRoles.map((role) => (
               <NativeSelectOption key={role} value={role}>
-                {attendeeRoleShortLabels[role]}
+                {attendeeRoleShortLabels.th[role]}
               </NativeSelectOption>
             ))}
           </NativeSelect>

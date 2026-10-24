@@ -73,10 +73,10 @@ export const registrationListColumns = column.columns([
     header: "ฐานะ",
     cell: ({ row }) => {
       const { role, roleOther } = row.original;
-      if (role !== "other" || !roleOther) return attendeeRoleShortLabels[role];
+      if (role !== "other" || !roleOther) return attendeeRoleShortLabels.th[role];
       return (
         <span className="block max-w-48 truncate" title={roleOther}>
-          {attendeeRoleShortLabels.other}: {roleOther}
+          {attendeeRoleShortLabels.th.other}: {roleOther}
         </span>
       );
     },

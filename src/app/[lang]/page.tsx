@@ -60,12 +60,23 @@ export default async function RegistrationPage() {
 // Which Event Days are still open depends on the current time, so it is read per request.
 async function Registration({ language, dictionary }: { language: Language; dictionary: Dictionary }) {
   await connection();
-  const closedCopy = { ...dictionary.registrationClosed, contactListName: dictionary.contactListName };
+  const { contactListName } = dictionary;
+  const closedCopy = { ...dictionary.registrationClosed, contactListName };
   const eventDays = openEventDays(new Date());
   if (eventDays.length === 0) return <RegistrationClosed copy={closedCopy} language={language} />;
 
   return (
-    <RegistrationForm action={submitRegistration} eventDays={eventDays} language={language} closedCopy={closedCopy} />
+    <RegistrationForm
+      action={submitRegistration.bind(null, language)}
+      eventDays={eventDays}
+      language={language}
+      copy={{
+        form: dictionary.registrationForm,
+        botProtection: dictionary.botProtection,
+        duplicate: { ...dictionary.duplicateRegistration, contactListName },
+        closed: closedCopy,
+      }}
+    />
   );
 }
 

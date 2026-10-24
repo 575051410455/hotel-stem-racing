@@ -33,7 +33,7 @@ const columns: { header: string; value: (row: RegistrationExportRow) => string |
   { header: "เบอร์โทรศัพท์", value: (row) => localPhone(row.phone) },
   { header: "เบอร์โทรศัพท์ (E.164)", value: (row) => row.phone },
   { header: "อีเมล", value: (row) => row.email },
-  { header: "ฐานะการเข้าร่วมงาน", value: (row) => attendeeRoleShortLabels[row.role] },
+  { header: "ฐานะการเข้าร่วมงาน", value: (row) => attendeeRoleShortLabels.th[row.role] },
   { header: "ฐานะการเข้าร่วมงาน (ระบุ)", value: (row) => row.roleOther },
   { header: "โรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน", value: (row) => row.organisation },
   {
@@ -42,7 +42,7 @@ const columns: { header: string; value: (row: RegistrationExportRow) => string |
   },
   {
     header: "ช่องทางที่ทราบข่าว",
-    value: (row) => joined(row.referralSources.map((source) => referralSourceShortLabels[source])),
+    value: (row) => joined(row.referralSources.map((source) => referralSourceShortLabels.th[source])),
   },
   { header: "ช่องทางที่ทราบข่าว (ระบุ)", value: (row) => row.referralOther },
   { header: "ทีมที่ต้องการมาเชียร์", value: (row) => row.competingTeamCheeredFor },

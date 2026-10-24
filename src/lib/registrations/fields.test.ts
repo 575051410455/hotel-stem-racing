@@ -36,42 +36,42 @@ const withValues = (values: Partial<RegistrationForm>): RegistrationForm => ({ .
 describe("Field validation: names", () => {
   test("accepts Thai names with vowels and tone marks", () => {
     for (const name of ["วิชัย", "สมศักดิ์", "ณัฐพงศ์", "ไอยรา", "นิ่มนวล", "เจ๊ะ", "ปู"]) {
-      assert.equal(validateField("givenName", withValues({ givenName: name })), undefined, name);
-      assert.equal(validateField("familyName", withValues({ familyName: name })), undefined, name);
+      assert.equal(validateField("givenName", withValues({ givenName: name }), "th"), undefined, name);
+      assert.equal(validateField("familyName", withValues({ familyName: name }), "th"), undefined, name);
     }
   });
 
   test("accepts groups joined by a single space, apostrophe or hyphen, and trims the ends", () => {
     for (const name of ["Mary Ann", "O'Brien", "O’Brien", "Jean-Luc", "ณ อยุธยา", "  วิชัย  "]) {
-      assert.equal(validateField("givenName", withValues({ givenName: name })), undefined, name);
+      assert.equal(validateField("givenName", withValues({ givenName: name }), "th"), undefined, name);
     }
   });
 
   test("ignores invisible zero-width characters pasted inside a name, and saves the name without them", () => {
     const pasted = "ณัฐ​พล‌";
-    assert.equal(validateField("givenName", withValues({ givenName: pasted })), undefined);
+    assert.equal(validateField("givenName", withValues({ givenName: pasted }), "th"), undefined);
 
-    const parsed = parseRegistration(withValues({ givenName: pasted, familyName: "﻿ใจดี" }));
+    const parsed = parseRegistration(withValues({ givenName: pasted, familyName: "﻿ใจดี" }), "th");
     assert.ok(parsed.ok);
     assert.equal(parsed.registration.givenName, "ณัฐพล");
     assert.equal(parsed.registration.familyName, "ใจดี");
   });
 
   test("asks for a missing name in Thai", () => {
-    assert.equal(validateField("givenName", withValues({ givenName: "   " })), "กรุณากรอกชื่อ");
-    assert.equal(validateField("familyName", withValues({ familyName: "" })), "กรุณากรอกนามสกุล");
+    assert.equal(validateField("givenName", withValues({ givenName: "   " }), "th"), "กรุณากรอกชื่อ");
+    assert.equal(validateField("familyName", withValues({ familyName: "" }), "th"), "กรุณากรอกนามสกุล");
   });
 
   test("rejects digits, symbols, emoji and doubled or dangling separators", () => {
     for (const name of ["J1m", "Ann!", "😀😀", "Mary  Ann", "-Ann", "Ann-", "Jean--Luc", "O''Brien", "ชัย.", "a_b"]) {
-      assert.match(validateField("givenName", withValues({ givenName: name })) ?? "", /^ชื่อใช้ได้เฉพาะตัวอักษร/, name);
+      assert.match(validateField("givenName", withValues({ givenName: name }), "th") ?? "", /^ชื่อใช้ได้เฉพาะตัวอักษร/, name);
     }
   });
 
   test("rejects names shorter than two letters", () => {
     for (const name of ["ก", "A"]) {
       assert.equal(
-        validateField("familyName", withValues({ familyName: name })),
+        validateField("familyName", withValues({ familyName: name }), "th"),
         "นามสกุลต้องมีอย่างน้อย 2 ตัวอักษร",
         name,
       );
@@ -80,10 +80,10 @@ describe("Field validation: names", () => {
 
   test("rejects names longer than the maximum length", () => {
     assert.equal(
-      validateField("givenName", withValues({ givenName: "ก".repeat(101) })),
+      validateField("givenName", withValues({ givenName: "ก".repeat(101) }), "th"),
       "ชื่อยาวได้ไม่เกิน 100 ตัวอักษร",
     );
-    assert.equal(validateField("givenName", withValues({ givenName: "ก".repeat(100) })), undefined);
+    assert.equal(validateField("givenName", withValues({ givenName: "ก".repeat(100) }), "th"), undefined);
   });
 });
 
@@ -109,13 +109,13 @@ describe("Field validation: phone", () => {
       ["073123456", "+6673123456"],
     ];
     for (const [typed, e164] of accepted) {
-      assert.equal(validateField("phone", withValues({ phone: typed })), undefined, typed);
+      assert.equal(validateField("phone", withValues({ phone: typed }), "th"), undefined, typed);
       assert.equal(phoneToE164(typed), e164, typed);
     }
   });
 
   test("asks for a missing phone number in Thai", () => {
-    assert.equal(validateField("phone", withValues({ phone: "  " })), "กรุณากรอกเบอร์โทรศัพท์");
+    assert.equal(validateField("phone", withValues({ phone: "  " }), "th"), "กรุณากรอกเบอร์โทรศัพท์");
   });
 
   test("rejects numbers that are not a Thai mobile or landline", () => {
@@ -138,7 +138,7 @@ describe("Field validation: phone", () => {
     ];
     for (const typed of rejected) {
       assert.equal(
-        validateField("phone", withValues({ phone: typed })),
+        validateField("phone", withValues({ phone: typed }), "th"),
         "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678",
         typed,
       );
@@ -182,7 +182,7 @@ describe("Field validation: phone", () => {
   });
 
   test("rejects phone input longer than the maximum length", () => {
-    assert.ok(validateField("phone", withValues({ phone: `081-234-5678${" ".repeat(20)}` })));
+    assert.ok(validateField("phone", withValues({ phone: `081-234-5678${" ".repeat(20)}` }), "th"));
   });
 });
 
@@ -195,12 +195,12 @@ describe("Field validation: email", () => {
       "o'neil_99@mail-host.org",
       "  wichai@gmail.com  ",
     ]) {
-      assert.equal(validateField("email", withValues({ email })), undefined, email);
+      assert.equal(validateField("email", withValues({ email }), "th"), undefined, email);
     }
   });
 
   test("asks for a missing email in Thai", () => {
-    assert.equal(validateField("email", withValues({ email: " " })), "กรุณากรอกอีเมล");
+    assert.equal(validateField("email", withValues({ email: " " }), "th"), "กรุณากรอกอีเมล");
   });
 
   test("catches common email typos", () => {
@@ -225,7 +225,7 @@ describe("Field validation: email", () => {
       "สมชาย@gmail.com",
     ]) {
       assert.equal(
-        validateField("email", withValues({ email })),
+        validateField("email", withValues({ email }), "th"),
         "กรุณากรอกอีเมลให้ถูกต้อง เช่น name@example.com",
         email,
       );
@@ -233,7 +233,7 @@ describe("Field validation: email", () => {
   });
 
   test("rejects an email longer than the maximum length", () => {
-    assert.ok(validateField("email", withValues({ email: `${"a".repeat(64)}@${"b".repeat(190)}.com` })));
+    assert.ok(validateField("email", withValues({ email: `${"a".repeat(64)}@${"b".repeat(190)}.com` }), "th"));
   });
 });
 
@@ -241,101 +241,101 @@ describe("Field validation: Attendee Role and organisation", () => {
   test("accepts each Attendee Role", () => {
     for (const role of attendeeRoles) {
       const form = withValues({ role, roleOther: "ศิษย์เก่า", organisation: "บริษัท ตัวอย่าง จำกัด" });
-      assert.equal(validateField("role", form), undefined, role);
+      assert.equal(validateField("role", form, "th"), undefined, role);
     }
   });
 
   test("requires an Attendee Role from the list", () => {
     for (const role of ["", "boss", "Parent"]) {
-      assert.equal(validateField("role", withValues({ role })), "กรุณาเลือกฐานะการเข้าร่วมงาน", role);
+      assert.equal(validateField("role", withValues({ role }), "th"), "กรุณาเลือกฐานะการเข้าร่วมงาน", role);
     }
   });
 
   test('"Other" requires the Attendee to type their role', () => {
     assert.equal(
-      validateField("roleOther", withValues({ role: "other", roleOther: "  " })),
+      validateField("roleOther", withValues({ role: "other", roleOther: "  " }), "th"),
       "กรุณาระบุฐานะการเข้าร่วมงาน",
     );
-    assert.equal(validateField("roleOther", withValues({ role: "other", roleOther: "ศิษย์เก่า" })), undefined);
-    assert.equal(validateField("roleOther", withValues({ role: "parent", roleOther: "" })), undefined);
-    assert.ok(validateField("roleOther", withValues({ role: "other", roleOther: "ก".repeat(101) })));
+    assert.equal(validateField("roleOther", withValues({ role: "other", roleOther: "ศิษย์เก่า" }), "th"), undefined);
+    assert.equal(validateField("roleOther", withValues({ role: "parent", roleOther: "" }), "th"), undefined);
+    assert.ok(validateField("roleOther", withValues({ role: "other", roleOther: "ก".repeat(101) }), "th"));
   });
 
   test("organisation is optional, except for a Sponsor", () => {
-    assert.equal(validateField("organisation", withValues({ role: "teacher", organisation: "" })), undefined);
+    assert.equal(validateField("organisation", withValues({ role: "teacher", organisation: "" }), "th"), undefined);
     assert.equal(
-      validateField("organisation", withValues({ role: "sponsor", organisation: " " })),
+      validateField("organisation", withValues({ role: "sponsor", organisation: " " }), "th"),
       "กรุณาระบุบริษัท / องค์กรที่ท่านเป็นตัวแทน",
     );
     assert.equal(
-      validateField("organisation", withValues({ role: "sponsor", organisation: "บริษัท ตัวอย่าง จำกัด" })),
+      validateField("organisation", withValues({ role: "sponsor", organisation: "บริษัท ตัวอย่าง จำกัด" }), "th"),
       undefined,
     );
-    assert.ok(validateField("organisation", withValues({ role: "student", organisation: "ก".repeat(201) })));
+    assert.ok(validateField("organisation", withValues({ role: "student", organisation: "ก".repeat(201) }), "th"));
   });
 
   test("the organisation field is relabelled for a Sponsor", () => {
-    assert.equal(organisationLabel("sponsor"), "บริษัท / องค์กรที่ท่านเป็นตัวแทน");
-    assert.equal(organisationLabel("parent"), "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน");
-    assert.equal(organisationLabel(""), "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน");
+    assert.equal(organisationLabel("sponsor", "th"), "บริษัท / องค์กรที่ท่านเป็นตัวแทน");
+    assert.equal(organisationLabel("parent", "th"), "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน");
+    assert.equal(organisationLabel("", "th"), "ชื่อโรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน");
   });
 });
 
 describe("Field validation: Event Days and Referral Sources", () => {
   test("accepts one or both Event Days", () => {
     for (const eventDays of [["2026-10-31"], ["2026-11-01"], ["2026-10-31", "2026-11-01"]]) {
-      assert.equal(validateField("eventDays", withValues({ eventDays })), undefined, eventDays.join());
+      assert.equal(validateField("eventDays", withValues({ eventDays }), "th"), undefined, eventDays.join());
     }
   });
 
   test("requires at least one Event Day", () => {
     assert.equal(
-      validateField("eventDays", withValues({ eventDays: [] })),
+      validateField("eventDays", withValues({ eventDays: [] }), "th"),
       "กรุณาเลือกวันที่ต้องการเข้าร่วมงานอย่างน้อย 1 วัน",
     );
   });
 
   test("rejects a day that is not an Event Day", () => {
     assert.equal(
-      validateField("eventDays", withValues({ eventDays: ["2026-10-31", "2026-11-02"] })),
+      validateField("eventDays", withValues({ eventDays: ["2026-10-31", "2026-11-02"] }), "th"),
       "กรุณาเลือกวันที่ต้องการเข้าร่วมงานจากรายการ",
     );
   });
 
   test("accepts any combination of Referral Sources", () => {
     const form = withValues({ referralSources: [...referralSources], referralOther: "วิทยุ" });
-    assert.equal(validateField("referralSources", form), undefined);
+    assert.equal(validateField("referralSources", form, "th"), undefined);
   });
 
   test("requires at least one Referral Source from the list", () => {
     assert.equal(
-      validateField("referralSources", withValues({ referralSources: [] })),
+      validateField("referralSources", withValues({ referralSources: [] }), "th"),
       "กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง",
     );
     assert.equal(
-      validateField("referralSources", withValues({ referralSources: ["line", "myspace"] })),
+      validateField("referralSources", withValues({ referralSources: ["line", "myspace"] }), "th"),
       "กรุณาเลือกช่องทางที่ทราบข่าวจากรายการ",
     );
   });
 
   test('"Other" Referral Source requires text', () => {
     assert.equal(
-      validateField("referralOther", withValues({ referralSources: ["line", "other"], referralOther: "" })),
+      validateField("referralOther", withValues({ referralSources: ["line", "other"], referralOther: "" }), "th"),
       "กรุณาระบุช่องทางที่ทราบข่าว",
     );
     assert.equal(
-      validateField("referralOther", withValues({ referralSources: ["other"], referralOther: "วิทยุ" })),
+      validateField("referralOther", withValues({ referralSources: ["other"], referralOther: "วิทยุ" }), "th"),
       undefined,
     );
-    assert.equal(validateField("referralOther", withValues({ referralSources: ["line"], referralOther: "" })), undefined);
+    assert.equal(validateField("referralOther", withValues({ referralSources: ["line"], referralOther: "" }), "th"), undefined);
   });
 });
 
 describe("Field validation: optional free text", () => {
   test("the Competing Team, accessibility needs and comments may be left empty", () => {
     for (const field of ["competingTeamCheeredFor", "accessibilityNeeds", "comments"] as const) {
-      assert.equal(validateField(field, withValues({ [field]: "" })), undefined, field);
-      assert.equal(validateField(field, withValues({ [field]: "ทีม Thunder ⚡ (รร. ตัวอย่าง)" })), undefined, field);
+      assert.equal(validateField(field, withValues({ [field]: "" }), "th"), undefined, field);
+      assert.equal(validateField(field, withValues({ [field]: "ทีม Thunder ⚡ (รร. ตัวอย่าง)" }), "th"), undefined, field);
     }
   });
 
@@ -348,8 +348,8 @@ describe("Field validation: optional free text", () => {
     } as const;
     for (const [field, limit] of Object.entries(limits) as [keyof typeof limits, number][]) {
       const form = withValues({ referralSources: ["other"], [field]: "ก".repeat(limit + 1) });
-      assert.equal(validateField(field, form), `ข้อความยาวได้ไม่เกิน ${limit} ตัวอักษร`, field);
-      assert.equal(validateField(field, { ...form, [field]: "ก".repeat(limit) }), undefined, field);
+      assert.equal(validateField(field, form, "th"), `ข้อความยาวได้ไม่เกิน ${limit} ตัวอักษร`, field);
+      assert.equal(validateField(field, { ...form, [field]: "ก".repeat(limit) }, "th"), undefined, field);
       assert.equal(maxLengths[field], limit, field);
     }
   });
@@ -357,11 +357,11 @@ describe("Field validation: optional free text", () => {
 
 describe("Field validation: the whole form", () => {
   test("a complete form has no errors", () => {
-    assert.deepEqual(validateRegistration(valid), {});
+    assert.deepEqual(validateRegistration(valid, "th"), {});
   });
 
   test("an empty form reports each required field, in form order", () => {
-    assert.deepEqual(validateRegistration(emptyRegistrationForm), {
+    assert.deepEqual(validateRegistration(emptyRegistrationForm, "th"), {
       givenName: "กรุณากรอกชื่อ",
       familyName: "กรุณากรอกนามสกุล",
       phone: "กรุณากรอกเบอร์โทรศัพท์",
@@ -387,7 +387,7 @@ describe("Field validation: the whole form", () => {
       competingTeamCheeredFor: " Thunder ",
       accessibilityNeeds: "",
       comments: "  ",
-    });
+    }, "th");
 
     assert.deepEqual(result, {
       ok: true,
@@ -416,7 +416,7 @@ describe("Field validation: the whole form", () => {
       roleOther: " ศิษย์เก่า ",
       referralSources: ["other"],
       referralOther: " วิทยุ ",
-    });
+    }, "th");
 
     assert.ok(result.ok);
     assert.equal(result.registration.roleOther, "ศิษย์เก่า");
@@ -424,7 +424,7 @@ describe("Field validation: the whole form", () => {
   });
 
   test("parsing an invalid form returns its errors", () => {
-    assert.deepEqual(parseRegistration({ ...valid, role: "sponsor", organisation: "" }), {
+    assert.deepEqual(parseRegistration({ ...valid, role: "sponsor", organisation: "" }, "th"), {
       ok: false,
       fieldErrors: { organisation: "กรุณาระบุบริษัท / องค์กรที่ท่านเป็นตัวแทน" },
     });
@@ -445,6 +445,84 @@ describe("Field validation: the whole form", () => {
       phone: "081-234-5678",
       eventDays: ["2026-10-31", "2026-11-01"],
       referralSources: ["line"],
+    });
+  });
+});
+
+// English messages are copied from .scratch/thai-english/copy-public.md ("Validation messages").
+describe("Field validation: messages in English", () => {
+  test("an empty form reports each required field in English, in form order", () => {
+    assert.deepEqual(validateRegistration(emptyRegistrationForm, "en"), {
+      givenName: "Please enter your given name",
+      familyName: "Please enter your family name",
+      phone: "Please enter your phone number",
+      email: "Please enter your email",
+      role: "Please choose how you're attending",
+      eventDays: "Please choose at least one day",
+      referralSources: "Please choose at least one way you heard about the Event",
+    });
+  });
+
+  test("name problems name the field in English", () => {
+    assert.equal(
+      validateField("givenName", withValues({ givenName: "ก".repeat(101) }), "en"),
+      "Your given name can be at most 100 characters",
+    );
+    assert.equal(
+      validateField("familyName", withValues({ familyName: "Smith2" }), "en"),
+      "Your family name can use letters only, with a single space, hyphen (-) or apostrophe (') between words",
+    );
+    assert.equal(validateField("givenName", withValues({ givenName: "J" }), "en"), "Your given name needs at least 2 letters");
+  });
+
+  test("phone, email and free-text problems in English", () => {
+    assert.equal(
+      validateField("phone", withValues({ phone: "12345" }), "en"),
+      "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678",
+    );
+    assert.equal(
+      validateField("email", withValues({ email: "name@example" }), "en"),
+      "Please enter a valid email, such as name@example.com",
+    );
+    assert.equal(
+      validateField("comments", withValues({ comments: "a".repeat(1001) }), "en"),
+      "This can be at most 1000 characters",
+    );
+  });
+
+  test("Attendee Role, organisation, Event Day and Referral Source problems in English", () => {
+    assert.equal(
+      validateField("roleOther", withValues({ role: "other", roleOther: "" }), "en"),
+      "Please specify how you're attending",
+    );
+    assert.equal(
+      validateField("organisation", withValues({ role: "sponsor", organisation: "" }), "en"),
+      "Please give the company or organisation you represent",
+    );
+    assert.equal(
+      validateField("eventDays", withValues({ eventDays: ["2026-11-02"] }), "en"),
+      "Please choose a day from the list",
+    );
+    assert.equal(
+      validateField("referralSources", withValues({ referralSources: ["radio"] }), "en"),
+      "Please choose from the list",
+    );
+    assert.equal(
+      validateField("referralOther", withValues({ referralSources: ["other"], referralOther: "" }), "en"),
+      "Please specify where you heard about the Event",
+    );
+  });
+
+  test("the organisation field is relabelled for a Sponsor in English", () => {
+    assert.equal(organisationLabel("sponsor", "en"), "Company or organisation you represent");
+    assert.equal(organisationLabel("teacher", "en"), "School, university, company or organisation");
+    assert.equal(organisationLabel("", "en"), "School, university, company or organisation");
+  });
+
+  test("parsing an invalid English form returns English errors", () => {
+    assert.deepEqual(parseRegistration(withValues({ email: "" }), "en"), {
+      ok: false,
+      fieldErrors: { email: "Please enter your email" },
     });
   });
 });

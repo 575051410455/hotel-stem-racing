@@ -135,6 +135,8 @@ type ChoiceGroupProps = {
   options: readonly { value: string; label: string }[];
   selected: readonly string[];
   required?: boolean;
+  /** Screen-reader text for a required checkbox group ("(จำเป็น)" / "(required)"); radios say it themselves. */
+  requiredLabel?: string;
   error?: string;
   onToggle: (value: string, checked: boolean) => void;
   /** Fires when focus leaves the whole group, not when it moves between options. */
@@ -151,6 +153,7 @@ export function ChoiceGroup({
   options,
   selected,
   required,
+  requiredLabel,
   error,
   onToggle,
   onLeave,
@@ -167,7 +170,7 @@ export function ChoiceGroup({
         {required && (
           <>
             <RequiredMark />
-            {type === "checkbox" && <span className="sr-only">(จำเป็น)</span>}
+            {type === "checkbox" && requiredLabel && <span className="sr-only">{requiredLabel}</span>}
           </>
         )}{" "}
         <span className="font-normal text-muted">{hint}</span>

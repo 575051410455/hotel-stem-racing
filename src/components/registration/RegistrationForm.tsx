@@ -28,14 +28,47 @@ import {
   referralSources,
   validateRegistration,
 } from "@/lib/registrations/fields";
-import { BotProtection } from "./BotProtection";
+import { BotProtection, type BotProtectionCopy } from "./BotProtection";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
-import { DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
+import { type DuplicateRegistrationCopy, DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
 import { RegistrationClosed, type RegistrationClosedCopy } from "./RegistrationClosed";
 import type { RegistrationFormState, SubmitRegistrationAction } from "./form-state";
 
-const roleOptions = attendeeRoles.map((value) => ({ value, label: attendeeRoleLabels[value] }));
-const referralOptions = referralSources.map((value) => ({ value, label: referralSourceLabels[value] }));
+/** Every string the form shows, from the page's dictionary (a client component can't read it). */
+export type RegistrationFormCopy = {
+  form: {
+    formName: string;
+    intro: string;
+    requiredKey: string;
+    requiredForScreenReaders: string;
+    givenName: string;
+    familyName: string;
+    phone: string;
+    phonePlaceholder: string;
+    email: string;
+    emailPlaceholder: string;
+    roleQuestion: string;
+    chooseOne: string;
+    chooseOneOrMore: string;
+    roleOther: string;
+    organisationHintSponsor: string;
+    organisationHintOthers: string;
+    eventDaysQuestion: string;
+    referralQuestion: string;
+    referralOther: string;
+    teamCheeredFor: string;
+    accessibilityNeeds: string;
+    accessibilityHints: string[];
+    comments: string;
+    submit: string;
+    submitting: string;
+    privacyNote: string;
+    onePerForm: string;
+  };
+  botProtection: BotProtectionCopy;
+  duplicate: DuplicateRegistrationCopy;
+  closed: RegistrationClosedCopy;
+};
 
 const initialState: RegistrationFormState = { status: "idle" };
 
@@ -71,12 +104,13 @@ type RegistrationFormProps = {
   action: SubmitRegistrationAction;
   /** The Event Days that have not ended; the page works these out at request time. */
   eventDays: readonly EventDay[];
+  /** The page's language: labels, validation messages and the server's answers follow it. */
   language: Language;
-  /** The notice shown if a submission comes back "registration closed". */
-  closedCopy: RegistrationClosedCopy;
+  copy: RegistrationFormCopy;
 };
 
-export function RegistrationForm({ action, eventDays, language, closedCopy }: RegistrationFormProps) {
+export function RegistrationForm({ action, eventDays, language, copy }: RegistrationFormProps) {
+  const text = copy.form;
   const [state, formAction, pending] = useActionState(action, initialState);
   const [values, setValues] = useState<FormValues>(emptyRegistrationForm);
   // Fields that have shown an error; from then on they are re-validated as the Attendee types.
@@ -116,7 +150,7 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
     phoneCaret.current = null;
   });
 
-  const liveErrors = validateRegistration(values);
+  const liveErrors = validateRegistration(values, language);
   const isValid = Object.keys(liveErrors).length === 0;
   const errorFor = (field: FieldName) =>
     errored.has(field) ? (liveErrors[field] ?? serverErrors[field]) : undefined;
@@ -181,12 +215,16 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
   });
 
   const isSponsor = values.role === "sponsor";
-  const eventDayOptions = eventDays.map((day) => ({ value: day.date, label: day.label.th }));
+  const roleOptions = attendeeRoles.map((value) => ({ value, label: attendeeRoleLabels[language][value] }));
+  const referralOptions = referralSources.map((value) => ({ value, label: referralSourceLabels[language][value] }));
+  const eventDayOptions = eventDays.map((day) => ({ value: day.date, label: day.label[language] }));
 
   // The last Event Day ended while the form was open.
-  if (state.status === "closed") return <RegistrationClosed ref={closedRef} copy={closedCopy} language={language} />;
+  if (state.status === "closed") return <RegistrationClosed ref={closedRef} copy={copy.closed} language={language} />;
   // Already registered: the Event Pass only goes to the registered email, never to this screen.
-  if (state.status === "duplicate") return <DuplicateRegistrationNotice ref={duplicateRef} result={state} />;
+  if (state.status === "duplicate") {
+    return <DuplicateRegistrationNotice ref={duplicateRef} result={state} copy={copy.duplicate} language={language} />;
+  }
 
   return (
     <form
@@ -194,43 +232,43 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
       action={formAction}
       onSubmit={handleSubmit}
       noValidate
-      aria-label="แบบฟอร์มลงทะเบียนเข้าร่วมงาน"
+      aria-label={text.formName}
       className="mx-auto flex w-[min(100%,528px)] flex-col gap-6 rounded-input border border-line bg-surface p-5 tab:gap-7 tab:p-8"
     >
       <div className="flex flex-col gap-1">
-        <p>กรุณากรอกข้อมูลเพื่อลงทะเบียนเข้าร่วมงาน</p>
+        <p>{text.intro}</p>
         <p className="text-[0.875rem] text-muted">
-          <span className="text-accent">*</span> หมายถึงข้อมูลที่จำเป็นต้องกรอก
+          <span className="text-accent">*</span> {text.requiredKey}
         </p>
       </div>
 
       <div className="grid gap-6 tab:grid-cols-2 tab:gap-4">
-        <TextField {...textProps("givenName")} label="ชื่อ" required autoComplete="given-name" />
-        <TextField {...textProps("familyName")} label="นามสกุล" required autoComplete="family-name" />
+        <TextField {...textProps("givenName")} label={text.givenName} required autoComplete="given-name" />
+        <TextField {...textProps("familyName")} label={text.familyName} required autoComplete="family-name" />
       </div>
 
       <TextField
         {...textProps("phone")}
         ref={phoneRef}
         onChange={changePhone}
-        label="เบอร์โทรศัพท์"
+        label={text.phone}
         required
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        placeholder="081-234-5678"
+        placeholder={text.phonePlaceholder}
       />
 
       <TextField
         {...textProps("email")}
-        label="อีเมล"
+        label={text.email}
         required
         type="email"
         inputMode="email"
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
-        placeholder="name@example.com"
+        placeholder={text.emailPlaceholder}
       />
 
       <div className="flex flex-col gap-4">
@@ -238,29 +276,26 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
           id={inputId("role")}
           name="role"
           type="radio"
-          legend="ท่านเข้าร่วมงานในฐานะใด"
-          hint="(เลือก 1 ข้อ)"
+          legend={text.roleQuestion}
+          hint={text.chooseOne}
           options={roleOptions}
           selected={[values.role]}
           required
+          requiredLabel={text.requiredForScreenReaders}
           error={errorFor("role")}
           onToggle={(value) => change("role", value)}
           onLeave={() => leave("role")}
         />
         {values.role === "other" && (
-          <TextField {...textProps("roleOther")} label="โปรดระบุฐานะการเข้าร่วมงาน" required />
+          <TextField {...textProps("roleOther")} label={text.roleOther} required />
         )}
       </div>
 
       <TextField
         {...textProps("organisation")}
-        label={organisationLabel(values.role)}
+        label={organisationLabel(values.role, language)}
         required={isSponsor}
-        help={
-          isSponsor
-            ? "กรุณาระบุชื่อบริษัท องค์กร หรือหน่วยงานที่ท่านเป็นตัวแทน"
-            : "หากไม่มี สามารถเว้นว่างได้"
-        }
+        help={isSponsor ? text.organisationHintSponsor : text.organisationHintOthers}
         autoComplete="organization"
       />
 
@@ -268,11 +303,12 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
         id={inputId("eventDays")}
         name="eventDays"
         type="checkbox"
-        legend="วันที่ต้องการเข้าร่วมงาน"
-        hint={eventDayOptions.length > 1 ? "(เลือกได้มากกว่า 1 ข้อ)" : "(เลือก 1 ข้อ)"}
+        legend={text.eventDaysQuestion}
+        hint={eventDayOptions.length > 1 ? text.chooseOneOrMore : text.chooseOne}
         options={eventDayOptions}
         selected={values.eventDays}
         required
+        requiredLabel={text.requiredForScreenReaders}
         error={errorFor("eventDays")}
         onToggle={(value, checked) => toggle("eventDays", value, checked)}
         onLeave={() => leave("eventDays")}
@@ -283,54 +319,46 @@ export function RegistrationForm({ action, eventDays, language, closedCopy }: Re
           id={inputId("referralSources")}
           name="referralSources"
           type="checkbox"
-          legend="ท่านทราบข่าวการจัดงานจากช่องทางใด"
-          hint="(เลือกได้มากกว่า 1 ข้อ)"
+          legend={text.referralQuestion}
+          hint={text.chooseOneOrMore}
           options={referralOptions}
           selected={values.referralSources}
           required
+          requiredLabel={text.requiredForScreenReaders}
           error={errorFor("referralSources")}
           onToggle={(value, checked) => toggle("referralSources", value, checked)}
           onLeave={() => leave("referralSources")}
           columns={2}
         />
         {values.referralSources.includes("other") && (
-          <TextField {...textProps("referralOther")} label="โปรดระบุช่องทางที่ทราบข่าว" required />
+          <TextField {...textProps("referralOther")} label={text.referralOther} required />
         )}
       </div>
 
-      <TextField
-        {...textProps("competingTeamCheeredFor")}
-        label="ชื่อทีมที่ท่านต้องการมาเชียร์ (ถ้ามี)"
-      />
+      <TextField {...textProps("competingTeamCheeredFor")} label={text.teamCheeredFor} />
 
       <TextAreaField
         {...textProps("accessibilityNeeds")}
-        label="ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (ถ้ามี)"
-        help={
-          <>
-            <p>เช่น การอำนวยความสะดวกสำหรับผู้ใช้รถเข็น</p>
-            <p>ไม่จำเป็นต้องระบุข้อมูลสุขภาพหรือการวินิจฉัยโรค</p>
-          </>
-        }
+        label={text.accessibilityNeeds}
+        help={text.accessibilityHints.map((hint) => (
+          <p key={hint}>{hint}</p>
+        ))}
       />
 
-      <TextAreaField {...textProps("comments")} label="ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม" />
+      <TextAreaField {...textProps("comments")} label={text.comments} />
 
       <div className="flex flex-col gap-4">
-        <BotProtection state={state} pending={pending} />
+        <BotProtection state={state} pending={pending} copy={copy.botProtection} language={language} />
         <button
           type="submit"
           aria-disabled={!isValid || pending}
           className="flex h-12 w-full items-center justify-center rounded-pill bg-accent px-6 text-base font-bold text-white transition-colors hover:bg-accent-dark active:shadow-[#000_3px_2px_6px_inset] aria-disabled:opacity-60 aria-disabled:hover:bg-accent aria-disabled:active:shadow-none tab:h-14"
         >
-          {pending ? "กำลังลงทะเบียน…" : "ลงทะเบียน"}
+          {pending ? text.submitting : text.submit}
         </button>
         <div className="flex flex-col gap-2 text-[0.875rem] text-muted">
-          <p>
-            ข้อมูลที่ท่านกรอกจะใช้สำหรับจัดการลงทะเบียน ติดต่อเกี่ยวกับการเข้าร่วมงาน
-            และวางแผนรองรับผู้เข้าร่วมงาน
-          </p>
-          <p>กรุณาลงทะเบียน 1 คนต่อ 1 แบบฟอร์ม</p>
+          <p>{text.privacyNote}</p>
+          <p>{text.onePerForm}</p>
         </div>
       </div>
     </form>
