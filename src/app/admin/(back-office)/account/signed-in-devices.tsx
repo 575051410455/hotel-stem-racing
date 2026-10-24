@@ -5,12 +5,15 @@ import { deviceLabel } from "@/lib/auth/device-label";
 import { accounts } from "@/lib/auth/server";
 import { getCurrentStaff } from "@/lib/auth/session";
 import { bangkokEnglishDateTime } from "@/lib/bangkok-time";
+import { SignOutDeviceButton, SignOutOtherDevicesButton } from "./sign-out-devices";
 
 /**
  * Where the owner's Account is signed in, on My Account: this device first, then the others newest
  * first. "This device" is the session this request is signed in with, read on the server. Only each
- * device's label, IP and sign-in time are rendered: no user agent, and never a session token. Reads
- * the session and the database, so render it below its own <Suspense> (`SignedInDevicesSkeleton`).
+ * device's label, IP and sign-in time are rendered, plus the session id each "Sign out" sends: no
+ * user agent, and never a session token. "Sign out all other devices" shows only when there is
+ * another device. Reads the session and the database, so render it below its own <Suspense>
+ * (`SignedInDevicesSkeleton`).
  */
 export async function SignedInDevices() {
   // Already read by the page's requireStaff() in this request, which sent anyone else away.
@@ -18,18 +21,27 @@ export async function SignedInDevices() {
   if (!staff) return null;
   const devices = await accounts().listDevices(staff.id, staff.sessionId);
   return (
-    <ul className="divide-y border-y text-sm">
-      {devices.map((device) => (
-        <DeviceRow key={device.id} device={device} />
-      ))}
-    </ul>
+    <>
+      <ul className="divide-y border-y text-sm">
+        {devices.map((device) => (
+          <DeviceRow key={device.id} device={device} />
+        ))}
+      </ul>
+      {devices.some((device) => !device.isCurrent) && (
+        <div className="mt-4">
+          <SignOutOtherDevicesButton />
+        </div>
+      )}
+    </>
   );
 }
 
+/** One device; any but this one gets "Sign out" (this one signs out from the account menu). */
 function DeviceRow({ device }: { device: SignedInDevice }) {
+  const descriptionId = `device-${device.id}`;
   return (
     <li className="flex items-center justify-between gap-4 py-3">
-      <div className="min-w-0">
+      <div id={descriptionId} className="min-w-0">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 leading-normal font-medium">
           {deviceLabel(device.userAgent)}
           {device.isCurrent && <Badge variant="secondary">This device</Badge>}
@@ -46,6 +58,7 @@ function DeviceRow({ device }: { device: SignedInDevice }) {
           </time>
         </p>
       </div>
+      {!device.isCurrent && <SignOutDeviceButton deviceId={device.id} describedBy={descriptionId} />}
     </li>
   );
 }
