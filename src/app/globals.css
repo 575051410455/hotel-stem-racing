@@ -24,6 +24,14 @@
   --color-divider: #cdcdcd;
   --color-success: #166534;
 
+  /* ---- Form fields (public registration form) ---- */
+  --color-field-border: #86858c; /* 3.65:1 on white: a field's edge is visible (WCAG 1.4.11) */
+  --color-field-border-hover: #3d3d45;
+  --color-field-disabled: #f3f1ee;
+  --color-focus: #7e1857; /* brand magenta: focus and the chosen option; red stays for errors */
+  --color-error-tint: #fdf4f2; /* behind a field with an error; accent on it is 4.8:1 */
+  --color-selected-tint: #f9f1f5;
+
   /* ---- Type: system fonts only; SF Pro may not be hosted as a webfont ---- */
   --font-sans:
     "SF Pro TH", "SF Pro Display", "SF Pro Icons", -apple-system, BlinkMacSystemFont,
@@ -31,6 +39,7 @@
 
   /* ---- Radius ---- */
   --radius-input: 4px;
+  --radius-field: 6px;
   --radius-pill: 1000px;
 
   /* ---- The single major breakpoint, used as `tab:` ---- */
