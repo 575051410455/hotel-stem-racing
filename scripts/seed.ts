@@ -59,7 +59,7 @@ async function main(): Promise<number> {
             `  Email:     ${result.email}`,
             `  Password:  ${password}`,
             "",
-            `Sign in at ${baseURL}/admin/login, then change the password at "เปลี่ยนรหัสผ่าน" in the account menu.`,
+            `Sign in at ${baseURL}/admin/login, then change the password at "My Account" in the account menu.`,
           ].join("\n"),
         );
         return 0;

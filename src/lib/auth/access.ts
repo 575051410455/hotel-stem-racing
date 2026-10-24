@@ -38,14 +38,14 @@ export function canChooseCheckInDay(kind: AccountKind): boolean {
 }
 
 /**
- * Changing the Account's own password, at /admin/password or through Better Auth's endpoint. A Kiosk
+ * Changing the Account's own password, at My Account or through Better Auth's endpoint. A Kiosk
  * Account's password is changed only with the server command (`npm run staff -- reset-password`).
  */
 export function canChangeOwnPassword(kind: AccountKind): boolean {
   return kind === "admin" || kind === "staff";
 }
 
-/** Changing the Account's own display name. A Kiosk Account's name is set when it is created. */
+/** Changing the Account's own display name, at My Account. A Kiosk Account's name is set when it is created. */
 export function canEditOwnName(kind: AccountKind): boolean {
   return kind === "admin" || kind === "staff";
 }

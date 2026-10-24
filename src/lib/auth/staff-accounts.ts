@@ -1,4 +1,5 @@
-import { type AccountKind, isAccountKind } from "./access";
+import { type AccountKind, canEditOwnName, isAccountKind } from "./access";
+import { MAX_NAME_LENGTH } from "./name-rules";
 import type { StaffAuth } from "./staff-auth";
 
 export type CreateStaffAccountInput = {
@@ -27,6 +28,13 @@ export type CreateFirstStaffAccountResult = CreateStaffAccountResult | { status:
 export type MakeAdminResult =
   | { status: "promoted"; accountId: string; from: AccountKind }
   | { status: "already-admin"; accountId: string }
+  | { status: "not-found" };
+
+export type RenameResult =
+  | { status: "renamed"; name: string }
+  | { status: "invalid-name" }
+  | { status: "name-too-long"; maxLength: number }
+  | { status: "not-allowed" }
   | { status: "not-found" };
 
 export type ResetStaffPasswordResult =
@@ -135,6 +143,24 @@ export function createStaffAccounts(auth: StaffAuth) {
       await ctx.internalAdapter.updateUser(userId, { kind: "admin" });
       await ctx.internalAdapter.deleteUserSessions(userId);
       return { status: "promoted", accountId: userId, from };
+    },
+
+    /**
+     * The owner's own rename, from My Account. The only way a name changes: Better Auth's own
+     * `/update-user` is refused (see staff-auth.ts). Sessions stay; they read the name afresh.
+     */
+    async rename(accountId: string, name: string): Promise<RenameResult> {
+      const trimmed = name.trim();
+      if (!trimmed) return { status: "invalid-name" };
+      if (trimmed.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
+
+      const ctx = await auth.$context;
+      const user = await ctx.internalAdapter.findUserById(accountId);
+      if (!user) return { status: "not-found" };
+      // A Kiosk's name is set by whoever creates it; the Kiosk can't change it (ADR 0003).
+      if (!canEditOwnName(kindOf(user))) return { status: "not-allowed" };
+      await ctx.internalAdapter.updateUser(accountId, { name: trimmed });
+      return { status: "renamed", name: trimmed };
     },
 
     /** Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. */

@@ -106,7 +106,7 @@ Looking an Attendee up by name and re-sending an Event Pass need an Admin Accoun
   - If `SEED_STAFF_EMAIL` already belongs to an Account, it stops and suggests `make-admin` (below).
   - It creates nothing else: no sample Registrations and no Kiosk Accounts.
   - If it stops because `SEED_STAFF_EMAIL` is missing or invalid, fix `.env`, run `docker compose up -d` so the container picks it up, and run it again.
-- [ ] Sign in at `https://<registration domain>/admin/login` with the printed password, then change it at **เปลี่ยนรหัสผ่าน** in the account menu at the foot of the sidebar.
+- [ ] Sign in at `https://<registration domain>/admin/login` with the printed password, then change it at **My Account** in the account menu at the foot of the sidebar.
 - [ ] Further Accounts, and password resets, use `npm run staff`. Use `-it` so the password prompt works; the password must be at least 12 characters.
   ```sh
   docker compose exec -it app npm run staff -- create-admin organiser@example.com "ชื่อผู้จัดงาน"
