@@ -1,7 +1,7 @@
 // The downloadable Event Pass card: a print-ready 1024×1204 PNG drawn on a canvas in the browser.
 // Browser-only (canvas, Image, XMLSerializer): call it from an event handler, never during render.
 
-import { event } from "@/lib/event";
+import { event, eventVenue } from "@/lib/event";
 import { normalisePassCode } from "@/lib/registrations/event-pass-codec";
 
 export const eventPassPng = { width: 1024, height: 1204, quietZone: 80 } as const;
@@ -92,7 +92,7 @@ export async function renderEventPassPng(content: EventPassPngContent): Promise<
         style: { family: sans, size: 40, minSize: 28, weight: 900, italic: true, colour: colours.inkPure, lineHeight: 1.4 },
       },
       {
-        text: event.venue,
+        text: eventVenue("th"),
         style: { family: sans, size: 26, minSize: 20, weight: 400, colour: colours.muted, lineHeight: 1.4 },
         spaceBefore: 2,
       },

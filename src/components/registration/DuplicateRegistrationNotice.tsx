@@ -29,7 +29,8 @@ export function DuplicateRegistrationNotice({
   result: DuplicateRegistrationState;
   ref?: Ref<HTMLElement>;
 }) {
-  const channels = contactChannels();
+  // Thai until the form takes its page's language (thai-english ticket 02).
+  const channels = contactChannels("th");
   const email = <strong className="[overflow-wrap:anywhere]">{result.maskedEmail}</strong>;
 
   return (

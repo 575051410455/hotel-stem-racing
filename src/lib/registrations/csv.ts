@@ -38,7 +38,7 @@ const columns: { header: string; value: (row: RegistrationExportRow) => string |
   { header: "โรงเรียน / สถาบันการศึกษา / บริษัท / หน่วยงาน", value: (row) => row.organisation },
   {
     header: "วันเข้าร่วมงาน",
-    value: (row) => joined(row.eventDays.map(eventDayLabel)),
+    value: (row) => joined(row.eventDays.map((day) => eventDayLabel(day, "th"))),
   },
   {
     header: "ช่องทางที่ทราบข่าว",

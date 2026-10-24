@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { EventPassCard } from "@/components/registration/EventPassCard";
 import { Container } from "@/components/site/Container";
-import { event } from "@/lib/event";
+import { event, eventVenue } from "@/lib/event";
 import { eventPassLink, registrations } from "@/lib/server/registrations";
 
 export const metadata: Metadata = {
@@ -13,14 +13,15 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default function EventPassPage({ params }: PageProps<"/p/[token]">) {
+// The page body is Thai in both languages until thai-english ticket 03.
+export default function EventPassPage({ params }: PageProps<"/[lang]/p/[token]">) {
   return (
     <Container className="flex flex-col gap-6 py-8 tab:gap-8 tab:py-10">
       <section className="mx-auto flex w-[min(100%,528px)] flex-col gap-2">
         <h1 className="text-[1.25rem] font-black italic tab:text-[1.5rem]">
           ขอบคุณสำหรับการลงทะเบียนเข้าร่วมงาน {event.name} 🏁
         </h1>
-        <p>แล้วพบกันในวันที่ท่านเลือก ณ {event.venue}</p>
+        <p>แล้วพบกันในวันที่ท่านเลือก ณ {eventVenue("th")}</p>
         <p className="text-[0.875rem] text-muted">
           กรุณาบันทึกหน้านี้หรือบันทึกภาพหน้าจอไว้ เพื่อแสดง QR ที่ทางเข้างาน
         </p>
@@ -33,7 +34,7 @@ export default function EventPassPage({ params }: PageProps<"/p/[token]">) {
 }
 
 // Params and the database read are request-time data, so they stay under <Suspense>.
-async function EventPass({ params }: Pick<PageProps<"/p/[token]">, "params">) {
+async function EventPass({ params }: Pick<PageProps<"/[lang]/p/[token]">, "params">) {
   const { token } = await params;
   const lookup = await registrations().getEventPass(token);
   if (lookup.status === "not-found") notFound();

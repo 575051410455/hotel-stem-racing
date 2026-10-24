@@ -78,7 +78,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         onPass={(scan) => void submitScan(scan)}
         exit={{ kind: "leave-kiosk-mode", onLeave: () => setKioskMode(false) }}
         checkInDay={{
-          label: findEventDay(selectedDay)?.label ?? null,
+          label: findEventDay(selectedDay)?.label.th ?? null,
           chosenByStaff: chosenDay !== null,
         }}
       />
@@ -107,7 +107,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
                 onChange={() => setChosenDay(day.date === today ? null : day.date)}
                 className="sr-only"
               />
-              <span className="text-sm font-medium">{day.label}</span>
+              <span className="text-sm font-medium">{day.label.th}</span>
               {day.date === today && <span className="text-xs">วันนี้</span>}
             </label>
           ))}
@@ -120,7 +120,7 @@ export function CheckInDesk({ today: renderedToday }: { today: string | null }) 
         {chosenDay !== null && (
           <p className="mt-2 text-sm leading-normal font-medium text-orange-800">
             {today === null ? "วันนี้ไม่ใช่วันจัดงาน" : "ไม่ใช่วันนี้"}: การเช็คอินจะบันทึกเป็น
-            {findEventDay(chosenDay)?.label}
+            {findEventDay(chosenDay)?.label.th}
           </p>
         )}
       </fieldset>

@@ -63,7 +63,7 @@ All commands below run from the repo checkout on the server.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | the Gmail or Google Workspace account. `SMTP_PASS` is an app password; write it without spaces. Leave `SMTP_USER` empty to launch without email. |
 | `NEXT_PUBLIC_CONTACT_LINE`, `NEXT_PUBLIC_CONTACT_PHONE` | the organisers' contact channels (each is hidden when empty) |
 
-- `NEXT_PUBLIC_*` values are baked into the app at build time. After changing one, rebuild with `docker compose up -d --build`.
+- `NEXT_PUBLIC_*` values are baked into the app at build time. After changing one, rebuild with `docker compose up -d --build`. `APP_URL` is read at build time too (for the registration pages' `hreflang` links between Thai and English), so rebuild after changing it.
 - `POSTGRES_PASSWORD` is applied only when the database volume is first created. To change it later, run `ALTER USER stem_racing PASSWORD '…'` in `psql` (section 8), then update `.env` and run `docker compose up -d`.
 - Avoid `$` in values: Compose treats it as a variable reference.
 

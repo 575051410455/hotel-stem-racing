@@ -38,7 +38,7 @@ export function KioskStation({ today: renderedToday, accountName }: { today: str
       attempt={attempt}
       onPass={(scan) => void submitScan(scan)}
       exit={{ kind: "sign-out", accountName }}
-      checkInDay={{ label: findEventDay(today)?.label ?? null, chosenByStaff: false }}
+      checkInDay={{ label: findEventDay(today)?.label.th ?? null, chosenByStaff: false }}
     />
   );
 }

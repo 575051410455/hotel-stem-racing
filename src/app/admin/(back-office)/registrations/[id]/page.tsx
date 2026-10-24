@@ -233,7 +233,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
     { label: organisationLabel(registration.role), value: registration.organisation },
     {
       label: "วันเข้าร่วมงาน",
-      value: <Lines items={registration.eventDays.map(eventDayLabel)} />,
+      value: <Lines items={registration.eventDays.map((day) => eventDayLabel(day, "th"))} />,
     },
     {
       label: "ช่องทางที่ทราบข่าว",
@@ -295,7 +295,7 @@ function CheckIns({ checkIns }: { checkIns: RegistrationDetail["checkIns"] }) {
         const checkedInAt = checkIn.checkedInAt.toISOString();
         return (
           <li key={checkIn.eventDay} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-6">
-            <span className="leading-normal font-medium sm:w-56 sm:shrink-0">{eventDayLabel(checkIn.eventDay)}</span>
+            <span className="leading-normal font-medium sm:w-56 sm:shrink-0">{eventDayLabel(checkIn.eventDay, "th")}</span>
             <span className="flex flex-wrap items-center gap-2 leading-normal">
               <span>
                 เช็คอินเมื่อ{" "}

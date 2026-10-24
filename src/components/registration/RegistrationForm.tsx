@@ -12,6 +12,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import type { EventDay } from "@/lib/event";
+import type { Language } from "@/lib/language";
 import {
   attendeeRoleLabels,
   attendeeRoles,
@@ -30,7 +31,7 @@ import {
 import { BotProtection } from "./BotProtection";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
 import { DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
-import { RegistrationClosed } from "./RegistrationClosed";
+import { RegistrationClosed, type RegistrationClosedCopy } from "./RegistrationClosed";
 import type { RegistrationFormState, SubmitRegistrationAction } from "./form-state";
 
 const roleOptions = attendeeRoles.map((value) => ({ value, label: attendeeRoleLabels[value] }));
@@ -70,9 +71,12 @@ type RegistrationFormProps = {
   action: SubmitRegistrationAction;
   /** The Event Days that have not ended; the page works these out at request time. */
   eventDays: readonly EventDay[];
+  language: Language;
+  /** The notice shown if a submission comes back "registration closed". */
+  closedCopy: RegistrationClosedCopy;
 };
 
-export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
+export function RegistrationForm({ action, eventDays, language, closedCopy }: RegistrationFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [values, setValues] = useState<FormValues>(emptyRegistrationForm);
   // Fields that have shown an error; from then on they are re-validated as the Attendee types.
@@ -177,10 +181,10 @@ export function RegistrationForm({ action, eventDays }: RegistrationFormProps) {
   });
 
   const isSponsor = values.role === "sponsor";
-  const eventDayOptions = eventDays.map((day) => ({ value: day.date, label: day.label }));
+  const eventDayOptions = eventDays.map((day) => ({ value: day.date, label: day.label.th }));
 
   // The last Event Day ended while the form was open.
-  if (state.status === "closed") return <RegistrationClosed ref={closedRef} />;
+  if (state.status === "closed") return <RegistrationClosed ref={closedRef} copy={closedCopy} language={language} />;
   // Already registered: the Event Pass only goes to the registered email, never to this screen.
   if (state.status === "duplicate") return <DuplicateRegistrationNotice ref={duplicateRef} result={state} />;
 

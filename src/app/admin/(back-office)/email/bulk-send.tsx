@@ -282,7 +282,7 @@ function SummaryPanel({
       <dl className="mt-1 divide-y border-y">
         {shown.eventDays.map((day) => (
           <div key={day.eventDay} className="flex items-baseline justify-between gap-4 py-2 text-sm leading-normal">
-            <dt>{eventDayLabel(day.eventDay)}</dt>
+            <dt>{eventDayLabel(day.eventDay, "th")}</dt>
             <dd className="font-medium tabular-nums">{formatCount(day.registrations)} คน</dd>
           </div>
         ))}

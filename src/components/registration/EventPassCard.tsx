@@ -1,5 +1,5 @@
 import QRCode from "react-qr-code";
-import { event, eventDayLabel } from "@/lib/event";
+import { event, eventDateRangeLabel, eventDayLabel, eventVenue } from "@/lib/event";
 import type { EventPass } from "@/lib/registrations/registrations";
 import { DownloadEventPass } from "./DownloadEventPass";
 
@@ -23,7 +23,7 @@ export function EventPassCard({ pass, link }: { pass: EventPass; link: string })
             บัตรเข้างาน {event.name}
           </h2>
           <p className="text-muted">
-            วันที่ {event.dateRangeLabel} · {event.venue}
+            วันที่ {eventDateRangeLabel("th")} · {eventVenue("th")}
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export function EventPassCard({ pass, link }: { pass: EventPass; link: string })
             <dd>
               <ul className="flex flex-col gap-1 font-bold">
                 {pass.eventDays.map((date) => (
-                  <li key={date}>{eventDayLabel(date)}</li>
+                  <li key={date}>{eventDayLabel(date, "th")}</li>
                 ))}
               </ul>
             </dd>
@@ -70,7 +70,7 @@ export function EventPassCard({ pass, link }: { pass: EventPass; link: string })
           qrId={qrId}
           passCode={pass.passCode}
           attendeeName={`${pass.givenName} ${pass.familyName}`}
-          eventDayLabels={pass.eventDays.map(eventDayLabel)}
+          eventDayLabels={pass.eventDays.map((date) => eventDayLabel(date, "th"))}
         />
       </div>
     </article>
