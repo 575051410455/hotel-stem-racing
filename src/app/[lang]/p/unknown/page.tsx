@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { currentLanguage, getDictionary } from "../../_dictionaries";
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: getDictionary(await currentLanguage()).eventPassNotFound.heading,
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  };
+}
 
 /**
  * Where Proxy rewrites an Event Pass link whose token doesn't exist (src/proxy.ts). It reaches

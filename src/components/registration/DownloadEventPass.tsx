@@ -11,21 +11,37 @@ type Status =
   | { kind: "preview"; url: string }
   | { kind: "failed" };
 
+/** The button's wording and the text drawn on the image, in the page's language. `{file}` is the file name. */
+export type DownloadEventPassCopy = {
+  saveButton: string;
+  saving: string;
+  fileHint: string;
+  downloadStarted: string;
+  preview: string;
+  saveFailed: string;
+  imageAlt: string;
+  imageTitle: string;
+  imageVenue: string;
+  imagePassCodeLabel: string;
+};
+
 /**
- * "บันทึก Event Pass": draws the Event Pass card as a PNG named after the Pass Code and
- * downloads it. Reads the QR the server already rendered (by `qrId`), so the card encodes
- * exactly the same Event Pass link, and it never receives the token.
+ * "บันทึก Event Pass" / "Save Event Pass": draws the Event Pass card as a PNG named after the Pass
+ * Code, in the page's language, and downloads it. Reads the QR the server already rendered (by
+ * `qrId`), so the card encodes exactly the same Event Pass link, and it never receives the token.
  */
 export function DownloadEventPass({
   qrId,
   passCode,
   attendeeName,
   eventDayLabels,
+  copy,
 }: {
   qrId: string;
   passCode: string;
   attendeeName: string;
   eventDayLabels: string[];
+  copy: DownloadEventPassCopy;
 }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const hintId = useId();
@@ -34,9 +50,9 @@ export function DownloadEventPass({
   const message = {
     idle: undefined,
     working: undefined,
-    downloaded: `เริ่มดาวน์โหลดไฟล์ ${fileName} แล้ว`,
-    preview: "กดค้างที่รูปด้านล่างเพื่อบันทึกลงในเครื่อง",
-    failed: "บันทึกไฟล์ไม่สำเร็จ กรุณาบันทึกภาพหน้าจอหน้านี้ไว้แทน",
+    downloaded: copy.downloadStarted.replace("{file}", fileName),
+    preview: copy.preview,
+    failed: copy.saveFailed,
   }[status.kind];
 
   const previewUrl = status.kind === "preview" ? status.url : undefined;
@@ -51,7 +67,15 @@ export function DownloadEventPass({
     try {
       const qr = document.getElementById(qrId);
       if (!(qr instanceof SVGSVGElement)) throw new Error("The Event Pass QR is not on the page");
-      const png = await renderEventPassPng({ qr, passCode, attendeeName, eventDayLabels });
+      const png = await renderEventPassPng({
+        qr,
+        title: copy.imageTitle,
+        venue: copy.imageVenue,
+        passCodeLabel: copy.imagePassCodeLabel,
+        passCode,
+        attendeeName,
+        eventDayLabels,
+      });
       const url = URL.createObjectURL(png);
       if (!("download" in HTMLAnchorElement.prototype)) {
         setStatus({ kind: "preview", url });
@@ -83,11 +107,11 @@ export function DownloadEventPass({
         className="flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-accent px-6 text-base font-bold text-white transition-colors hover:bg-accent-dark active:shadow-[#000_3px_2px_6px_inset] aria-disabled:opacity-60 aria-disabled:hover:bg-accent aria-disabled:active:shadow-none tab:h-14"
       >
         <DownloadIcon />
-        {working ? "กำลังสร้างไฟล์…" : "บันทึก Event Pass"}
+        {working ? copy.saving : copy.saveButton}
       </button>
       <div className="text-[0.875rem]">
         <p id={hintId} className="text-muted">
-          ไฟล์รูปภาพ {fileName} สำหรับเก็บไว้ในเครื่องหรือพิมพ์
+          {copy.fileHint.replace("{file}", fileName)}
         </p>
         {/* Always rendered, so the live region exists before a message arrives. */}
         <p role="status" className={message && (status.kind === "failed" ? "mt-2 text-accent" : "mt-2")}>
@@ -99,7 +123,7 @@ export function DownloadEventPass({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={previewUrl}
-          alt={`บัตรเข้างาน รหัส ${passCode}`}
+          alt={copy.imageAlt}
           width={1024}
           height={1204}
           className="h-auto w-full border border-line"
