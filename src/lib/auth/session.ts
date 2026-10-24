@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { type AccountKind, canCheckIn, canUseBackOffice, canUseCheckInDesk, homePath, SIGN_IN_PATH } from "./access";
-import { staffAuth } from "./server";
+import { staffAuth, staffSessionReader } from "./server";
 
 /** The signed-in Account, narrowed to what Back Office pages need. */
 export type CurrentAccount = {
@@ -102,17 +102,28 @@ export function requireStaff(): Promise<CurrentStaff> {
 }
 
 /**
- * The signed-in Account that may record Check-Ins (Staff or Kiosk), or null. For the Kiosk page and
- * the check-in Server Action; record its `id` on the Check-In. Request-time: see `getSignedInAccount`.
+ * The signed-in Account that may record Check-Ins (Staff or Kiosk), or null. For the check-in
+ * Server Action; record its `id` on the Check-In.
+ *
+ * Unlike the helpers above, it never writes a cookie, so it never extends the session either (30
+ * days is enough for the Event). In a Server Action, Better Auth clears the cookie of a session
+ * that has ended, and any cookie write makes Next re-render the page. The page's guard then sent
+ * the desk and the Kiosk to the sign-in page, so "Session expired" and "Staff must sign in again"
+ * only flashed, and an unattended Kiosk was left on the sign-in page.
  */
 export async function getCurrentCheckInAccount(): Promise<CurrentCheckInAccount | null> {
-  const account = await getSignedInAccount();
-  return account && canCheckIn(account.kind) ? account : null;
+  const session = await staffSessionReader().api.getSession({
+    headers: await headers(),
+    query: { disableRefresh: true },
+  });
+  if (!session) return null;
+  const { id, name, email, kind } = session.user;
+  return canCheckIn(kind) ? { id, name, email, kind } : null;
 }
 
-/** Like `getCurrentCheckInAccount`, but redirects to the sign-in page when there's none. */
+/** For the Kiosk page: the signed-in Account that may record Check-Ins, else to the sign-in page. */
 export async function requireCheckInAccount(): Promise<CurrentCheckInAccount> {
-  const account = await getCurrentCheckInAccount();
-  if (!account) redirect(SIGN_IN_PATH);
+  const account = await getSignedInAccount();
+  if (!account || !canCheckIn(account.kind)) redirect(SIGN_IN_PATH);
   return account;
 }
