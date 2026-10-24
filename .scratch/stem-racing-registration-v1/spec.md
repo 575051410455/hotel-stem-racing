@@ -128,7 +128,7 @@ Delivery is phased:
 ### Operator
 
 81. As the operator, I want to deploy the app, database and nginx with Docker Compose on our Ubuntu server, so that we own the stack.
-82. As the operator, I want HTTPS through Cloudflare's proxy using a Cloudflare Origin Certificate in nginx, so that there are no certificate renewals to manage.
+82. As the operator, I want HTTPS through Cloudflare's proxy using a Cloudflare Origin Certificate in nginx, so that there are no certificate renewals to manage. _(Changed 2026-10-24: visitors come through a Cloudflare Tunnel instead, with no published ports; ADR 0005.)_
 83. As the operator, I want rate limits to use the real client IP that Cloudflare forwards, so that everyone behind Cloudflare isn't treated as one IP.
 84. As the operator, I want all secrets and contact details configured through environment variables documented in an example file with Cloudflare Turnstile test keys, so that the app runs locally before real keys exist.
 85. As the operator, I want the app to launch and accept Registrations even if SMTP isn't configured yet, so that email setup can't block the 23 October launch.
@@ -308,7 +308,7 @@ Decision-level, not final column names:
 - Docker Compose on Ubuntu with three services:
   - **app**: Next.js standalone output
   - **db**: PostgreSQL 17 on a named volume
-  - **nginx**: reverse proxy with a Cloudflare Origin Certificate behind Cloudflare's proxy, restoring the real client IP from Cloudflare's forwarded header for Cloudflare's IP ranges
+  - **nginx**: reverse proxy with a Cloudflare Origin Certificate behind Cloudflare's proxy, restoring the real client IP from Cloudflare's forwarded header for Cloudflare's IP ranges _(changed 2026-10-24: behind a Cloudflare Tunnel, trusting the header only from `cloudflared`; ADR 0005)_
 - Environment variables, documented in an example file:
   - `APP_URL`
   - `DATABASE_URL`

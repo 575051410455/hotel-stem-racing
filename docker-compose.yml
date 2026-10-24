@@ -1,5 +1,7 @@
-# STEM Racing Thailand 2026 registration: app + PostgreSQL 17 + nginx, behind Cloudflare's proxy.
-# Operator guide: docs/deploy.md. All configuration comes from ./.env (a filled-in .env.example).
+# STEM Racing Thailand 2026 registration: app + PostgreSQL 17 + nginx, reached through a
+# Cloudflare Tunnel (cloudflared). No port is published on the host (ADR 0005).
+# Operator guide: docs/deploy-guide/index.html. All configuration comes from ./.env (a filled-in
+# .env.example).
 #
 #   docker compose up -d --build     # build the app image and (re)start everything
 #   docker compose logs -f app       # follow app logs
@@ -36,7 +38,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Reachable only on the Compose network; nginx is the only service with published ports.
+    # Reachable only on the Compose network, through nginx.
     expose:
       - "3000"
     stop_grace_period: 30s
@@ -46,7 +48,7 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      # Applied only when the volume is first initialised; see docs/deploy.md before changing.
+      # Applied only when the volume is first initialised; see the operator guide before changing.
       POSTGRES_USER: ${POSTGRES_USER:-stem_racing}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-stem_racing}
@@ -67,19 +69,43 @@ services:
     restart: unless-stopped
     depends_on:
       - app
-    ports:
-      # IPv4 only, on purpose: Docker forwards published IPv6 ports through docker-proxy, which
-      # replaces the source address with the bridge gateway. nginx would then not see a
-      # Cloudflare IP and could not restore the visitor's IP. Point Cloudflare at the server's
-      # IPv4 (A record only); see docs/deploy.md.
-      - "0.0.0.0:80:80"
-      - "0.0.0.0:443:443"
+    # No published ports: cloudflared reaches nginx on the `tunnel` network, and nginx reaches app
+    # on the default one.
+    networks:
+      - default
+      - tunnel
     volumes:
       # Replaces the image's default site with ours; files here are included inside http {}.
       - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
-      # Cloudflare Origin Certificate (origin.pem) and private key (origin.key), host-only files.
-      - ./deploy/certs:/etc/nginx/certs:ro
     logging: *logging
+
+  cloudflared:
+    # Cloudflare's connector: keeps outbound connections to Cloudflare's edge open and passes each
+    # request for the tunnel's public hostname to nginx (the hostname's service: http://nginx:80).
+    # The tunnel and its hostname are set up in the Cloudflare dashboard; see the operator guide.
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      - nginx
+    networks:
+      tunnel:
+        # nginx trusts CF-Connecting-IP only from this address (deploy/nginx/conf.d/app.conf).
+        ipv4_address: 10.203.47.2
+    logging: *logging
+
+networks:
+  # Only nginx and cloudflared are on it, so cloudflared can reach nginx and nothing else. A fixed
+  # subnet gives cloudflared a fixed address. If it overlaps a network already on the server,
+  # `docker compose up` says so: pick another private /28 and change app.conf to match.
+  tunnel:
+    ipam:
+      config:
+        - subnet: 10.203.47.0/28
+          # Automatic addresses (nginx's) come from the upper half, so never clash with cloudflared's.
+          ip_range: 10.203.47.8/29
 
 volumes:
   db-data:
