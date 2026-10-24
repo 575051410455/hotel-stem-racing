@@ -37,7 +37,7 @@ export function StaffAccountDropdown({ account }: { account: SignedInAccount }) 
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <span className="sr-only">เข้าสู่ระบบในชื่อ </span>
+              <span className="sr-only">Signed in as </span>
               <AccountSummary account={account} />
               <EllipsisVerticalIcon aria-hidden="true" className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -67,7 +67,7 @@ export function StaffAccountDropdown({ account }: { account: SignedInAccount }) 
             {/* signOut redirects to the sign-in page, so the menu never needs to close itself. */}
             <DropdownMenuItem disabled={signingOut} onSelect={() => startSignOut(() => signOut())}>
               <LogOutIcon aria-hidden="true" />
-              ออกจากระบบ
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
