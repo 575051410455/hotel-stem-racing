@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth/session";
 import { eventDayLabel } from "@/lib/event";
 import type { RegistrationDetail } from "@/lib/registrations/detail";
-import { attendeeRoleShortLabels, organisationLabel, referralSourceShortLabels } from "@/lib/registrations/fields";
+import { type AttendeeRole, attendeeRoleShortLabels, referralSourceShortLabels } from "@/lib/registrations/fields";
 import { registrationIdFromPath } from "@/lib/registrations/registration-id";
 import { eventPassLink, registrations } from "@/lib/server/registrations";
 import { formatCreatedAt, formatPhone } from "../../_registration-list/format";
@@ -24,7 +24,7 @@ import { PageContent, PageHeader } from "../../_shell/page-header";
 import { DeleteRegistration } from "./delete-registration";
 import { DetailEventPassEmail, EventPassLink } from "./detail-actions";
 
-export const metadata: Metadata = { title: "รายละเอียดการลงทะเบียน" };
+export const metadata: Metadata = { title: "Registration details" };
 
 // /admin/registrations/{id}: every answer of one Registration, its Event Pass, email status and
 // Check-Ins, and delete. Admin-only; the id, the session and the data are request-time, so it all
@@ -38,7 +38,7 @@ export default function RegistrationDetailPage({ params, searchParams }: PagePro
           <DetailHeader listHref={registrationListHref([])} passCode={null} />
           <PageContent narrow>
             <p role="status" className="text-sm leading-normal text-muted-foreground">
-              กำลังโหลดรายละเอียดการลงทะเบียน…
+              Loading Registration details…
             </p>
           </PageContent>
         </>
@@ -49,7 +49,7 @@ export default function RegistrationDetailPage({ params, searchParams }: PagePro
   );
 }
 
-/** "ผู้ลงทะเบียน › EP-…": back to the list view Staff came from, then the Pass Code once known. */
+/** "Registrations › EP-…": back to the list view Staff came from, then the Pass Code once known. */
 function DetailHeader({ listHref, passCode }: { listHref: string; passCode: string | null }) {
   return (
     <PageHeader>
@@ -57,7 +57,7 @@ function DetailHeader({ listHref, passCode }: { listHref: string; passCode: stri
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={listHref}>ผู้ลงทะเบียน</Link>
+              <Link href={listHref}>Registrations</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           {passCode && (
@@ -90,8 +90,8 @@ async function RegistrationDetailContent({
         <DetailHeader listHref={listHref} passCode={null} />
         <PageContent narrow>
           <BackToList href={listHref} />
-          <h1 className="mt-6 text-2xl leading-normal font-semibold">ไม่พบการลงทะเบียนนี้</h1>
-          <p className="mt-2 leading-normal text-muted-foreground">อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>
+          <h1 className="mt-6 text-2xl leading-normal font-semibold">Registration not found</h1>
+          <p className="mt-2 leading-normal text-muted-foreground">It may have been deleted, or the link is wrong.</p>
         </PageContent>
       </>
     );
@@ -108,35 +108,35 @@ async function RegistrationDetailContent({
         <BackToList href={listHref} />
         <h1 className="mt-6 text-2xl leading-normal font-semibold wrap-anywhere">{attendeeName}</h1>
         <p className="mt-1 text-sm leading-normal text-muted-foreground">
-          <span className="font-mono">{registration.passCode}</span> · ลงทะเบียนเมื่อ{" "}
+          <span className="font-mono">{registration.passCode}</span> · Registered{" "}
           <time dateTime={createdAt} className="tabular-nums">
             {formatCreatedAt(createdAt)}
           </time>
         </p>
 
         <div className="mt-6 flex flex-col gap-6">
-          <Section title="ข้อมูลการลงทะเบียน">
+          <Section title="Registration">
             <Answers registration={registration} />
           </Section>
 
           <Section title="Event Pass">
             <dl className="flex flex-col gap-4 text-sm">
               <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">รหัส Event Pass</dt>
+                <dt className="text-muted-foreground">Pass Code</dt>
                 <dd className="font-mono text-lg leading-normal font-semibold">{registration.passCode}</dd>
               </div>
               <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">ลิงก์ Event Pass</dt>
+                <dt className="text-muted-foreground">Event Pass link</dt>
                 <dd className="flex flex-col gap-2">
                   <EventPassLinkOrNotice token={registration.token} />
                   <p className="text-xs leading-normal text-muted-foreground">
-                    ส่งลิงก์นี้ให้ผู้เข้าร่วมงานที่หา Event Pass ไม่พบ ใครมีลิงก์ก็เปิด Event Pass ได้
-                    จึงควรส่งให้เจ้าของเท่านั้น
+                    Send this link to an Attendee who can&apos;t find their Event Pass. Anyone with the link
+                    can open the Event Pass, so send it only to its holder.
                   </p>
                 </dd>
               </div>
               <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">อีเมล Event Pass</dt>
+                <dt className="text-muted-foreground">Event Pass email</dt>
                 <dd>
                   <DetailEventPassEmail
                     registrationId={registration.id}
@@ -149,13 +149,13 @@ async function RegistrationDetailContent({
             </dl>
           </Section>
 
-          <Section title="การเช็คอิน">
+          <Section title="Check-Ins">
             <CheckIns checkIns={registration.checkIns} />
           </Section>
 
-          <Section title="ลบการลงทะเบียน">
+          <Section title="Delete Registration">
             <p className="mb-4 text-sm leading-normal text-muted-foreground">
-              สำหรับการลงทะเบียนที่เป็นสแปมหรือการลงทะเบียนซ้ำ การเช็คอินของการลงทะเบียนนี้จะถูกลบไปด้วย
+              For spam and Duplicate Registrations. This Registration&apos;s Check-Ins are deleted with it.
             </p>
             <DeleteRegistration
               registrationId={registration.id}
@@ -185,7 +185,7 @@ function BackToList({ href }: { href: string }) {
       className="inline-flex items-center gap-1.5 text-sm leading-normal font-medium underline-offset-4 hover:underline"
     >
       <ArrowLeftIcon aria-hidden="true" className="size-4" />
-      กลับไปรายการลงทะเบียน
+      Back to Registrations
     </Link>
   );
 }
@@ -205,13 +205,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 const withOther = (label: string, other: string | null) => (other ? `${label}: ${other}` : label);
 
-/** Every answer from the registration form, in the form's order, with its Thai label. */
+/** Field 5's label for Staff, rather than the form's question to the Attendee ("…you represent"). */
+const organisationLabel = (role: AttendeeRole) =>
+  role === "sponsor" ? "Company or organisation represented" : "School or organisation";
+
+/** Every answer from the registration form, in the form's order, with its Back Office label. */
 function Answers({ registration }: { registration: RegistrationDetail }) {
   const answers: { label: string; value: ReactNode }[] = [
-    { label: "ชื่อ", value: registration.givenName },
-    { label: "นามสกุล", value: registration.familyName },
+    { label: "Given name", value: registration.givenName },
+    { label: "Family name", value: registration.familyName },
     {
-      label: "เบอร์โทรศัพท์",
+      label: "Phone",
       value: (
         <a href={`tel:${registration.phone}`} className="tabular-nums underline-offset-4 hover:underline">
           {formatPhone(registration.phone)}
@@ -219,7 +223,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       ),
     },
     {
-      label: "อีเมล",
+      label: "Email",
       value: (
         <a href={`mailto:${registration.email}`} className="underline-offset-4 hover:underline">
           {registration.email}
@@ -227,27 +231,27 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       ),
     },
     {
-      label: "ฐานะการเข้าร่วมงาน",
-      value: withOther(attendeeRoleShortLabels.th[registration.role], registration.roleOther),
+      label: "Attendee Role",
+      value: withOther(attendeeRoleShortLabels.en[registration.role], registration.roleOther),
     },
-    { label: organisationLabel(registration.role, "th"), value: registration.organisation },
+    { label: organisationLabel(registration.role), value: registration.organisation },
     {
-      label: "วันเข้าร่วมงาน",
-      value: <Lines items={registration.eventDays.map((day) => eventDayLabel(day, "th"))} />,
+      label: "Event Days",
+      value: <Lines items={registration.eventDays.map((day) => eventDayLabel(day, "en"))} />,
     },
     {
-      label: "ช่องทางที่ทราบข่าว",
+      label: "Referral Sources",
       value: (
         <Lines
           items={registration.referralSources.map((source) =>
-            withOther(referralSourceShortLabels.th[source], source === "other" ? registration.referralOther : null),
+            withOther(referralSourceShortLabels.en[source], source === "other" ? registration.referralOther : null),
           )}
         />
       ),
     },
-    { label: "ทีมที่ต้องการมาเชียร์", value: registration.competingTeamCheeredFor },
-    { label: "ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน", value: registration.accessibilityNeeds },
-    { label: "ข้อสอบถามหรือข้อเสนอแนะ", value: registration.comments },
+    { label: "Team cheering for", value: registration.competingTeamCheeredFor },
+    { label: "Help needed to attend", value: registration.accessibilityNeeds },
+    { label: "Questions or suggestions", value: registration.comments },
   ];
 
   return (
@@ -256,7 +260,7 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
         <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-6">
           <dt className="leading-normal text-muted-foreground sm:w-56 sm:shrink-0">{label}</dt>
           <dd className="min-w-0 flex-1 leading-normal whitespace-pre-line wrap-anywhere">
-            {value ?? <span className="text-muted-foreground">ไม่ได้ระบุ</span>}
+            {value ?? <span className="text-muted-foreground">Not given</span>}
           </dd>
         </div>
       ))}
@@ -280,14 +284,14 @@ function EventPassLinkOrNotice({ token }: { token: string }) {
   try {
     link = eventPassLink(token);
   } catch {
-    return <p className="leading-normal text-destructive">สร้างลิงก์ไม่ได้ เพราะยังไม่ได้ตั้งค่า APP_URL</p>;
+    return <p className="leading-normal text-destructive">Can&apos;t build the link: APP_URL isn&apos;t set</p>;
   }
   return <EventPassLink link={link} />;
 }
 
 function CheckIns({ checkIns }: { checkIns: RegistrationDetail["checkIns"] }) {
   if (checkIns.length === 0) {
-    return <p className="text-sm leading-normal text-muted-foreground">ยังไม่ได้เช็คอิน</p>;
+    return <p className="text-sm leading-normal text-muted-foreground">Not checked in</p>;
   }
   return (
     <ul className="divide-y border-t text-sm">
@@ -295,17 +299,17 @@ function CheckIns({ checkIns }: { checkIns: RegistrationDetail["checkIns"] }) {
         const checkedInAt = checkIn.checkedInAt.toISOString();
         return (
           <li key={checkIn.eventDay} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-6">
-            <span className="leading-normal font-medium sm:w-56 sm:shrink-0">{eventDayLabel(checkIn.eventDay, "th")}</span>
+            <span className="leading-normal font-medium sm:w-56 sm:shrink-0">{eventDayLabel(checkIn.eventDay, "en")}</span>
             <span className="flex flex-wrap items-center gap-2 leading-normal">
               <span>
-                เช็คอินเมื่อ{" "}
+                Checked in{" "}
                 <time dateTime={checkedInAt} className="tabular-nums">
                   {formatCreatedAt(checkedInAt)}
                 </time>
               </span>
               {checkIn.outsideRegisteredDay && (
                 <Badge variant="outline" className="border-orange-700 text-orange-800">
-                  นอกวันที่ลงทะเบียน
+                  not a registered day
                 </Badge>
               )}
             </span>

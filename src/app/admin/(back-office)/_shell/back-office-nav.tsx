@@ -29,14 +29,14 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     href: "/admin",
-    label: "ผู้ลงทะเบียน",
+    label: "Registrations",
     icon: UsersIcon,
     may: canUseBackOffice,
     // A Registration's detail belongs to the list.
     isCurrent: (pathname) => pathname === "/admin" || pathname.startsWith("/admin/registrations/"),
   },
-  { href: "/admin/check-in", label: "เช็คอิน", icon: ScanLineIcon, may: canUseCheckInDesk },
-  { href: "/admin/email", label: "ส่งอีเมล", icon: MailIcon, may: canUseBackOffice },
+  { href: "/admin/check-in", label: "Check-In", icon: ScanLineIcon, may: canUseCheckInDesk },
+  { href: "/admin/email", label: "Email", icon: MailIcon, may: canUseBackOffice },
 ];
 
 /**
@@ -64,7 +64,7 @@ function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string | nu
   return (
     <SidebarGroup>
       <SidebarGroupContent>
-        <nav aria-label="เมนูระบบหลังบ้าน">
+        <nav aria-label="Back Office menu">
           <SidebarMenu>
             {items.map(({ href, label, icon: Icon, isCurrent = (path) => path === href }) => {
               const current = pathname !== null && isCurrent(pathname);

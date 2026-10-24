@@ -13,13 +13,13 @@ type SignInFailure = { status: number; code?: string; retryAfterSeconds?: number
 function signInErrorMessage({ status, code, retryAfterSeconds }: SignInFailure): string {
   if (status === 429) {
     return retryAfterSeconds
-      ? `พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอ ${retryAfterSeconds} วินาทีแล้วลองใหม่`
-      : "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่";
+      ? `Too many sign-in attempts. Wait ${retryAfterSeconds} seconds and try again.`
+      : "Too many sign-in attempts. Wait a moment and try again.";
   }
-  if (status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
-  if (code === "INVALID_EMAIL") return "กรุณากรอกอีเมลให้ถูกต้อง";
-  if (status === 0) return "เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
-  return "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+  if (status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") return "Wrong email or password";
+  if (code === "INVALID_EMAIL") return "Please enter a valid email";
+  if (status === 0) return "Can't reach the server. Check your internet connection and try again.";
+  return "Sign-in failed. Please try again.";
 }
 
 export function SignInForm() {
@@ -35,7 +35,7 @@ export function SignInForm() {
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
     if (!email || !password) {
-      setError("กรุณากรอกอีเมลและรหัสผ่าน");
+      setError("Please enter your email and password");
       return;
     }
 
@@ -82,7 +82,7 @@ export function SignInForm() {
     <form method="dialog" onSubmit={handleSubmit} noValidate>
       <FieldGroup>
         <Field data-invalid={error ? true : undefined}>
-          <FieldLabel htmlFor="staff-email">อีเมล</FieldLabel>
+          <FieldLabel htmlFor="staff-email">Email</FieldLabel>
           <Input
             id="staff-email"
             name="email"
@@ -97,7 +97,7 @@ export function SignInForm() {
           />
         </Field>
         <Field data-invalid={error ? true : undefined}>
-          <FieldLabel htmlFor="staff-password">รหัสผ่าน</FieldLabel>
+          <FieldLabel htmlFor="staff-password">Password</FieldLabel>
           <Input
             ref={passwordRef}
             id="staff-password"
@@ -115,10 +115,10 @@ export function SignInForm() {
             {error}
           </p>
           <Button type="submit" disabled={pending}>
-            {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+            {pending ? "Signing in…" : "Sign in"}
           </Button>
           {/* There is no self-service reset: the operator sets a new password with `npm run staff`. */}
-          <FieldDescription className="text-center">ลืมรหัสผ่าน? ติดต่อผู้จัดงานเพื่อตั้งรหัสผ่านใหม่</FieldDescription>
+          <FieldDescription className="text-center">Forgot your password? Ask the organisers to set a new one.</FieldDescription>
         </Field>
       </FieldGroup>
     </form>

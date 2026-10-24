@@ -9,7 +9,7 @@ export default function BackOfficeHomePage() {
   return (
     <>
       <PageHeader>
-        <PageTitle>ผู้ลงทะเบียน</PageTitle>
+        <PageTitle>Registrations</PageTitle>
       </PageHeader>
       <PageContent>
         <OverviewSection />

@@ -10,10 +10,10 @@ import { event, eventDayLabel } from "@/lib/event";
 import { registrations } from "@/lib/server/registrations";
 import { readHeadCounts } from "./head-counts";
 
-const formatCount = new Intl.NumberFormat("th-TH").format;
+const formatCount = new Intl.NumberFormat("en-GB").format;
 
-const TOTAL_TITLE = "ลงทะเบียนทั้งหมด";
-const UNSENT_TITLE = "ยังไม่ได้ส่งอีเมล Event Pass";
+const TOTAL_TITLE = "Total Registrations";
+const UNSENT_TITLE = "Event Pass email not sent";
 
 /** dashboard-01's section card: a title, a big number, an optional badge and a footer. */
 function SummaryCard({
@@ -41,11 +41,12 @@ function SummaryCard({
   );
 }
 
-/** "1,234 คน": the card's big number. */
+/** "1,234 people" (or "1 person"): the card's big number. */
 function People({ count }: { count: number }) {
+  const unit = count === 1 ? "person" : "people";
   return (
     <>
-      {formatCount(count)} <span className="text-base font-normal text-muted-foreground">คน</span>
+      {formatCount(count)} <span className="text-base font-normal text-muted-foreground">{unit}</span>
     </>
   );
 }
@@ -65,22 +66,22 @@ export async function HeadCountCards() {
         value={<People count={counts.registrations} />}
         badge={
           <Badge variant="outline">
-            <UserPlusIcon aria-hidden="true" />+{formatCount(counts.registeredToday)} วันนี้
+            <UserPlusIcon aria-hidden="true" />+{formatCount(counts.registeredToday)} today
           </Badge>
         }
-        footer={<p className="text-muted-foreground">ผู้ที่เลือกทั้ง 2 วันนับครั้งเดียว</p>}
+        footer={<p className="text-muted-foreground">People who chose both days count once</p>}
       />
       {counts.eventDays.map((day) => (
         <SummaryCard
           key={day.eventDay}
-          title={eventDayLabel(day.eventDay, "th")}
+          title={eventDayLabel(day.eventDay, "en")}
           value={<People count={day.total} />}
           footer={
             <p className="font-medium">
-              เช็คอินแล้ว {formatCount(day.checkIns.total)}
-              {/* The same wording as the check-in desk and the Kiosk. */}
+              Checked in {formatCount(day.checkIns.total)}
+              {/* The same wording as the check-in desk. */}
               {day.checkIns.outsideRegisteredDay > 0 &&
-                ` (ไม่ได้ลงทะเบียนวันนี้ ${formatCount(day.checkIns.outsideRegisteredDay)})`}
+                ` (${formatCount(day.checkIns.outsideRegisteredDay)} not registered for this day)`}
             </p>
           }
         />
@@ -103,12 +104,12 @@ export async function UnsentEmailCard() {
           {!summary.emailConfigured && (
             <p className="flex items-center gap-1.5 font-medium">
               <CircleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
-              ระบบอีเมลยังไม่ได้ตั้งค่า
+              {"Email isn't set up"}
             </p>
           )}
           <Button asChild variant="outline" size="sm">
             <Link href="/admin/email">
-              ไปหน้าส่งอีเมล
+              Go to Email
               <ArrowRightIcon aria-hidden="true" />
             </Link>
           </Button>
@@ -128,7 +129,7 @@ function SummaryCardSkeleton({ title, button = false }: { title: string; button?
       title={title}
       value={
         <>
-          <span className="sr-only">กำลังโหลด…</span>
+          <span className="sr-only">Loading…</span>
           <Skeleton aria-hidden="true" className="h-8 w-24 @[250px]/card:h-9" />
         </>
       }
@@ -143,7 +144,7 @@ export function HeadCountCardsSkeleton() {
     <>
       <SummaryCardSkeleton title={TOTAL_TITLE} />
       {event.eventDays.map(({ date, label }) => (
-        <SummaryCardSkeleton key={date} title={label.th} />
+        <SummaryCardSkeleton key={date} title={label.en} />
       ))}
     </>
   );

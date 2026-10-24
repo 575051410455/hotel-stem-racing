@@ -1,28 +1,45 @@
-// How the Back Office Registration list shows stored values. Pure; safe in browser and server.
+// How the Back Office Registration list shows stored values, in English. Pure; safe in browser and
+// server.
 
+import { bangkokTime } from "@/lib/bangkok-time";
 import { event } from "@/lib/event";
 import { formatPhoneAsYouType } from "@/lib/registrations/fields";
 
-/** "22 ต.ค. 2569 14:05": always Bangkok time, whatever the browser's zone. */
-const createdAtFormat = new Intl.DateTimeFormat("th-TH", {
-  timeZone: event.timeZone,
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+type DateParts = Partial<Record<Intl.DateTimeFormatPartTypes, string>>;
 
-export function formatCreatedAt(iso: string): string {
-  return createdAtFormat.format(new Date(iso));
+/**
+ * A date's parts with English names, which the caller puts in British order ("Sat 31 Oct"). The
+ * names are en-US's, which keep "Sep" where en-GB now writes "Sept"; its order and commas go unused.
+ */
+function englishDateParts(options: Intl.DateTimeFormatOptions): (instant: Date) => DateParts {
+  const format = new Intl.DateTimeFormat("en-US", options);
+  return (instant) => {
+    const parts = format.formatToParts(instant);
+    return Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  };
 }
 
-/** "31 ต.ค." for an ISO Event Day; the date has no time, so read it as a UTC calendar day. */
-const eventDayFormat = new Intl.DateTimeFormat("th-TH", {
-  timeZone: "UTC",
+const createdAtParts = englishDateParts({
+  timeZone: event.timeZone,
   day: "numeric",
   month: "short",
+  year: "numeric",
 });
 
+/** "22 Oct 2026, 14:05": always Bangkok time, whatever the browser's zone, on a 24-hour clock. */
+export function formatCreatedAt(iso: string): string {
+  const instant = new Date(iso);
+  const { day, month, year } = createdAtParts(instant);
+  return `${day} ${month} ${year}, ${bangkokTime(instant)}`;
+}
+
+/** An ISO Event Day has no time, so it is read as a UTC calendar day. */
+const eventDayParts = englishDateParts({ timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+
+/** "Sat 31 Oct" for an ISO Event Day. */
 export function formatEventDay(isoDate: string): string {
-  return eventDayFormat.format(new Date(isoDate));
+  const { weekday, day, month } = eventDayParts(new Date(isoDate));
+  return `${weekday} ${day} ${month}`;
 }
 
 /** "+66812345678" → "081-234-5678", as Attendees typed it. */
