@@ -24,3 +24,13 @@ See the spec ("English Back Office") and `copy-back-office.md` ("Shell", "Sign-i
 - [ ] Every string in the listed areas matches `copy-back-office.md`; no Thai left in them.
 - [ ] Sign-in behaviour is unchanged (redirects, rate-limit wait, Kiosk Account to `/kiosk`); only the words change.
 - [ ] typecheck, lint, test and build pass. The hand-off records a check against `next start`: the sign-in errors, the sidebar and mobile sheet, and change password, at 375 and 1280 px.
+
+## Answer
+
+Plan:
+- Back Office root layout: `<html lang="en">`, English default title and template.
+- Sign-in page and form: every label, button and error from the copy deck; the logic stays as is.
+- Shell: sidebar name and landmark, nav labels and name, account menu ("Signed in as", "Sign out"), and the screen-reader strings in `sheet`, `sidebar`, `breadcrumb` and `sonner`; `/admin/account` is already English, so only checked.
+- Verify against `next start` (Admin and Staff, 375 and 1280 px), then record it here.
+
+In progress.
