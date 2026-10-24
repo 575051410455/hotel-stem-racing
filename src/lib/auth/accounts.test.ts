@@ -3,6 +3,8 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { createTestDatabase } from "@/test-support/database";
 import { createAccounts, type Accounts } from "./accounts";
 import { createStaffAuth, type StaffAuth } from "./staff-auth";
+import { eq } from "drizzle-orm";
+import { sessions } from "@/lib/db/auth-schema";
 
 const baseURL = "http://localhost:3104";
 const password = "correct horse battery";
@@ -450,5 +452,108 @@ describe("Accounts", () => {
     });
 
     assert.deepEqual(result, { status: "not-found" });
+  });
+});
+
+describe("Accounts: signed-in devices", () => {
+  let database: Awaited<ReturnType<typeof createTestDatabase>>;
+  let auth: StaffAuth;
+  let accounts: Accounts;
+
+  before(async () => {
+    database = await createTestDatabase();
+    auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
+    accounts = createAccounts(auth);
+  });
+
+  beforeEach(async () => {
+    await database.reset();
+  });
+
+  after(async () => {
+    await database.drop();
+  });
+
+  const SAFARI_ON_IPHONE =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1";
+  const CHROME_ON_WINDOWS =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+  const FIREFOX_ON_LINUX = "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0";
+
+  async function createStaff(email: string) {
+    const created = await accounts.create({ email, name: "Staff", password });
+    assert.equal(created.status, "created");
+    return created.accountId;
+  }
+
+  /** Signs in from a browser with this user agent and IP, and reads its session back from the cookie. */
+  async function signInFrom(email: string, userAgent: string, clientIp = nextClientIp()) {
+    const response = await auth.handler(
+      new Request(`${baseURL}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: baseURL,
+          "x-real-ip": clientIp,
+          "user-agent": userAgent,
+        },
+        body: JSON.stringify({ email, password }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const cookie = response.headers.get("set-cookie")!.split(";")[0];
+    const signedIn = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    assert.ok(signedIn);
+    return signedIn.session;
+  }
+
+  test("lists only the Account's own devices: this one first, then the others newest first", async () => {
+    const accountId = await createStaff("staff@example.org");
+    await createStaff("someone-else@example.org");
+    const oldest = await signInFrom("staff@example.org", FIREFOX_ON_LINUX, "203.0.113.201");
+    const thisDevice = await signInFrom("staff@example.org", SAFARI_ON_IPHONE, "203.0.113.202");
+    const newest = await signInFrom("staff@example.org", CHROME_ON_WINDOWS, "203.0.113.203");
+    await signInFrom("someone-else@example.org", CHROME_ON_WINDOWS, "203.0.113.204");
+
+    const devices = await accounts.listDevices(accountId, thisDevice.id);
+
+    assert.deepEqual(devices, [
+      { id: thisDevice.id, userAgent: SAFARI_ON_IPHONE, ipAddress: "203.0.113.202", createdAt: thisDevice.createdAt, isCurrent: true },
+      { id: newest.id, userAgent: CHROME_ON_WINDOWS, ipAddress: "203.0.113.203", createdAt: newest.createdAt, isCurrent: false },
+      { id: oldest.id, userAgent: FIREFOX_ON_LINUX, ipAddress: "203.0.113.201", createdAt: oldest.createdAt, isCurrent: false },
+    ]);
+  });
+
+  test("leaves out a device whose session has expired", async () => {
+    const accountId = await createStaff("staff@example.org");
+    const expired = await signInFrom("staff@example.org", FIREFOX_ON_LINUX);
+    const thisDevice = await signInFrom("staff@example.org", SAFARI_ON_IPHONE);
+    await database.db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(sessions.id, expired.id));
+
+    const devices = await accounts.listDevices(accountId, thisDevice.id);
+
+    assert.deepEqual(
+      devices.map(({ id }) => id),
+      [thisDevice.id],
+    );
+  });
+
+  test("never carries a session token", async () => {
+    const accountId = await createStaff("staff@example.org");
+    const otherDevice = await signInFrom("staff@example.org", CHROME_ON_WINDOWS);
+    const thisDevice = await signInFrom("staff@example.org", SAFARI_ON_IPHONE);
+
+    const devices = await accounts.listDevices(accountId, thisDevice.id);
+
+    assert.equal(devices.length, 2);
+    for (const device of devices) {
+      assert.deepEqual(Object.keys(device).sort(), ["createdAt", "id", "ipAddress", "isCurrent", "userAgent"]);
+    }
+    const listed = JSON.stringify(devices);
+    assert.ok(!listed.includes(thisDevice.token));
+    assert.ok(!listed.includes(otherDevice.token));
   });
 });

@@ -4,6 +4,7 @@ import { type CurrentStaff, requireStaff } from "@/lib/auth/session";
 import { PageContent, PageHeader, PageTitle } from "../_shell/page-header";
 import { ChangePasswordForm } from "./change-password-form";
 import { RenameForm } from "./rename-form";
+import { SignedInDevices, SignedInDevicesSkeleton } from "./signed-in-devices";
 
 export const metadata: Metadata = { title: "My Account" };
 
@@ -13,9 +14,10 @@ const KIND_LABELS = {
   staff: "Staff · the check-in desk",
 } satisfies Record<CurrentStaff["kind"], string>;
 
-// Staff (a Staff or Admin Account) see their own Account: email and kind, their name and their
-// password. Reached from the account menu, not the sidebar nav; /admin/password redirects here. The
-// header is the static shell; the rest needs the session, so a Kiosk Account is sent back to the Kiosk.
+// Staff (a Staff or Admin Account) see their own Account: email and kind, their name, their
+// password and where they are signed in. Reached from the account menu, not the sidebar nav;
+// /admin/password redirects here. The header is the static shell; the rest needs the session, so a
+// Kiosk Account is sent back to the Kiosk.
 export default function MyAccountPage() {
   return (
     <>
@@ -60,6 +62,20 @@ async function OwnAccount() {
         </h2>
         <div className="mt-4">
           <ChangePasswordForm email={staff.email} />
+        </div>
+      </section>
+      <section aria-labelledby="signed-in-devices-heading" className="mt-10 border-t pt-6">
+        <h2 id="signed-in-devices-heading" className="text-base leading-normal font-semibold">
+          Signed-in devices
+        </h2>
+        <p className="mt-1 text-sm leading-normal text-muted-foreground">
+          Where your Account is signed in. Sign out any device you don&apos;t recognise.
+        </p>
+        <div className="mt-4">
+          {/* Its own boundary: Details and Change password show while the devices are read. */}
+          <Suspense fallback={<SignedInDevicesSkeleton />}>
+            <SignedInDevices />
+          </Suspense>
         </div>
       </section>
     </>
