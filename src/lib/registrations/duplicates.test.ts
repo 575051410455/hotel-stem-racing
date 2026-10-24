@@ -79,6 +79,16 @@ describe("Duplicate Registration", () => {
     assert.equal(await registrationCount(), 1);
   });
 
+  test("the same names with the same international number is a Duplicate Registration", async () => {
+    const original = await registrations.submit({ ...attendee, phone: "+44 7700 900123" });
+    assert.equal(original.status, "accepted");
+
+    const repeat = await registrations.submit({ ...attendee, givenName: "john", phone: "+447700-900-123" });
+
+    assert.equal(repeat.status, "duplicate");
+    assert.equal(await registrationCount(), 1);
+  });
+
   test("family members sharing an email or phone register separately", async () => {
     const results = [
       await registrations.submit(attendee),

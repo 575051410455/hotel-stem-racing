@@ -29,6 +29,7 @@ export const en: Dictionary = {
     givenName: "Given name",
     familyName: "Family name",
     phone: "Phone number",
+    phoneHint: "A Thai mobile or landline, or an international number starting with + and the country code",
     phonePlaceholder: "081-234-5678",
     email: "Email",
     emailPlaceholder: "name@example.com",

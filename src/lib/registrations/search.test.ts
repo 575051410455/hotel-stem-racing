@@ -104,6 +104,15 @@ describe("Registration module: searching Registrations", () => {
       assert.deepEqual(await namesFound({ q: "5432" }), ["วิภา ใจดี"]);
     });
 
+    test("matches an international number typed with or without +, spaces or hyphens", async () => {
+      await register({ givenName: "Jane", familyName: "Doe", phone: "+44 7700 900123" });
+      await register({ givenName: "วิภา", phone: "089-876-5432" });
+
+      for (const q of ["+447700900123", "+44 7700 900123", "447700900123", "44-7700-900123", "7700 900123"]) {
+        assert.deepEqual(await namesFound({ q }), ["Jane Doe"], q);
+      }
+    });
+
     test("matches a Pass Code with or without its EP- prefix, in any case and spacing", async () => {
       const codes = ["EP-7KQ2MZ9H", "EP-ABCDEFGH"];
       const withKnownCodes = createRegistrations({

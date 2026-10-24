@@ -189,7 +189,8 @@ const messages: Record<
     nameCharacters: (field) => `${field}ใช้ได้เฉพาะตัวอักษร คั่นคำด้วยเว้นวรรค ขีด (-) หรือ ' ได้ครั้งละ 1 ตัว`,
     nameTooShort: (field) => `${field}ต้องมีอย่างน้อย 2 ตัวอักษร`,
     phoneMissing: "กรุณากรอกเบอร์โทรศัพท์",
-    phoneInvalid: "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678",
+    phoneInvalid:
+      "กรุณากรอกเบอร์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678 หรือเบอร์ต่างประเทศขึ้นต้นด้วย + เช่น +44 7700 900123",
     emailMissing: "กรุณากรอกอีเมล",
     emailInvalid: "กรุณากรอกอีเมลให้ถูกต้อง เช่น name@example.com",
     textTooLong: (maxLength) => `ข้อความยาวได้ไม่เกิน ${maxLength} ตัวอักษร`,
@@ -210,7 +211,8 @@ const messages: Record<
       `Your ${field} can use letters only, with a single space, hyphen (-) or apostrophe (') between words`,
     nameTooShort: (field) => `Your ${field} needs at least 2 letters`,
     phoneMissing: "Please enter your phone number",
-    phoneInvalid: "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678",
+    phoneInvalid:
+      "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678, or an international number starting with +, such as +44 7700 900123",
     emailMissing: "Please enter your email",
     emailInvalid: "Please enter a valid email, such as name@example.com",
     textTooLong: (maxLength) => `This can be at most ${maxLength} characters`,
@@ -269,6 +271,10 @@ function validateName(raw: string, field: NameField, language: Language) {
 
 const MOBILE = /^0[689]\d{8}$/; // 10 digits, 06 / 08 / 09
 const LANDLINE = /^0[2-7]\d{7}$/; // 9 digits, 02–07
+// Abroad: +, a country code (never starting with 0), and 8–15 digits in all, the E.164 maximum.
+// +66 is Thailand's, so those numbers follow the Thai rules above instead.
+const INTERNATIONAL = /^\+[1-9]\d{7,14}$/;
+const THAI_COUNTRY_CODE = "+66";
 
 /** The Thai national number ("0812345678") for spaces, dashes and an optional +66 prefix. */
 function nationalNumber(raw: string): string | null {
@@ -281,8 +287,15 @@ function nationalNumber(raw: string): string | null {
   return /^\d+$/.test(compact) ? compact : null;
 }
 
-/** E.164 form ("+66812345678") of a valid Thai mobile or landline number, otherwise null. */
+/**
+ * E.164 form of a valid Thai mobile or landline number ("+66812345678") or international number
+ * ("+447700900123"), otherwise null. A number without + must be Thai.
+ */
 export function phoneToE164(raw: string): string | null {
+  const compact = raw.replace(/[\s-]+/g, "");
+  if (compact.startsWith("+") && !compact.startsWith(THAI_COUNTRY_CODE)) {
+    return INTERNATIONAL.test(compact) ? compact : null;
+  }
   const national = nationalNumber(raw);
   if (!national || !(MOBILE.test(national) || LANDLINE.test(national))) return null;
   return `+66${national.slice(1)}`;
@@ -317,13 +330,15 @@ function subscriberGroups(subscriber: string) {
 
 /**
  * Display form while typing ("0812345678" → "081-234-5678", "+66812345678" → "+66 81-234-5678").
- * Keeps only digits and a leading +, adds no dangling dash, and never drops digits.
+ * Thai numbers keep only digits and a leading +, get no dangling dash, and never lose digits. Other
+ * international numbers stay as typed, minus anything but digits, spaces and hyphens.
  */
 export function formatPhoneAsYouType(raw: string): string {
-  const international = raw.trimStart().startsWith("+");
+  const typed = raw.trimStart();
   const digits = raw.replace(/\D/g, "");
-  if (!international) return groupDigits(digits, nationalGroups(digits));
-  if (!digits.startsWith("66") || digits.length === 2) return `+${digits}`;
+  if (!typed.startsWith("+")) return groupDigits(digits, nationalGroups(digits));
+  if (!digits.startsWith("66")) return `+${typed.slice(1).replace(/[^\d\s-]/g, "")}`;
+  if (digits.length === 2) return THAI_COUNTRY_CODE;
   const rest = digits.slice(2);
   return `+66 ${groupDigits(rest, rest.startsWith("0") ? nationalGroups(rest) : subscriberGroups(rest))}`;
 }

@@ -118,7 +118,7 @@ describe("Field validation: phone", () => {
     assert.equal(validateField("phone", withValues({ phone: "  " }), "th"), "กรุณากรอกเบอร์โทรศัพท์");
   });
 
-  test("rejects numbers that are not a Thai mobile or landline", () => {
+  test("rejects numbers that are neither a Thai number nor an international one", () => {
     const rejected = [
       "081234567", // 9 digits starting 08: too short for a mobile
       "08123456789", // 11 digits
@@ -129,7 +129,7 @@ describe("Field validation: phone", () => {
       "12345678",
       "812345678", // missing the leading 0
       "66812345678", // country code without +
-      "+1 415 555 0100", // not Thai
+      "447700900123", // a foreign number needs its +
       "+66 8123 4567", // too short after +66
       "081.234.5678", // only spaces and dashes are separators
       "(02) 123-4567",
@@ -139,7 +139,7 @@ describe("Field validation: phone", () => {
     for (const typed of rejected) {
       assert.equal(
         validateField("phone", withValues({ phone: typed }), "th"),
-        "กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678",
+        "กรุณากรอกเบอร์มือถือ 10 หลัก หรือเบอร์บ้าน 9 หลัก เช่น 081-234-5678 หรือเบอร์ต่างประเทศขึ้นต้นด้วย + เช่น +44 7700 900123",
         typed,
       );
       assert.equal(phoneToE164(typed), null, typed);
@@ -169,6 +169,11 @@ describe("Field validation: phone", () => {
       ["+66 081 234 5678", "+66 081-234-5678"],
       ["+6621234567", "+66 2-123-4567"],
       ["+6638123456", "+66 38-123-456"],
+      // International numbers stay as typed, apart from characters other than digits, spaces and hyphens.
+      ["+4", "+4"],
+      ["+44 7700 900123", "+44 7700 900123"],
+      ["+1 415-555-0100", "+1 415-555-0100"],
+      ["+1 (415) 555.0100", "+1 415 5550100"],
     ];
     for (const [typed, shown] of steps) {
       assert.equal(formatPhoneAsYouType(typed), shown, typed);
@@ -176,8 +181,35 @@ describe("Field validation: phone", () => {
   });
 
   test("formatted phone numbers are still valid input", () => {
-    for (const typed of ["0812345678", "021234567", "038123456", "+66812345678", "+6621234567"]) {
+    for (const typed of ["0812345678", "021234567", "038123456", "+66812345678", "+6621234567", "+44 7700 900123"]) {
       assert.equal(phoneToE164(formatPhoneAsYouType(typed)), phoneToE164(typed), typed);
+    }
+  });
+
+  test("accepts an international number, + and a country code other than 66, and stores it as E.164", () => {
+    const accepted: [typed: string, e164: string][] = [
+      ["+44 7700 900123", "+447700900123"],
+      ["+447700900123", "+447700900123"],
+      ["+1 415 555 0100", "+14155550100"],
+      ["+81-90-1234-5678", "+819012345678"],
+      [" +65 8123 4567 ", "+6581234567"],
+      ["+12345678", "+12345678"], // 8 digits in all, the shortest accepted
+      ["+123456789012345", "+123456789012345"], // 15, the E.164 maximum
+    ];
+    for (const [typed, e164] of accepted) {
+      assert.equal(validateField("phone", withValues({ phone: typed }), "th"), undefined, typed);
+      assert.equal(phoneToE164(typed), e164, typed);
+    }
+  });
+
+  test("rejects an international number that is too short, too long or has no country code", () => {
+    for (const typed of ["+1234567", "+44 1234", "+1234567890123456", "+0 812 345 678", "+44 7700 900123x"]) {
+      assert.equal(phoneToE164(typed), null, typed);
+      assert.equal(
+        validateField("phone", withValues({ phone: typed }), "en"),
+        "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678, or an international number starting with +, such as +44 7700 900123",
+        typed,
+      );
     }
   });
 
@@ -478,7 +510,7 @@ describe("Field validation: messages in English", () => {
   test("phone, email and free-text problems in English", () => {
     assert.equal(
       validateField("phone", withValues({ phone: "12345" }), "en"),
-      "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678",
+      "Enter a 10-digit Thai mobile or 9-digit landline number, such as 081-234-5678, or an international number starting with +, such as +44 7700 900123",
     );
     assert.equal(
       validateField("email", withValues({ email: "name@example" }), "en"),
