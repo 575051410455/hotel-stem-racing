@@ -99,8 +99,8 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
     },
     hooks: {
       // Better Auth lets any signed-in Account change its own name (and image) at /update-user.
-      // Names change only through the Accounts module (My Account, ADR 0004), so this refuses the
-      // endpoint for everyone, signed in or not.
+      // Names change only through the Accounts module (My Account, an Account's page; ADR 0004), so
+      // this refuses the endpoint for everyone, signed in or not.
       //
       // Better Auth also lets any signed-in Account change its password. A Kiosk Account may not
       // (ADR 0003): My Account (/admin/account) already sends it back to the Kiosk, and this refuses the
@@ -119,7 +119,7 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
         const { kind } = session.user as { kind?: unknown };
         if (!isAccountKind(kind) || !canChangeOwnPassword(kind)) {
           throw APIError.from("FORBIDDEN", {
-            message: "This Account's password is changed with the server command",
+            message: "This Account's password is set by an Admin",
             code: "PASSWORD_CHANGE_NOT_ALLOWED",
           });
         }

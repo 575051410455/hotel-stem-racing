@@ -4,14 +4,9 @@ import { isAccountKind } from "@/lib/auth/access";
 import type { CreateAccountResult } from "@/lib/auth/accounts";
 import { accounts } from "@/lib/auth/server";
 import { getCurrentAdmin } from "@/lib/auth/session";
+import { text } from "../action-input";
 
 export type CreateAccountActionResult = CreateAccountResult | { status: "invalid-kind" } | { status: "signed-out" };
-
-/** A text field of what the browser sent, or "" when it's missing or not text. */
-function text(input: unknown, field: string): string {
-  const value = typeof input === "object" && input !== null ? (input as Record<string, unknown>)[field] : undefined;
-  return typeof value === "string" ? value : "";
-}
 
 /**
  * Creates an Account of any kind, from the Back Office's New Account page, recorded with the

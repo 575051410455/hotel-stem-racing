@@ -288,38 +288,43 @@ describe("Accounts", () => {
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 200);
   });
 
-  test("resetting a password replaces the old one and signs the Staff Account out", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+  test("setting a password replaces the old one and signs the Staff Account out", async () => {
+    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+    assert.equal(created.status, "created");
     const signedIn = await signIn(auth, "staff@example.org", password);
     const sessionCookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
-    const result = await accounts.resetPassword({
-      email: "Staff@Example.org",
-      password: "a brand new password",
-    }, "server-command");
+    const result = await accounts.setPassword(created.accountId, "a brand new password", "server-command");
 
-    assert.equal(result.status, "password-reset");
+    assert.equal(result.status, "password-set");
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 401);
     assert.equal((await signIn(auth, "staff@example.org", "a brand new password")).status, 200);
     const session = await auth.api.getSession({ headers: new Headers({ cookie: sessionCookie }) });
     assert.equal(session, null);
   });
 
-  test("resetting a Kiosk Account's password keeps it a Kiosk Account", async () => {
+  test("setting a Kiosk Account's password keeps it a Kiosk Account", async () => {
     const created = await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" }, "server-command");
     assert.equal(created.status, "created");
 
-    const result = await accounts.resetPassword({ email: "kiosk@example.org", password: "a brand new password" }, "server-command");
+    const result = await accounts.setPassword(created.accountId, "a brand new password", "server-command");
 
-    assert.deepEqual(result, { status: "password-reset", accountId: created.accountId, kind: "kiosk" });
+    assert.deepEqual(result, {
+      status: "password-set",
+      accountId: created.accountId,
+      email: "kiosk@example.org",
+      kind: "kiosk",
+      staysDisabled: false,
+    });
     const session = await signInAndGetSession(auth, "kiosk@example.org", "a brand new password");
     assert.equal(session?.user.kind, "kiosk");
   });
 
-  test("resetting to a password under 12 characters is rejected", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+  test("setting a password under 12 characters is rejected", async () => {
+    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+    assert.equal(created.status, "created");
 
-    const result = await accounts.resetPassword({ email: "staff@example.org", password: "too short" }, "server-command");
+    const result = await accounts.setPassword(created.accountId, "too short", "server-command");
 
     assert.deepEqual(result, { status: "password-too-short", minLength: 12 });
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 200);
@@ -477,11 +482,8 @@ describe("Accounts", () => {
     assert.equal(session?.user.name, "Kiosk 1");
   });
 
-  test("resetting the password of an unknown email reports it", async () => {
-    const result = await accounts.resetPassword({
-      email: "nobody@example.org",
-      password: "a brand new password",
-    }, "server-command");
+  test("setting the password of an unknown Account reports it", async () => {
+    const result = await accounts.setPassword("no-such-account", "a brand new password", "server-command");
 
     assert.deepEqual(result, { status: "not-found" });
   });
@@ -537,6 +539,14 @@ describe("Accounts", () => {
       (await accounts.list()).find(({ id }) => id === created.accountId),
     );
     assert.equal(await accounts.get("no-such-account"), null);
+  });
+
+  test("one Account is read by its email in any case, for the commands, and an unknown email is not found", async () => {
+    const created = await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" }, "server-command");
+    assert.equal(created.status, "created");
+
+    assert.deepEqual(await accounts.getByEmail(" Kiosk-1@Example.org "), await accounts.get(created.accountId));
+    assert.equal(await accounts.getByEmail("nobody@example.org"), null);
   });
 
   test("the list shows enabled Accounts first, then disabled ones, each by name whatever its case", async () => {
@@ -708,16 +718,18 @@ describe("Accounts: Account History", () => {
     ]);
   });
 
-  test("resetting a password records that it was set, and a refused reset records nothing", async () => {
+  test("setting a password records that it was set, and a refused one records nothing", async () => {
     const staffId = await createAccount("staff@example.org", "Staff");
 
-    const reset = await accounts.resetPassword({ email: "Staff@Example.org", password: "a brand new password" }, "server-command");
-    const tooShort = await accounts.resetPassword({ email: "staff@example.org", password: "too short" }, "server-command");
-    const unknown = await accounts.resetPassword({ email: "nobody@example.org", password: "a brand new password" }, "server-command");
+    const reset = await accounts.setPassword(staffId, "a brand new password", "server-command");
+    const tooShort = await accounts.setPassword(staffId, "too short", "server-command");
+    const unknown = await accounts.setPassword("no-such-account", "a brand new password", "server-command");
+    const own = await accounts.setPassword(staffId, "a brand new password", { accountId: staffId });
 
-    assert.equal(reset.status, "password-reset");
+    assert.equal(reset.status, "password-set");
     assert.equal(tooShort.status, "password-too-short");
     assert.equal(unknown.status, "not-found");
+    assert.equal(own.status, "own-account");
     assert.deepEqual(await changes(), [
       { account: staffId, change: { action: "password-set" }, actor: "server-command" },
       { account: staffId, change: { action: "created", details: { kind: "staff" } }, actor: "server-command" },
@@ -847,7 +859,7 @@ describe("Accounts: Account History", () => {
     const first = await accounts.createFirst({ email: "admin@example.org", name: "Admin", password }, "server-command");
     assert.equal(first.status, "created");
     const staffId = await createAccount("staff@example.org", "Staff");
-    await accounts.resetPassword({ email: "staff@example.org", password: "the password an Admin set" }, { accountId: first.accountId });
+    await accounts.setPassword(staffId, "the password an Admin set", { accountId: first.accountId });
     await accounts.makeAdmin("staff@example.org", "server-command");
     await accounts.rename(staffId, "Staff Member");
     const hashesBefore = await database.db.select({ hash: credentials.password }).from(credentials);
@@ -1161,11 +1173,8 @@ describe("Accounts: a password set by someone else", () => {
       assert.equal((await changeOwnPassword(email, password, "the owner's own password")).status, 200);
     }
 
-    assert.equal((await accounts.resetPassword({ email: "staff@example.org", password }, "server-command")).status, "password-reset");
-    assert.equal(
-      (await accounts.resetPassword({ email: "admin@example.org", password }, { accountId: staffId })).status,
-      "password-reset",
-    );
+    assert.equal((await accounts.setPassword(staffId, password, "server-command")).status, "password-set");
+    assert.equal((await accounts.setPassword(adminId, password, { accountId: staffId })).status, "password-set");
 
     assert.equal(await mustChangePassword(staffId), true);
     assert.equal(await mustChangePassword(adminId), true);
@@ -1175,7 +1184,7 @@ describe("Accounts: a password set by someone else", () => {
   test("a Kiosk Account's password set by someone else needs no change: a Kiosk keeps working", async () => {
     const kioskId = await createAccount("kiosk@example.org", "kiosk");
 
-    await accounts.resetPassword({ email: "kiosk@example.org", password: "a brand new password" }, "server-command");
+    await accounts.setPassword(kioskId, "a brand new password", "server-command");
 
     assert.equal(await mustChangePassword(kioskId), false);
     const session = await signInAndGetSession(auth, "kiosk@example.org", "a brand new password");
@@ -1192,13 +1201,267 @@ describe("Accounts: a password set by someone else", () => {
     assert.equal(await mustChangePassword(staffId), false);
   });
 
-  test("a refused reset leaves it as it was", async () => {
+  test("a refused password leaves it as it was", async () => {
     const staffId = await createAccount("staff@example.org");
     assert.equal((await changeOwnPassword("staff@example.org", password, "the owner's own password")).status, 200);
 
-    const tooShort = await accounts.resetPassword({ email: "staff@example.org", password: "too short" }, "server-command");
+    const tooShort = await accounts.setPassword(staffId, "too short", "server-command");
 
     assert.equal(tooShort.status, "password-too-short");
     assert.equal(await mustChangePassword(staffId), false);
+  });
+});
+
+describe("Accounts: an Admin edits an Account and sets its password", () => {
+  let database: Awaited<ReturnType<typeof createTestDatabase>>;
+  let auth: StaffAuth;
+  let accounts: Accounts;
+
+  before(async () => {
+    database = await createTestDatabase();
+    auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
+    accounts = createAccounts(auth, database.db);
+  });
+
+  beforeEach(async () => {
+    await database.reset();
+  });
+
+  after(async () => {
+    await database.drop();
+  });
+
+  /** The id of an Account the server command creates. */
+  async function createAccount(email: string, name: string, kind: AccountKind = "staff") {
+    const created = await accounts.create({ email, name, password, kind }, "server-command");
+    assert.equal(created.status, "created");
+    return created.accountId;
+  }
+
+  /** The Admin who edits the others, and acts as `{ accountId }`. */
+  async function createAdmin(email = "admin@example.org", name = "Napat Wongsa") {
+    const accountId = await createAccount(email, name, "admin");
+    return { accountId };
+  }
+
+  /** One Account's changes since it was created, newest first, without ids and times. */
+  async function changesSinceCreated(accountId: string) {
+    const { changes } = await accounts.history({ accountId, page: 1 });
+    return changes
+      .filter(({ change }) => change.action !== "created")
+      .map(({ change, actor }) => ({ change, actor: actor === "server-command" ? actor : actor.accountId }));
+  }
+
+  /** Signs in as one more device and returns the cookie its browser keeps. */
+  async function signInDevice(email: string, withPassword = password) {
+    const response = await signIn(auth, email, withPassword);
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie")!.split(";")[0];
+  }
+
+  /** The session the browser holding this cookie has on its next request, or null when it was ended. */
+  function sessionOf(cookie: string) {
+    return auth.api.getSession({ headers: new Headers({ cookie }) });
+  }
+
+  async function disable(accountId: string) {
+    // Until ticket 08's `disable`, disable it the way the module will: through Better Auth.
+    await (await auth.$context).internalAdapter.updateUser(accountId, { disabledAt: new Date() });
+  }
+
+  test("changing the name, email and kind saves each, records each with its old and new value, and the new email signs in", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("somchai@example.org", "Somchai J");
+
+    const result = await accounts.update(
+      staffId,
+      { name: "  Somchai Jaidee ", email: " Somchai.Jaidee@Example.org ", kind: "admin" },
+      admin,
+    );
+
+    assert.equal(result.status, "updated");
+    const { name, email, kind } = result.status === "updated" ? result.account : ({} as never);
+    assert.deepEqual({ name, email, kind }, { name: "Somchai Jaidee", email: "somchai.jaidee@example.org", kind: "admin" });
+    assert.deepEqual(await accounts.get(staffId), result.status === "updated" && result.account);
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "kind-changed", details: { from: "staff", to: "admin" } }, actor: admin.accountId },
+      {
+        change: { action: "email-changed", details: { from: "somchai@example.org", to: "somchai.jaidee@example.org" } },
+        actor: admin.accountId,
+      },
+      { change: { action: "name-changed", details: { from: "Somchai J", to: "Somchai Jaidee" } }, actor: admin.accountId },
+    ]);
+    assert.equal((await signIn(auth, "somchai@example.org", password)).status, 401);
+    const session = await sessionOf(await signInDevice("somchai.jaidee@example.org"));
+    assert.equal(session?.user.kind, "admin");
+  });
+
+  test("only the fields that change are saved and recorded; the same values, in any case, record nothing", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Somchai J");
+
+    const same = await accounts.update(staffId, { name: " Somchai J ", email: "STAFF@example.org", kind: "staff" }, admin);
+    const nothing = await accounts.update(staffId, {}, admin);
+    const nameOnly = await accounts.update(staffId, { name: "Somchai Jaidee", email: "staff@example.org" }, admin);
+    const emailOnly = await accounts.update(staffId, { email: "somchai@example.org" }, admin);
+    const kindOnly = await accounts.update(staffId, { name: "Somchai Jaidee", kind: "kiosk" }, admin);
+
+    assert.deepEqual(
+      [same, nothing, nameOnly, emailOnly, kindOnly].map(({ status }) => status),
+      ["updated", "updated", "updated", "updated", "updated"],
+    );
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "kind-changed", details: { from: "staff", to: "kiosk" } }, actor: admin.accountId },
+      { change: { action: "email-changed", details: { from: "staff@example.org", to: "somchai@example.org" } }, actor: admin.accountId },
+      { change: { action: "name-changed", details: { from: "Somchai J", to: "Somchai Jaidee" } }, actor: admin.accountId },
+    ]);
+  });
+
+  test("an email any other Account has, in any case, is taken; a refused field changes nothing, not even the others", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const departedId = await createAccount("departed@example.org", "Departed");
+    await disable(departedId);
+
+    const refused = [
+      await accounts.update(staffId, { name: "Somchai Jaidee", email: " ADMIN@Example.org " }, admin),
+      await accounts.update(staffId, { email: "Departed@example.org" }, admin),
+      await accounts.update(staffId, { name: "Somchai Jaidee", email: "not an email" }, admin),
+      await accounts.update(staffId, { name: "   ", email: "somchai@example.org" }, admin),
+      await accounts.update(staffId, { name: "a".repeat(101), kind: "admin" }, admin),
+      await accounts.update("no-such-account", { name: "Somchai Jaidee" }, admin),
+    ];
+
+    assert.deepEqual(refused, [
+      { status: "email-taken" },
+      { status: "email-taken" },
+      { status: "invalid-email" },
+      { status: "invalid-name" },
+      { status: "name-too-long", maxLength: 100 },
+      { status: "not-found" },
+    ]);
+    const staff = await accounts.get(staffId);
+    assert.deepEqual([staff?.name, staff?.email, staff?.kind], ["Staff", "staff@example.org", "staff"]);
+    assert.deepEqual(await changesSinceCreated(staffId), []);
+    const longest = await accounts.update(staffId, { name: "a".repeat(100) }, admin);
+    assert.equal(longest.status === "updated" && longest.account.name, "a".repeat(100));
+  });
+
+  test("an Admin can't change their own kind, but can change their own name and email; the server command can change it", async () => {
+    const admin = await createAdmin();
+    await createAdmin("second-admin@example.org", "Mary-Jane O'Neil");
+
+    const ownKind = await accounts.update(admin.accountId, { name: "Napat W", kind: "staff" }, admin);
+    const sameKind = await accounts.update(
+      admin.accountId,
+      { name: "Napat W", email: "napat@example.org", kind: "admin" },
+      admin,
+    );
+    const byCommand = await accounts.update(admin.accountId, { kind: "staff" }, "server-command");
+
+    assert.deepEqual(ownKind, { status: "own-kind" });
+    assert.equal(sameKind.status, "updated");
+    assert.equal(byCommand.status, "updated");
+    assert.deepEqual(await changesSinceCreated(admin.accountId), [
+      { change: { action: "kind-changed", details: { from: "admin", to: "staff" } }, actor: "server-command" },
+      { change: { action: "email-changed", details: { from: "admin@example.org", to: "napat@example.org" } }, actor: admin.accountId },
+      { change: { action: "name-changed", details: { from: "Napat Wongsa", to: "Napat W" } }, actor: admin.accountId },
+    ]);
+  });
+
+  test("the last enabled Admin can't be demoted, by anyone; a disabled Admin doesn't count, and can be demoted", async () => {
+    const lastAdminId = await createAccount("admin@example.org", "Napat Wongsa", "admin");
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const disabledAdminId = await createAccount("disabled-admin@example.org", "Disabled Admin", "admin");
+    await disable(disabledAdminId);
+
+    const refused = [
+      await accounts.update(lastAdminId, { kind: "staff" }, "server-command"),
+      await accounts.update(lastAdminId, { kind: "kiosk" }, { accountId: staffId }),
+      await accounts.update(lastAdminId, { name: "Napat W", kind: "staff" }, { accountId: disabledAdminId }),
+    ];
+    const demotedDisabled = await accounts.update(disabledAdminId, { kind: "staff" }, "server-command");
+
+    assert.deepEqual(
+      refused.map(({ status }) => status),
+      ["last-enabled-admin", "last-enabled-admin", "last-enabled-admin"],
+    );
+    assert.equal(demotedDisabled.status, "updated");
+    assert.equal((await accounts.get(lastAdminId))?.name, "Napat Wongsa");
+    assert.deepEqual(await changesSinceCreated(lastAdminId), []);
+
+    await createAccount("second-admin@example.org", "Mary-Jane O'Neil", "admin");
+    assert.equal((await accounts.update(lastAdminId, { kind: "staff" }, "server-command")).status, "updated");
+    assert.equal((await accounts.get(lastAdminId))?.kind, "staff");
+  });
+
+  test("a kind change signs the Account out everywhere; a name or email change keeps it signed in", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const phone = await signInDevice("staff@example.org");
+    const laptop = await signInDevice("staff@example.org");
+
+    await accounts.update(staffId, { name: "Somchai Jaidee", email: "somchai@example.org" }, admin);
+
+    const session = await sessionOf(phone);
+    assert.deepEqual([session?.user.name, session?.user.email], ["Somchai Jaidee", "somchai@example.org"]);
+    assert.ok(await sessionOf(laptop));
+
+    assert.equal((await accounts.update(staffId, { kind: "admin" }, admin)).status, "updated");
+
+    assert.equal(await sessionOf(phone), null);
+    assert.equal(await sessionOf(laptop), null);
+    assert.equal((await sessionOf(await signInDevice("somchai@example.org")))?.user.kind, "admin");
+  });
+
+  test("setting a password signs the Account out everywhere, its new password signs in, and Staff and Admin owners must change it", async () => {
+    const admin = await createAdmin();
+    for (const kind of ["staff", "admin", "kiosk"] as const) {
+      const email = `the-${kind}@example.org`;
+      const accountId = await createAccount(email, `The ${kind}`, kind);
+      const signedIn = await signInDevice(email);
+
+      const result = await accounts.setPassword(accountId, "the password an Admin set", admin);
+
+      assert.deepEqual(result, { status: "password-set", accountId, email, kind, staysDisabled: false }, kind);
+      assert.equal(await sessionOf(signedIn), null, kind);
+      assert.equal((await signIn(auth, email, password)).status, 401, kind);
+      const session = await sessionOf(await signInDevice(email, "the password an Admin set"));
+      assert.equal(session?.user.kind, kind);
+      // Someone else chose it, so its owner chooses their own; a Kiosk never does.
+      assert.equal((await accounts.get(accountId))?.mustChangePassword, kind !== "kiosk", kind);
+      assert.deepEqual(await changesSinceCreated(accountId), [{ change: { action: "password-set" }, actor: admin.accountId }], kind);
+    }
+  });
+
+  test("an Admin can't set their own password here, and stays as they were; the server command can", async () => {
+    const admin = await createAdmin();
+    const signedIn = await signInDevice("admin@example.org");
+
+    const own = await accounts.setPassword(admin.accountId, "the password an Admin set", admin);
+
+    assert.deepEqual(own, { status: "own-account" });
+    assert.ok(await sessionOf(signedIn));
+    assert.equal((await signIn(auth, "admin@example.org", "the password an Admin set")).status, 401);
+    assert.deepEqual(await changesSinceCreated(admin.accountId), []);
+
+    const byCommand = await accounts.setPassword(admin.accountId, "the password an Admin set", "server-command");
+
+    assert.equal(byCommand.status, "password-set");
+    assert.equal(await sessionOf(signedIn), null);
+    assert.equal((await signIn(auth, "admin@example.org", "the password an Admin set")).status, 200);
+  });
+
+  test("setting a disabled Account's password leaves it disabled, and says so", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    await disable(staffId);
+    const disabledAt = (await accounts.get(staffId))?.disabledAt;
+    assert.ok(disabledAt instanceof Date);
+
+    const result = await accounts.setPassword(staffId, "the password an Admin set", admin);
+
+    assert.equal(result.status === "password-set" && result.staysDisabled, true);
+    assert.deepEqual((await accounts.get(staffId))?.disabledAt, disabledAt);
   });
 });
