@@ -228,10 +228,7 @@ The Accounts module still makes every decision about the Account.
 ### Noticed, not changed
 
 - **A disabled Account can still sign in until 08.** The last-Admin check above relied on it.
-- **The forced-change flag and kind changes.** `update` doesn't touch `must_change_password`:
-  - A Kiosk made Staff or Admin keeps its flag cleared, so its new owner isn't asked to choose a password. Its password was the Admin's choice.
-  - A flagged Staff Account made a Kiosk keeps its flag set. That's harmless for access (`mustChooseOwnPassword` ignores a Kiosk's flag), but its Status reads "Must change password".
-  - Setting a new password after the kind change sorts out both. The spec doesn't say whether a kind change should flag; worth deciding before 13's Badges.
+- ~~**The forced-change flag and kind changes.**~~ **Changed at merge (integrator):** a kind change now moves the flag with it, in `update` and `makeAdmin` (`mustChangePasswordAsKind`). A Staff or Admin made a Kiosk is cleared ("Kiosk Accounts are never flagged", spec); a Kiosk made Staff or Admin is flagged, since an Admin or the command chose its password (ADR 0004); between Staff and Admin it stays. Module test "a kind change keeps a Kiosk unflagged, and a Kiosk made Staff or Admin must choose its own password" (324 tests).
 - **The operator guide** (`docs/deploy-guide/index.html`, `docs/deploy.md`) doesn't mention editing an Account or setting its password from the Back Office. It also doesn't say that `reset-password` leaves a disabled Account disabled. The spec plans the guide's Part 2 update for the merge into `main`.
 - **History table:** an Account's email wraps inside the address at 1280 px (04's `wrap-anywhere` in a narrow column), as before.
 - **Disabled kind radios** dim their labels but not their one-line explanations (shadcn `Field` styling).

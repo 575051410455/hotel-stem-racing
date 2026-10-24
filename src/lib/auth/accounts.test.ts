@@ -1414,6 +1414,33 @@ describe("Accounts: an Admin edits an Account and sets its password", () => {
     assert.equal((await sessionOf(await signInDevice("somchai@example.org")))?.user.kind, "admin");
   });
 
+  test("a kind change keeps a Kiosk unflagged, and a Kiosk made Staff or Admin must choose its own password", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const kioskId = await createAccount("kiosk@example.org", "Kiosk 1", "kiosk");
+    const mustChangePassword = async (accountId: string) => (await accounts.get(accountId))?.mustChangePassword;
+
+    // A flagged Staff Account made a Kiosk: a Kiosk never has to choose its own.
+    assert.equal(await mustChangePassword(staffId), true);
+    await accounts.update(staffId, { kind: "kiosk" }, admin);
+    assert.equal(await mustChangePassword(staffId), false);
+
+    // A Kiosk's password was chosen by an Admin or the command, so its new owner chooses their own.
+    await accounts.update(kioskId, { kind: "staff" }, admin);
+    assert.equal(await mustChangePassword(kioskId), true);
+    assert.equal((await sessionOf(await signInDevice("kiosk@example.org")))?.user.mustChangePassword, true);
+
+    // Between Staff and Admin it stays as it was.
+    await (await auth.$context).internalAdapter.updateUser(kioskId, { mustChangePassword: false });
+    await accounts.update(kioskId, { kind: "admin" }, admin);
+    assert.equal(await mustChangePassword(kioskId), false);
+
+    // `make-admin` on a Kiosk, likewise.
+    const secondKioskId = await createAccount("kiosk-2@example.org", "Kiosk 2", "kiosk");
+    assert.equal((await accounts.makeAdmin("kiosk-2@example.org", "server-command")).status, "promoted");
+    assert.equal(await mustChangePassword(secondKioskId), true);
+  });
+
   test("setting a password signs the Account out everywhere, its new password signs in, and Staff and Admin owners must change it", async () => {
     const admin = await createAdmin();
     for (const kind of ["staff", "admin", "kiosk"] as const) {

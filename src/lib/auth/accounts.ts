@@ -133,6 +133,16 @@ function toAccount(user: { id: string; name: string; email: string; createdAt: D
  */
 const nameOrder = new Intl.Collator("th");
 
+/**
+ * Whether an Account must choose its own password once its kind becomes `kind`. A Kiosk never has
+ * to. A Kiosk made Staff or Admin must: an Admin or the command chose its password (ADR 0004).
+ * Between Staff and Admin it stays as it was.
+ */
+function mustChangePasswordAsKind(account: Account, kind: AccountKind): boolean {
+  if (!canChangeOwnPassword(kind)) return false;
+  return account.mustChangePassword || !canChangeOwnPassword(account.kind);
+}
+
 /** The Accounts list's order: enabled Accounts first, then disabled ones, each group by name. */
 function enabledFirstByName(a: Account, b: Account): number {
   return (
@@ -279,7 +289,10 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       const from = kindOf(found.user);
       if (from === "admin") return { status: "already-admin", accountId: userId };
 
-      await ctx.internalAdapter.updateUser(userId, { kind: "admin" });
+      await ctx.internalAdapter.updateUser(userId, {
+        kind: "admin",
+        mustChangePassword: mustChangePasswordAsKind(toAccount(found.user), "admin"),
+      });
       await ctx.internalAdapter.deleteUserSessions(userId);
       await record(userId, { action: "kind-changed", details: { from, to: "admin" } }, actor);
       return { status: "promoted", accountId: userId, from };
@@ -293,7 +306,8 @@ export function createAccounts(auth: StaffAuth, db: Database) {
      * The name is trimmed, not empty and at most 100 characters. The email is trimmed and
      * lower-cased, and refused when any other Account has it, enabled or disabled. Sessions stay
      * through both; they read them afresh. A kind change signs the Account out everywhere, so no
-     * open session keeps its old kind; an Admin can't change their own, and the last enabled Admin
+     * open session keeps its old kind, and moves the must-change-password flag with it
+     * (`mustChangePasswordAsKind`); an Admin can't change their own, and the last enabled Admin
      * can't be demoted, by anyone.
      */
     async update(accountId: string, fields: AccountUpdate, actor: Actor): Promise<UpdateAccountResult> {
@@ -330,7 +344,7 @@ export function createAccounts(auth: StaffAuth, db: Database) {
       const updated = await ctx.internalAdapter.updateUser(accountId, {
         ...(nameChanges && { name }),
         ...(emailChanges && { email }),
-        ...(kindChanges && { kind }),
+        ...(kindChanges && { kind, mustChangePassword: mustChangePasswordAsKind(account, kind) }),
       });
       if (kindChanges) await ctx.internalAdapter.deleteUserSessions(accountId);
       if (nameChanges) await record(accountId, { action: "name-changed", details: { from: account.name, to: name } }, actor);
