@@ -2,13 +2,13 @@ import { FlagIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
 import { event } from "@/lib/event";
-import { BackOfficeNav } from "./back-office-nav";
 
 /**
- * The Back Office sidebar: its name and the Event, the page links, and `accountMenu` (the signed-in
- * Staff member's menu, which the layout streams in) at the foot. Inset, as in dashboard-01.
+ * The Back Office sidebar: its name and the Event, `nav` (the page links the signed-in Account may
+ * open), and `accountMenu` (the signed-in Staff member's menu) at the foot. The layout streams both
+ * in. Inset, as in dashboard-01.
  */
-export function BackOfficeSidebar({ accountMenu }: { accountMenu: ReactNode }) {
+export function BackOfficeSidebar({ nav, accountMenu }: { nav: ReactNode; accountMenu: ReactNode }) {
   return (
     <Sidebar variant="inset" collapsible="offcanvas">
       {/* A landmark, so the name and the account menu aren't stranded outside one. */}
@@ -24,9 +24,7 @@ export function BackOfficeSidebar({ accountMenu }: { accountMenu: ReactNode }) {
             </p>
           </div>
         </SidebarHeader>
-        <SidebarContent>
-          <BackOfficeNav />
-        </SidebarContent>
+        <SidebarContent>{nav}</SidebarContent>
         <SidebarFooter>{accountMenu}</SidebarFooter>
       </aside>
     </Sidebar>

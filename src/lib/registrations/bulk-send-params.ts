@@ -1,4 +1,4 @@
-// Bulk send of Event Pass emails: the modes Staff choose from, and what the Staff-only endpoints
+// Bulk send of Event Pass emails: the modes an Admin chooses from, and what the Admin-only endpoints
 // accept. Pure, so the Back Office page, the endpoints and the Registration module all share it.
 
 import { z } from "zod";

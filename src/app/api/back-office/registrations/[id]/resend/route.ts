@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { noStoreJson, rejectUnlessSameOrigin, unauthorized } from "@/app/api/back-office/route-helpers";
-import { getCurrentStaff } from "@/lib/auth/session";
+import { getCurrentAdmin } from "@/lib/auth/session";
 import { registrationIdFromPath } from "@/lib/registrations/registration-id";
 import type { ResendEventPassResult } from "@/lib/registrations/resend-event-pass";
 import { registrations } from "@/lib/server/registrations";
@@ -19,9 +19,9 @@ export async function POST(
 ) {
   const crossSite = rejectUnlessSameOrigin(request);
   if (crossSite) return crossSite;
-  // Before reading the request or the database (see getCurrentStaff).
-  const staff = await getCurrentStaff();
-  if (!staff) return unauthorized();
+  // Before reading the request or the database (see getCurrentAdmin).
+  const admin = await getCurrentAdmin();
+  if (!admin) return unauthorized();
 
   const { id } = await ctx.params;
   const result: ResendEventPassResult = await registrations().resendEventPass(registrationIdFromPath(id));

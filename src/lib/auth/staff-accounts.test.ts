@@ -85,6 +85,14 @@ describe("Staff Accounts", () => {
     assert.equal(session?.user.name, "Kiosk 1");
   });
 
+  test("a created Admin Account signs in as an Admin Account", async () => {
+    const created = await staffAccounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+
+    assert.deepEqual(created.status === "created" && created.kind, "admin");
+    const session = await signInAndGetSession(auth, "admin@example.org", password);
+    assert.equal(session?.user.kind, "admin");
+  });
+
   test("a Staff Account signs in as a Staff Account", async () => {
     await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
 
@@ -263,7 +271,7 @@ describe("Staff Accounts", () => {
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 200);
   });
 
-  test("the first Staff Account can sign in with the password it was given", async () => {
+  test("the first Admin Account can sign in with the password it was given", async () => {
     const result = await staffAccounts.createFirst({
       email: " Organiser@Example.org ",
       name: "เจ้าหน้าที่",
@@ -273,23 +281,23 @@ describe("Staff Accounts", () => {
     assert.equal(result.status, "created");
     assert.equal(result.email, "organiser@example.org");
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
-    assert.equal(session?.user.kind, "staff");
+    assert.equal(session?.user.kind, "admin");
     assert.equal(session?.user.name, "เจ้าหน้าที่");
   });
 
-  test("the first Staff Account is created when only Kiosk Accounts exist", async () => {
+  test("the first Admin Account is created when only Staff and Kiosk Accounts exist", async () => {
+    await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
     await staffAccounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" });
-    await staffAccounts.create({ email: "kiosk-2@example.org", name: "Kiosk 2", password, kind: "kiosk" });
 
     const result = await staffAccounts.createFirst({ email: "organiser@example.org", name: "เจ้าหน้าที่", password });
 
     assert.equal(result.status, "created");
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
-    assert.equal(session?.user.kind, "staff");
+    assert.equal(session?.user.kind, "admin");
   });
 
-  test("the first Staff Account is skipped when a Staff Account exists, and nothing changes", async () => {
-    await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+  test("the first Admin Account is skipped when an Admin Account exists, and nothing changes", async () => {
+    await staffAccounts.create({ email: "staff@example.org", name: "Admin", password, kind: "admin" });
     const existing = await signIn(auth, "staff@example.org", password);
     const existingCookie = existing.headers.get("set-cookie")!.split(";")[0];
 
@@ -299,14 +307,14 @@ describe("Staff Accounts", () => {
       password: "another long password",
     });
 
-    assert.deepEqual(result, { status: "staff-account-exists" });
+    assert.deepEqual(result, { status: "admin-account-exists" });
     assert.equal((await signIn(auth, "organiser@example.org", "another long password")).status, 401);
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 200);
     const session = await auth.api.getSession({ headers: new Headers({ cookie: existingCookie }) });
     assert.equal(session?.user.email, "staff@example.org");
   });
 
-  test("the first Staff Account is skipped, not reset, when its own email is already a Staff Account", async () => {
+  test("the first Admin Account isn't created over a Staff Account with its email, which stays as it was", async () => {
     await staffAccounts.create({ email: "organiser@example.org", name: "Organiser", password });
 
     const result = await staffAccounts.createFirst({
@@ -315,11 +323,12 @@ describe("Staff Accounts", () => {
       password: "another long password",
     });
 
-    assert.deepEqual(result, { status: "staff-account-exists" });
-    assert.equal((await signIn(auth, "organiser@example.org", password)).status, 200);
+    assert.deepEqual(result, { status: "email-taken" });
+    const session = await signInAndGetSession(auth, "organiser@example.org", password);
+    assert.equal(session?.user.kind, "staff");
   });
 
-  test("the first Staff Account refuses an invalid email or a password out of range", async () => {
+  test("the first Admin Account refuses an invalid email or a password out of range", async () => {
     const name = "เจ้าหน้าที่";
 
     assert.deepEqual(await staffAccounts.createFirst({ email: "not-an-email", name, password }), {
@@ -336,12 +345,45 @@ describe("Staff Accounts", () => {
     assert.equal((await signIn(auth, "organiser@example.org", "too short")).status, 401);
   });
 
-  test("the first Staff Account still reports an invalid email when a Staff Account exists", async () => {
-    await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+  test("the first Admin Account still reports an invalid email when an Admin Account exists", async () => {
+    await staffAccounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
 
     const result = await staffAccounts.createFirst({ email: "organiser@example", name: "เจ้าหน้าที่", password });
 
     assert.deepEqual(result, { status: "invalid-email" });
+  });
+
+  test("making a Staff Account an Admin signs it out everywhere, and it signs in as an Admin", async () => {
+    const created = await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+    const signedIn = await signIn(auth, "staff@example.org", password);
+    const oldCookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+
+    const result = await staffAccounts.makeAdmin(" Staff@Example.org ");
+
+    assert.deepEqual(result, {
+      status: "promoted",
+      accountId: created.status === "created" ? created.accountId : "",
+      from: "staff",
+    });
+    assert.equal(await auth.api.getSession({ headers: new Headers({ cookie: oldCookie }) }), null);
+    const session = await signInAndGetSession(auth, "staff@example.org", password);
+    assert.equal(session?.user.kind, "admin");
+  });
+
+  test("making an Admin Account an Admin again changes nothing and keeps it signed in", async () => {
+    await staffAccounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    const signedIn = await signIn(auth, "admin@example.org", password);
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+
+    const result = await staffAccounts.makeAdmin("admin@example.org");
+
+    assert.equal(result.status, "already-admin");
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    assert.equal(session?.user.kind, "admin");
+  });
+
+  test("making an unknown email an Admin reports it", async () => {
+    assert.deepEqual(await staffAccounts.makeAdmin("nobody@example.org"), { status: "not-found" });
   });
 
   test("resetting the password of an unknown email reports it", async () => {

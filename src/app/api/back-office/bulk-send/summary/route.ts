@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { invalidParams, noStoreJson, unauthorized } from "@/app/api/back-office/route-helpers";
-import { getCurrentStaff } from "@/lib/auth/session";
+import { getCurrentAdmin } from "@/lib/auth/session";
 import { bulkSendSummaryParamsSchema } from "@/lib/registrations/bulk-send-params";
 import { registrations } from "@/lib/server/registrations";
 
@@ -9,9 +9,9 @@ import { registrations } from "@/lib/server/registrations";
 // `BulkSendSummary` as JSON. 401 when signed out, 400 when the mode is missing or unknown.
 
 export async function GET(request: NextRequest) {
-  // Before reading the request or the database (see getCurrentStaff).
-  const staff = await getCurrentStaff();
-  if (!staff) return unauthorized();
+  // Before reading the request or the database (see getCurrentAdmin).
+  const admin = await getCurrentAdmin();
+  if (!admin) return unauthorized();
 
   const parsed = bulkSendSummaryParamsSchema.safeParse({ mode: request.nextUrl.searchParams.get("mode") });
   if (!parsed.success) return invalidParams(parsed.error);

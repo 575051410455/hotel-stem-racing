@@ -4,6 +4,7 @@ import { type LucideIcon, MailIcon, ScanLineIcon, UsersIcon } from "lucide-react
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
+import { type AccountKind, canUseBackOffice, canUseCheckInDesk } from "@/lib/auth/access";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -13,39 +14,51 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-/** One sidebar link. It is current when the pathname is `href`, unless `isCurrent` says otherwise. */
-type NavItem = { href: string; label: string; icon: LucideIcon; isCurrent?: (pathname: string) => boolean };
+/**
+ * One sidebar link, shown to the kinds of Account that `may` open it. It is current when the pathname
+ * is `href`, unless `isCurrent` says otherwise.
+ */
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  may: (kind: AccountKind) => boolean;
+  isCurrent?: (pathname: string) => boolean;
+};
 
 const navItems: NavItem[] = [
   {
     href: "/admin",
     label: "ผู้ลงทะเบียน",
     icon: UsersIcon,
+    may: canUseBackOffice,
     // A Registration's detail belongs to the list.
     isCurrent: (pathname) => pathname === "/admin" || pathname.startsWith("/admin/registrations/"),
   },
-  { href: "/admin/check-in", label: "เช็คอิน", icon: ScanLineIcon },
-  { href: "/admin/email", label: "ส่งอีเมล", icon: MailIcon },
+  { href: "/admin/check-in", label: "เช็คอิน", icon: ScanLineIcon, may: canUseCheckInDesk },
+  { href: "/admin/email", label: "ส่งอีเมล", icon: MailIcon, may: canUseBackOffice },
 ];
 
 /**
- * The Back Office's page links, with the current page highlighted. Reading the pathname suspends
- * while prerendering a page with an unknown param (a Registration's detail), so the links render
- * without a highlight until it resolves.
+ * The Back Office's page links that `kind` may open, with the current page highlighted. `kind` is null
+ * while the session is read, and then no links show. Reading the pathname suspends while
+ * prerendering a page with an unknown param (a Registration's detail), so the links render without
+ * a highlight until it resolves.
  */
-export function BackOfficeNav() {
+export function BackOfficeNav({ kind }: { kind: AccountKind | null }) {
+  const items = kind ? navItems.filter((item) => item.may(kind)) : [];
   return (
-    <Suspense fallback={<NavLinks pathname={null} />}>
-      <CurrentNavLinks />
+    <Suspense fallback={<NavLinks items={items} pathname={null} />}>
+      <CurrentNavLinks items={items} />
     </Suspense>
   );
 }
 
-function CurrentNavLinks() {
-  return <NavLinks pathname={usePathname()} />;
+function CurrentNavLinks({ items }: { items: NavItem[] }) {
+  return <NavLinks items={items} pathname={usePathname()} />;
 }
 
-function NavLinks({ pathname }: { pathname: string | null }) {
+function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string | null }) {
   const { setOpenMobile } = useSidebar();
 
   return (
@@ -53,7 +66,7 @@ function NavLinks({ pathname }: { pathname: string | null }) {
       <SidebarGroupContent>
         <nav aria-label="เมนูระบบหลังบ้าน">
           <SidebarMenu>
-            {navItems.map(({ href, label, icon: Icon, isCurrent = (path) => path === href }) => {
+            {items.map(({ href, label, icon: Icon, isCurrent = (path) => path === href }) => {
               const current = pathname !== null && isCurrent(pathname);
               return (
                 <SidebarMenuItem key={href}>

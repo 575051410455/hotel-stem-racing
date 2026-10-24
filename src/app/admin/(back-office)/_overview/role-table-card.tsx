@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { requireStaff } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { event } from "@/lib/event";
 import { type AttendeeRole, attendeeRoleShortLabels, attendeeRoles } from "@/lib/registrations/fields";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const formatCount = new Intl.NumberFormat("th-TH").format;
 
 /**
  * Registrations per Event Day by Attendee Role, for planning each day's crowd. The card and its
- * title are part of the static shell; the table is Staff-only and streams in behind its own
+ * title are part of the static shell; the table is Admin-only and streams in behind its own
  * boundary.
  */
 export function RoleTableCard({ className }: { className?: string }) {
@@ -46,7 +46,7 @@ export function RoleTableCard({ className }: { className?: string }) {
 }
 
 async function RoleTableWithCounts() {
-  await requireStaff();
+  await requireAdmin();
   const counts = await readHeadCounts();
 
   return (

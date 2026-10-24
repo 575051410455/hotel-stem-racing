@@ -12,7 +12,7 @@ import { ACCOUNT_KINDS } from "../auth/access";
 //
 // - `users.kind`, our own field (ticket 23), declared to Better Auth as a user `additionalFields`
 //
-// Vocabulary: a `users` row is an Account (GLOSSARY.md): a Staff Account or a Kiosk Account, by its
+// Vocabulary: a `users` row is an Account (GLOSSARY.md): an Admin, Staff or Kiosk Account, by its
 // `kind`. An `accounts` row is Better Auth's sign-in method for it; Accounts only have the
 // `credential` one, which holds the password hash.
 
@@ -31,12 +31,13 @@ export const users = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
     /**
-     * Staff Account or Kiosk Account (ADR 0003); what each may do is in src/lib/auth/access.ts.
-     * Set only by `npm run staff`. Better Auth refuses it from requests (`input: false`).
+     * Admin, Staff or Kiosk Account (ADR 0003, ADR 0004); what each may do is in
+     * src/lib/auth/access.ts. Set only by the Accounts module (`npm run staff`, `npm run seed`).
+     * Better Auth refuses it from requests (`input: false`).
      */
     kind: text({ enum: ACCOUNT_KINDS }).notNull().default("staff"),
   },
-  (table) => [check("users_kind_check", sql`${table.kind} in ('staff', 'kiosk')`)],
+  (table) => [check("users_kind_check", sql`${table.kind} in ('admin', 'staff', 'kiosk')`)],
 );
 
 export const sessions = pgTable(

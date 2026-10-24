@@ -1,12 +1,13 @@
-// First Staff Account command, run once after a fresh deploy:
+// First Admin Account command, run once after a fresh deploy:
 //
 //   npm run seed                                  locally
 //   docker compose exec app npm run seed          on the server
 //
-// Creates a Staff Account from SEED_STAFF_EMAIL (required) and SEED_STAFF_NAME (default
-// "เจ้าหน้าที่") with a random password, and prints the password once. The password is never read
-// from env or arguments and never written anywhere else. Does nothing if a Staff Account already
-// exists (Kiosk Accounts don't count); further Accounts and resets use `npm run staff`.
+// Creates an Admin Account (the whole Back Office, ADR 0004) from SEED_STAFF_EMAIL (required) and
+// SEED_STAFF_NAME (default "เจ้าหน้าที่") with a random password, and prints the password once. The
+// password is never read from env or arguments and never written anywhere else. Does nothing if an
+// Admin Account already exists (Staff and Kiosk Accounts don't count); further Accounts, make-admin
+// and resets use `npm run staff`. The env names predate Admin Accounts and are kept for `.env`.
 // Creates no other data.
 //
 // Deliberately not run on container start or by the migrations: the printed password would land in
@@ -53,7 +54,7 @@ async function main(): Promise<number> {
       case "created":
         console.log(
           [
-            `Created the first Staff Account. This password is shown only now and isn't stored anywhere:`,
+            `Created the first Admin Account. This password is shown only now and isn't stored anywhere:`,
             "",
             `  Email:     ${result.email}`,
             `  Password:  ${password}`,
@@ -62,10 +63,10 @@ async function main(): Promise<number> {
           ].join("\n"),
         );
         return 0;
-      case "staff-account-exists":
+      case "admin-account-exists":
         console.log(
-          "A Staff Account already exists, so nothing was created. Use `npm run staff -- create <email> <display name>` " +
-            "for another Account, or `npm run staff -- reset-password <email>` for a new password.",
+          "An Admin Account already exists, so nothing was created. Use `npm run staff -- create-admin|create|create-kiosk " +
+            "<email> <display name>` for another Account, or `npm run staff -- reset-password <email>` for a new password.",
         );
         return 0;
       case "invalid-email":
@@ -73,7 +74,8 @@ async function main(): Promise<number> {
         return 1;
       case "email-taken":
         console.error(
-          `A Kiosk Account already uses ${email}. Set SEED_STAFF_EMAIL to another email. Nothing was changed.`,
+          `An Account already uses ${email}. To make it the first Admin Account, run ` +
+            `\`npm run staff -- make-admin ${email}\`; or set SEED_STAFF_EMAIL to another email. Nothing was changed.`,
         );
         return 1;
       default:

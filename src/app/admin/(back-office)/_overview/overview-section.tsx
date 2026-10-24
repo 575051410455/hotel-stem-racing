@@ -5,7 +5,7 @@ import { HeadCountCards, HeadCountCardsSkeleton, UnsentEmailCard, UnsentEmailCar
 
 /**
  * The overview on the Back Office home (redesign 02): four summary cards, then the role table
- * beside the daily Registrations chart. The grids are static; each card's numbers are Staff-only
+ * beside the daily Registrations chart. The grids are static; each card's numbers are Admin-only
  * and stream in behind their own boundary. Laid out by the section's width (a container), not the
  * window's, so the sidebar being open or closed is taken into account.
  */

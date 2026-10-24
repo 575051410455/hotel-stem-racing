@@ -1,5 +1,5 @@
 // What a Back Office search of Registrations asks for, and how it travels in a URL. Pure and
-// browser-safe: the Registration module, the Staff-only endpoint and the /admin page all use it.
+// browser-safe: the Registration module, the Admin-only endpoint and the /admin page all use it.
 
 import { z } from "zod";
 import { event } from "@/lib/event";
@@ -81,7 +81,7 @@ function paramsObject(params: Iterable<[string, string]>): Record<string, string
 }
 
 /**
- * Strict: what the Staff-only endpoint accepts. Unknown keys are ignored; a known key with a
+ * Strict: what the Admin-only endpoint accepts. Unknown keys are ignored; a known key with a
  * bad value fails, so a client bug shows up as a 400 instead of a silently different list.
  */
 export const registrationSearchSchema = z.object(searchParamSchemas);

@@ -7,7 +7,7 @@ import { EventPassEmailStatus, ResendEventPass } from "../../_registration-list/
 
 /**
  * The Event Pass link, to share with an Attendee who lost theirs: open it, or copy it into a
- * chat. Anyone with the link can open the pass, so it is shown on this Staff-only page only.
+ * chat. Anyone with the link can open the pass, so it is shown on this Admin-only page only.
  */
 export function EventPassLink({ link }: { link: string }) {
   const [copied, setCopied] = useState<"copied" | "failed" | null>(null);
