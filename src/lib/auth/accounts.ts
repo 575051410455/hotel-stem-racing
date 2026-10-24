@@ -42,6 +42,20 @@ export type ResetPasswordResult =
   | { status: "not-found" }
   | PasswordProblem;
 
+/** One place an Account is signed in (a Better Auth session), as its owner sees it on My Account. */
+export type SignedInDevice = {
+  /** The session's id: not secret, unlike its token, which this never carries. */
+  id: string;
+  /** As the browser sent it at sign-in; null when it sent none. `deviceLabel()` names it. */
+  userAgent: string | null;
+  /** The visitor IP at sign-in (ADR 0005); null when unknown. */
+  ipAddress: string | null;
+  /** When it signed in. */
+  createdAt: Date;
+  /** The device this request comes from. */
+  isCurrent: boolean;
+};
+
 // Deliberately loose: the operator types the address, and Better Auth lower-cases and stores it as given.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -187,6 +201,28 @@ export function createAccounts(auth: StaffAuth) {
       }
       await ctx.internalAdapter.deleteUserSessions(userId);
       return { status: "password-reset", accountId: userId, kind };
+    },
+
+    /**
+     * Where the Account is signed in, for its owner on My Account: each unexpired session, the one
+     * `currentSessionId` names first, then newest first. Never the session token, which is what
+     * signs a browser in; a session's id doesn't. Records no Account Change.
+     */
+    async listDevices(accountId: string, currentSessionId: string): Promise<SignedInDevice[]> {
+      const ctx = await auth.$context;
+      const sessions = await ctx.internalAdapter.listSessions(accountId, { onlyActiveSessions: true });
+      return sessions
+        .map(
+          ({ id, userAgent, ipAddress, createdAt }): SignedInDevice => ({
+            id,
+            // Better Auth stores "" when the request had no such header.
+            userAgent: userAgent || null,
+            ipAddress: ipAddress || null,
+            createdAt,
+            isCurrent: id === currentSessionId,
+          }),
+        )
+        .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || b.createdAt.getTime() - a.createdAt.getTime());
     },
   };
   return accounts;

@@ -9,7 +9,8 @@ import { StaffAccountDropdown } from "./staff-account-dropdown";
 export async function StaffAccountMenu() {
   const staff = await getCurrentStaff();
   if (!staff) return null;
-  return <StaffAccountDropdown account={staff} />;
+  // Only what the menu shows: the rest of the Account (its id, its session's id) stays on the server.
+  return <StaffAccountDropdown account={{ name: staff.name, email: staff.email }} />;
 }
 
 /** The menu's outline while the session is read. Fixed widths: random ones can't be prerendered. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -58,6 +59,7 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
  * signs every other device out; this one gets a fresh session cookie and stays signed in.
  */
 export function ChangePasswordForm({ email }: { email: string }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const ids = { form: useId(), hint: useId(), warning: useId() };
   const [problems, setProblems] = useState<Problems>({});
@@ -115,6 +117,8 @@ export function ChangePasswordForm({ email }: { email: string }) {
     }
     formRef.current?.reset();
     toastSuccess("Password changed");
+    // The other devices are signed out and this one has a new session: read Signed-in devices again.
+    router.refresh();
   }
 
   function fieldProps(name: FieldName, describedBy?: string) {

@@ -12,6 +12,12 @@ export type CurrentAccount = {
   name: string;
   email: string;
   kind: AccountKind;
+  /**
+   * The id of the session this request is signed in with: "This device" on My Account. Read from the
+   * session, never from the browser. Not its token, which signs a browser in and never leaves the
+   * cookie. Pass Client Components only the fields they show, never the whole Account.
+   */
+  sessionId: string;
 };
 
 /** A Staff member, signed in with a Staff Account or an Admin Account (GLOSSARY: Staff). */
@@ -39,7 +45,7 @@ const getSignedInAccount = cache(async (): Promise<CurrentAccount | null> => {
   const session = await staffAuth().api.getSession({ headers: requestHeaders });
   if (!session) return null;
   const { id, name, email, kind } = session.user;
-  return { id, name, email, kind };
+  return { id, name, email, kind, sessionId: session.session.id };
 });
 
 /** The signed-in Account if `rule` lets its kind through, else null. */
@@ -118,7 +124,7 @@ export async function getCurrentCheckInAccount(): Promise<CurrentCheckInAccount 
   });
   if (!session) return null;
   const { id, name, email, kind } = session.user;
-  return canCheckIn(kind) ? { id, name, email, kind } : null;
+  return canCheckIn(kind) ? { id, name, email, kind, sessionId: session.session.id } : null;
 }
 
 /** For the Kiosk page: the signed-in Account that may record Check-Ins, else to the sign-in page. */
