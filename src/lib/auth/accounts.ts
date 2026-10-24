@@ -1,4 +1,7 @@
+import type { Database } from "@/lib/db/client";
 import { type AccountKind, canEditOwnName, isAccountKind } from "./access";
+import type { AccountChange, Actor } from "./account-changes";
+import { type AccountHistoryPage, readAccountHistory, recordAccountChange } from "./account-history";
 import { MAX_NAME_LENGTH } from "./name-rules";
 import type { StaffAuth } from "./staff-auth";
 
@@ -126,8 +129,18 @@ function enabledFirstByName(a: Account, b: Account): number {
  * same steps as its sign-up endpoint: hash, create user, link credential. It is also the only way
  * to set an Account's kind or name, which Better Auth refuses from requests. Password length
  * limits come from the auth config, so the commands and sign-in always agree, for every kind.
+ * Every write takes an `actor` and records an Account Change (the Account History) on `db`.
  */
-export function createAccounts(auth: StaffAuth) {
+export function createAccounts(auth: StaffAuth, db: Database) {
+  /**
+   * Records an Account Change (the Account History), right after the change. Every write below
+   * calls it with the `actor` it was given; the owner's own password change is recorded by a hook
+   * in staff-auth.ts.
+   */
+  function record(accountId: string, change: AccountChange, actor: Actor): Promise<void> {
+    return recordAccountChange(db, accountId, change, actor);
+  }
+
   async function checkPassword(password: string): Promise<PasswordProblem | null> {
     const { minPasswordLength, maxPasswordLength } = (await auth.$context).password.config;
     if (password.length < minPasswordLength) {
@@ -151,7 +164,7 @@ export function createAccounts(auth: StaffAuth) {
      * and Kiosk Accounts don't count, so a database without an Admin still gets one. Never changes
      * an Account: an email that is already taken (by any kind) is reported, not promoted.
      */
-    async createFirst(input: CreateFirstAdminAccountInput): Promise<CreateFirstAdminAccountResult> {
+    async createFirst(input: CreateFirstAdminAccountInput, actor: Actor): Promise<CreateFirstAdminAccountResult> {
       const account = { ...input, kind: "admin" } satisfies CreateAccountInput;
       // Checked first, so a wrong `.env` is reported even when there is nothing to create.
       const problem = await checkNewAccount(account);
@@ -161,10 +174,10 @@ export function createAccounts(auth: StaffAuth) {
       if ((await ctx.internalAdapter.countTotalUsers([{ field: "kind", value: account.kind }])) > 0) {
         return { status: "admin-account-exists" };
       }
-      return accounts.create(account);
+      return accounts.create(account, actor);
     },
 
-    async create(input: CreateAccountInput): Promise<CreateAccountResult> {
+    async create(input: CreateAccountInput, actor: Actor): Promise<CreateAccountResult> {
       const problem = await checkNewAccount(input);
       if (problem) return problem;
       const email = normaliseEmail(input.email);
@@ -188,6 +201,7 @@ export function createAccounts(auth: StaffAuth) {
         await ctx.internalAdapter.deleteUser(user.id);
         throw error;
       }
+      await record(user.id, { action: "created", details: { kind } }, actor);
       return { status: "created", accountId: user.id, email: user.email, kind };
     },
 
@@ -196,7 +210,7 @@ export function createAccounts(auth: StaffAuth) {
      * keeps its old kind. For `npm run staff -- make-admin`: the way to appoint Admins on a database
      * that already has Accounts, and back in when no Admin can sign in.
      */
-    async makeAdmin(email: string): Promise<MakeAdminResult> {
+    async makeAdmin(email: string, actor: Actor): Promise<MakeAdminResult> {
       const ctx = await auth.$context;
       const found = await ctx.internalAdapter.findUserByEmail(normaliseEmail(email));
       if (!found) return { status: "not-found" };
@@ -206,12 +220,14 @@ export function createAccounts(auth: StaffAuth) {
 
       await ctx.internalAdapter.updateUser(userId, { kind: "admin" });
       await ctx.internalAdapter.deleteUserSessions(userId);
+      await record(userId, { action: "kind-changed", details: { from, to: "admin" } }, actor);
       return { status: "promoted", accountId: userId, from };
     },
 
     /**
      * The owner's own rename, from My Account. The only way a name changes: Better Auth's own
      * `/update-user` is refused (see staff-auth.ts). Sessions stay; they read the name afresh.
+     * Records `name-changed` with the owner as actor, unless the name stays the same.
      */
     async rename(accountId: string, name: string): Promise<RenameResult> {
       const trimmed = name.trim();
@@ -223,12 +239,14 @@ export function createAccounts(auth: StaffAuth) {
       if (!user) return { status: "not-found" };
       // A Kiosk's name is set by whoever creates it; the Kiosk can't change it (ADR 0003).
       if (!canEditOwnName(kindOf(user))) return { status: "not-allowed" };
+      if (trimmed === user.name) return { status: "renamed", name: trimmed };
       await ctx.internalAdapter.updateUser(accountId, { name: trimmed });
+      await record(accountId, { action: "name-changed", details: { from: user.name, to: trimmed } }, { accountId });
       return { status: "renamed", name: trimmed };
     },
 
     /** Sets a new password and signs the Account out everywhere, Kiosks included. Its kind stays. */
-    async resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResult> {
+    async resetPassword(input: ResetPasswordInput, actor: Actor): Promise<ResetPasswordResult> {
       const passwordProblem = await checkPassword(input.password);
       if (passwordProblem) return passwordProblem;
 
@@ -250,6 +268,7 @@ export function createAccounts(auth: StaffAuth) {
         });
       }
       await ctx.internalAdapter.deleteUserSessions(userId);
+      await record(userId, { action: "password-set" }, actor);
       return { status: "password-reset", accountId: userId, kind };
     },
 
@@ -266,6 +285,15 @@ export function createAccounts(auth: StaffAuth) {
       const ctx = await auth.$context;
       const user = await ctx.internalAdapter.findUserById(accountId);
       return user ? toAccount(user) : null;
+    },
+
+    /**
+     * The Account History: every Account Change, or one Account's (`accountId`), newest first, 50 a
+     * page, with how many there are. Each names the Account and who made it by their names as they
+     * are now. Never a password.
+     */
+    history({ accountId, page }: { accountId?: string; page: number }): Promise<AccountHistoryPage> {
+      return readAccountHistory(db, { accountId, page });
     },
 
     /**

@@ -1,7 +1,8 @@
 import { Fragment } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Account } from "@/lib/auth/accounts";
-import { createdLabel, KIND_LABELS, lastSignInLabel, statusLabels } from "./format";
+import { KIND_LABELS } from "@/lib/auth/kind-labels";
+import { createdLabel, lastSignInLabel, statusLabels } from "./format";
 
 /**
  * Every Account, read-only, in the order given (the Accounts module's: enabled first, then by name).

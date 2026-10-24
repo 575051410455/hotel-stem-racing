@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { createTestDatabase } from "@/test-support/database";
+import type { AccountKind } from "./access";
 import { createAccounts, type Accounts } from "./accounts";
 import { createStaffAuth, type StaffAuth } from "./staff-auth";
 import { eq } from "drizzle-orm";
-import { sessions } from "@/lib/db/auth-schema";
+import { accounts as credentials, sessions } from "@/lib/db/auth-schema";
 
 const baseURL = "http://localhost:3104";
 const password = "correct horse battery";
@@ -45,7 +46,7 @@ describe("Accounts", () => {
   before(async () => {
     database = await createTestDatabase();
     auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
-    accounts = createAccounts(auth);
+    accounts = createAccounts(auth, database.db);
   });
 
   beforeEach(async () => {
@@ -61,7 +62,7 @@ describe("Accounts", () => {
       email: "Somchai@Example.org",
       name: "สมชาย ใจดี",
       password,
-    });
+    }, "server-command");
     assert.equal(created.status, "created");
 
     const response = await signIn(auth, "somchai@example.org", password);
@@ -78,7 +79,7 @@ describe("Accounts", () => {
       name: "Kiosk 1",
       password,
       kind: "kiosk",
-    });
+    }, "server-command");
     assert.equal(created.status, "created");
 
     const session = await signInAndGetSession(auth, "kiosk-1@example.org", password);
@@ -88,7 +89,7 @@ describe("Accounts", () => {
   });
 
   test("a created Admin Account signs in as an Admin Account", async () => {
-    const created = await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    const created = await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" }, "server-command");
 
     assert.deepEqual(created.status === "created" && created.kind, "admin");
     const session = await signInAndGetSession(auth, "admin@example.org", password);
@@ -96,7 +97,7 @@ describe("Accounts", () => {
   });
 
   test("a Staff Account signs in as a Staff Account", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
 
     const session = await signInAndGetSession(auth, "staff@example.org", password);
 
@@ -104,7 +105,7 @@ describe("Accounts", () => {
   });
 
   test("a signed-in Kiosk Account can't make itself an Admin Account through the public API", async () => {
-    await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" }, "server-command");
     const signedIn = await signIn(auth, "kiosk@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
@@ -124,7 +125,7 @@ describe("Accounts", () => {
   test("no signed-in Account can rename itself through Better Auth's endpoint", async () => {
     for (const kind of ["admin", "staff", "kiosk"] as const) {
       const email = `${kind}@example.org`;
-      await accounts.create({ email, name: "Before", password, kind });
+      await accounts.create({ email, name: "Before", password, kind }, "server-command");
       const cookie = (await signIn(auth, email, password)).headers.get("set-cookie")!.split(";")[0];
 
       const response = await auth.handler(
@@ -142,7 +143,7 @@ describe("Accounts", () => {
   });
 
   test("a signed-in Staff Account changes its own password through the public API, signing out its other devices", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     const otherDevice = (await signIn(auth, "staff@example.org", password)).headers.get("set-cookie")!.split(";")[0];
     const thisDevice = (await signIn(auth, "staff@example.org", password)).headers.get("set-cookie")!.split(";")[0];
 
@@ -168,7 +169,7 @@ describe("Accounts", () => {
   });
 
   test("a signed-in Kiosk Account can't change its own password through the public API", async () => {
-    await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" }, "server-command");
     const signedIn = await signIn(auth, "kiosk@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
@@ -186,7 +187,7 @@ describe("Accounts", () => {
   });
 
   test("signing in with a wrong password fails", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
 
     const response = await signIn(auth, "staff@example.org", "wrong horse battery");
 
@@ -199,7 +200,7 @@ describe("Accounts", () => {
       email: "short@example.org",
       name: "Staff",
       password: "elevenchars",
-    });
+    }, "server-command");
 
     assert.deepEqual(result, { status: "password-too-short", minLength: 12 });
     const response = await signIn(auth, "short@example.org", "elevenchars");
@@ -211,19 +212,19 @@ describe("Accounts", () => {
       email: "plain@example.org",
       name: "Staff",
       password: "abcdefghijkl",
-    });
+    }, "server-command");
 
     assert.equal(result.status, "created");
   });
 
   test("a second Staff Account with the same email is rejected", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
 
     const result = await accounts.create({
       email: " STAFF@example.org ",
       name: "Someone else",
       password: "another long password",
-    });
+    }, "server-command");
 
     assert.deepEqual(result, { status: "email-taken" });
   });
@@ -243,7 +244,7 @@ describe("Accounts", () => {
   });
 
   test("repeated sign-in attempts from one address are rate limited", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     const clientIp = nextClientIp();
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -257,14 +258,14 @@ describe("Accounts", () => {
   });
 
   test("resetting a password replaces the old one and signs the Staff Account out", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     const signedIn = await signIn(auth, "staff@example.org", password);
     const sessionCookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
     const result = await accounts.resetPassword({
       email: "Staff@Example.org",
       password: "a brand new password",
-    });
+    }, "server-command");
 
     assert.equal(result.status, "password-reset");
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 401);
@@ -274,10 +275,10 @@ describe("Accounts", () => {
   });
 
   test("resetting a Kiosk Account's password keeps it a Kiosk Account", async () => {
-    const created = await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
+    const created = await accounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" }, "server-command");
     assert.equal(created.status, "created");
 
-    const result = await accounts.resetPassword({ email: "kiosk@example.org", password: "a brand new password" });
+    const result = await accounts.resetPassword({ email: "kiosk@example.org", password: "a brand new password" }, "server-command");
 
     assert.deepEqual(result, { status: "password-reset", accountId: created.accountId, kind: "kiosk" });
     const session = await signInAndGetSession(auth, "kiosk@example.org", "a brand new password");
@@ -285,9 +286,9 @@ describe("Accounts", () => {
   });
 
   test("resetting to a password under 12 characters is rejected", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
 
-    const result = await accounts.resetPassword({ email: "staff@example.org", password: "too short" });
+    const result = await accounts.resetPassword({ email: "staff@example.org", password: "too short" }, "server-command");
 
     assert.deepEqual(result, { status: "password-too-short", minLength: 12 });
     assert.equal((await signIn(auth, "staff@example.org", password)).status, 200);
@@ -298,7 +299,7 @@ describe("Accounts", () => {
       email: " Organiser@Example.org ",
       name: "เจ้าหน้าที่",
       password,
-    });
+    }, "server-command");
 
     assert.equal(result.status, "created");
     assert.equal(result.email, "organiser@example.org");
@@ -308,10 +309,10 @@ describe("Accounts", () => {
   });
 
   test("the first Admin Account is created when only Staff and Kiosk Accounts exist", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
-    await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+    await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" }, "server-command");
 
-    const result = await accounts.createFirst({ email: "organiser@example.org", name: "เจ้าหน้าที่", password });
+    const result = await accounts.createFirst({ email: "organiser@example.org", name: "เจ้าหน้าที่", password }, "server-command");
 
     assert.equal(result.status, "created");
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
@@ -319,7 +320,7 @@ describe("Accounts", () => {
   });
 
   test("the first Admin Account is skipped when an Admin Account exists, and nothing changes", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Admin", password, kind: "admin" });
+    await accounts.create({ email: "staff@example.org", name: "Admin", password, kind: "admin" }, "server-command");
     const existing = await signIn(auth, "staff@example.org", password);
     const existingCookie = existing.headers.get("set-cookie")!.split(";")[0];
 
@@ -327,7 +328,7 @@ describe("Accounts", () => {
       email: "organiser@example.org",
       name: "เจ้าหน้าที่",
       password: "another long password",
-    });
+    }, "server-command");
 
     assert.deepEqual(result, { status: "admin-account-exists" });
     assert.equal((await signIn(auth, "organiser@example.org", "another long password")).status, 401);
@@ -337,13 +338,13 @@ describe("Accounts", () => {
   });
 
   test("the first Admin Account isn't created over a Staff Account with its email, which stays as it was", async () => {
-    await accounts.create({ email: "organiser@example.org", name: "Organiser", password });
+    await accounts.create({ email: "organiser@example.org", name: "Organiser", password }, "server-command");
 
     const result = await accounts.createFirst({
       email: "organiser@example.org",
       name: "เจ้าหน้าที่",
       password: "another long password",
-    });
+    }, "server-command");
 
     assert.deepEqual(result, { status: "email-taken" });
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
@@ -353,34 +354,34 @@ describe("Accounts", () => {
   test("the first Admin Account refuses an invalid email or a password out of range", async () => {
     const name = "เจ้าหน้าที่";
 
-    assert.deepEqual(await accounts.createFirst({ email: "not-an-email", name, password }), {
+    assert.deepEqual(await accounts.createFirst({ email: "not-an-email", name, password }, "server-command"), {
       status: "invalid-email",
     });
-    assert.deepEqual(await accounts.createFirst({ email: "organiser@example.org", name, password: "too short" }), {
+    assert.deepEqual(await accounts.createFirst({ email: "organiser@example.org", name, password: "too short" }, "server-command"), {
       status: "password-too-short",
       minLength: 12,
     });
     assert.deepEqual(
-      await accounts.createFirst({ email: "organiser@example.org", name, password: "x".repeat(129) }),
+      await accounts.createFirst({ email: "organiser@example.org", name, password: "x".repeat(129) }, "server-command"),
       { status: "password-too-long", maxLength: 128 },
     );
     assert.equal((await signIn(auth, "organiser@example.org", "too short")).status, 401);
   });
 
   test("the first Admin Account still reports an invalid email when an Admin Account exists", async () => {
-    await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" }, "server-command");
 
-    const result = await accounts.createFirst({ email: "organiser@example", name: "เจ้าหน้าที่", password });
+    const result = await accounts.createFirst({ email: "organiser@example", name: "เจ้าหน้าที่", password }, "server-command");
 
     assert.deepEqual(result, { status: "invalid-email" });
   });
 
   test("making a Staff Account an Admin signs it out everywhere, and it signs in as an Admin", async () => {
-    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     const signedIn = await signIn(auth, "staff@example.org", password);
     const oldCookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
-    const result = await accounts.makeAdmin(" Staff@Example.org ");
+    const result = await accounts.makeAdmin(" Staff@Example.org ", "server-command");
 
     assert.deepEqual(result, {
       status: "promoted",
@@ -393,11 +394,11 @@ describe("Accounts", () => {
   });
 
   test("making an Admin Account an Admin again changes nothing and keeps it signed in", async () => {
-    await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" }, "server-command");
     const signedIn = await signIn(auth, "admin@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
-    const result = await accounts.makeAdmin("admin@example.org");
+    const result = await accounts.makeAdmin("admin@example.org", "server-command");
 
     assert.equal(result.status, "already-admin");
     const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
@@ -405,11 +406,11 @@ describe("Accounts", () => {
   });
 
   test("making an unknown email an Admin reports it", async () => {
-    assert.deepEqual(await accounts.makeAdmin("nobody@example.org"), { status: "not-found" });
+    assert.deepEqual(await accounts.makeAdmin("nobody@example.org", "server-command"), { status: "not-found" });
   });
 
   test("a Staff Account renames itself, trimmed, and keeps its sessions", async () => {
-    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     const accountId = created.status === "created" ? created.accountId : "";
     const signedIn = await signIn(auth, "staff@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
@@ -422,7 +423,7 @@ describe("Accounts", () => {
   });
 
   test("a rename to an empty name, or one over 100 characters, is refused and changes nothing", async () => {
-    const created = await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    const created = await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" }, "server-command");
     const accountId = created.status === "created" ? created.accountId : "";
 
     assert.deepEqual(await accounts.rename(accountId, "   "), { status: "invalid-name" });
@@ -437,7 +438,7 @@ describe("Accounts", () => {
   });
 
   test("a Kiosk Account can't be renamed by its owner", async () => {
-    const created = await accounts.create({ email: "kiosk@example.org", name: "Kiosk 1", password, kind: "kiosk" });
+    const created = await accounts.create({ email: "kiosk@example.org", name: "Kiosk 1", password, kind: "kiosk" }, "server-command");
     const accountId = created.status === "created" ? created.accountId : "";
 
     assert.deepEqual(await accounts.rename(accountId, "Kiosk 9"), { status: "not-allowed" });
@@ -449,14 +450,14 @@ describe("Accounts", () => {
     const result = await accounts.resetPassword({
       email: "nobody@example.org",
       password: "a brand new password",
-    });
+    }, "server-command");
 
     assert.deepEqual(result, { status: "not-found" });
   });
 
   test("a new Account is listed enabled, with no last sign-in and no forced password change", async () => {
     const before = new Date();
-    const created = await accounts.create({ email: "Staff@Example.org", name: "Napat Wongsa", password });
+    const created = await accounts.create({ email: "Staff@Example.org", name: "Napat Wongsa", password }, "server-command");
     const after = new Date();
     assert.equal(created.status, "created");
 
@@ -478,7 +479,7 @@ describe("Accounts", () => {
 
   test("signing in sets an Account's last sign-in, for every kind", async () => {
     for (const kind of ["admin", "staff", "kiosk"] as const) {
-      await accounts.create({ email: `${kind}@example.org`, name: kind, password, kind });
+      await accounts.create({ email: `${kind}@example.org`, name: kind, password, kind }, "server-command");
       const before = new Date();
       assert.equal((await signIn(auth, `${kind}@example.org`, password)).status, 200);
       const after = new Date();
@@ -490,9 +491,9 @@ describe("Accounts", () => {
   });
 
   test("one Account is read by its id, as the list shows it, and an unknown id is not found", async () => {
-    const created = await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" });
+    const created = await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" }, "server-command");
     assert.equal(created.status, "created");
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     await signIn(auth, "kiosk-1@example.org", password);
 
     const account = await accounts.get(created.accountId);
@@ -516,7 +517,7 @@ describe("Accounts", () => {
       ["Bob", "kiosk"],
       ["Kiosk 1", "kiosk"],
     ] as const) {
-      const created = await accounts.create({ email: `${name.replace(" ", "-")}@example.org`, name, password, kind });
+      const created = await accounts.create({ email: `${name.replace(" ", "-")}@example.org`, name, password, kind }, "server-command");
       if (created.status === "created") ids.set(name, created.accountId);
     }
     // Until ticket 08's `disable`, disable two Accounts the way the module will: through Better Auth.
@@ -551,13 +552,252 @@ describe("Accounts", () => {
   });
 
   test("the session carries the Account's forced-change flag, disabled time and last sign-in", async () => {
-    await accounts.create({ email: "staff@example.org", name: "Staff", password });
+    await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
 
     const session = await signInAndGetSession(auth, "staff@example.org", password);
 
     assert.equal(session?.user.mustChangePassword, false);
     assert.equal(session?.user.disabledAt ?? null, null);
     assert.ok(session?.user.lastSignedInAt instanceof Date);
+  });
+});
+
+describe("Accounts: Account History", () => {
+  let database: Awaited<ReturnType<typeof createTestDatabase>>;
+  let auth: StaffAuth;
+  let accounts: Accounts;
+
+  before(async () => {
+    database = await createTestDatabase();
+    auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
+    accounts = createAccounts(auth, database.db);
+  });
+
+  beforeEach(async () => {
+    await database.reset();
+  });
+
+  after(async () => {
+    await database.drop();
+  });
+
+  /** The id of an Account the server command creates. */
+  async function createAccount(email: string, name: string, kind: AccountKind = "staff") {
+    const created = await accounts.create({ email, name, password, kind }, "server-command");
+    assert.equal(created.status, "created");
+    return created.accountId;
+  }
+
+  /** Every change, newest first, without its id and time. */
+  async function changes(accountId?: string) {
+    const { changes } = await accounts.history({ accountId, page: 1 });
+    return changes.map(({ account, change, actor }) => ({ account: account.id, change, actor }));
+  }
+
+  test("creating an Account records it with its kind and who created it, newest first", async () => {
+    const before = new Date();
+    const adminId = await createAccount("admin@example.org", "Napat Wongsa", "admin");
+    const created = await accounts.create(
+      { email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" },
+      { accountId: adminId },
+    );
+    assert.equal(created.status, "created");
+    const after = new Date();
+
+    const history = await accounts.history({ page: 1 });
+
+    assert.equal(history.total, 2);
+    assert.deepEqual(
+      history.changes.map(({ account, change, actor }) => ({ account, change, actor })),
+      [
+        {
+          account: { id: created.accountId, name: "Kiosk 1", email: "kiosk-1@example.org" },
+          change: { action: "created", details: { kind: "kiosk" } },
+          actor: { accountId: adminId, name: "Napat Wongsa" },
+        },
+        {
+          account: { id: adminId, name: "Napat Wongsa", email: "admin@example.org" },
+          change: { action: "created", details: { kind: "admin" } },
+          actor: "server-command",
+        },
+      ],
+    );
+    for (const { changedAt } of history.changes) {
+      assert.ok(changedAt >= before && changedAt <= after, String(changedAt));
+    }
+  });
+
+  test("the first Admin Account is recorded as created by the server command, and a skipped one records nothing", async () => {
+    const first = await accounts.createFirst({ email: "organiser@example.org", name: "Organiser", password }, "server-command");
+    assert.equal(first.status, "created");
+
+    const skipped = await accounts.createFirst({ email: "second@example.org", name: "Second", password }, "server-command");
+
+    assert.equal(skipped.status, "admin-account-exists");
+    assert.deepEqual(await changes(), [
+      { account: first.accountId, change: { action: "created", details: { kind: "admin" } }, actor: "server-command" },
+    ]);
+  });
+
+  test("resetting a password records that it was set, and a refused reset records nothing", async () => {
+    const staffId = await createAccount("staff@example.org", "Staff");
+
+    const reset = await accounts.resetPassword({ email: "Staff@Example.org", password: "a brand new password" }, "server-command");
+    const tooShort = await accounts.resetPassword({ email: "staff@example.org", password: "too short" }, "server-command");
+    const unknown = await accounts.resetPassword({ email: "nobody@example.org", password: "a brand new password" }, "server-command");
+
+    assert.equal(reset.status, "password-reset");
+    assert.equal(tooShort.status, "password-too-short");
+    assert.equal(unknown.status, "not-found");
+    assert.deepEqual(await changes(), [
+      { account: staffId, change: { action: "password-set" }, actor: "server-command" },
+      { account: staffId, change: { action: "created", details: { kind: "staff" } }, actor: "server-command" },
+    ]);
+  });
+
+  test("making an Account an Admin records the kind it had, only when the kind changes", async () => {
+    const kioskId = await createAccount("kiosk@example.org", "Kiosk 1", "kiosk");
+
+    assert.equal((await accounts.makeAdmin("kiosk@example.org", "server-command")).status, "promoted");
+    assert.equal((await accounts.makeAdmin("kiosk@example.org", "server-command")).status, "already-admin");
+    assert.equal((await accounts.makeAdmin("nobody@example.org", "server-command")).status, "not-found");
+
+    assert.deepEqual(await changes(), [
+      { account: kioskId, change: { action: "kind-changed", details: { from: "kiosk", to: "admin" } }, actor: "server-command" },
+      { account: kioskId, change: { action: "created", details: { kind: "kiosk" } }, actor: "server-command" },
+    ]);
+  });
+
+  test("an owner's rename records both names with the owner as actor; a refused or unchanged one records nothing", async () => {
+    const staffId = await createAccount("staff@example.org", "Somchai J");
+    const kioskId = await createAccount("kiosk@example.org", "Kiosk 1", "kiosk");
+
+    assert.equal((await accounts.rename(staffId, "  Somchai Jaidee ")).status, "renamed");
+    assert.equal((await accounts.rename(staffId, "Somchai Jaidee")).status, "renamed");
+    assert.equal((await accounts.rename(staffId, "   ")).status, "invalid-name");
+    assert.equal((await accounts.rename(kioskId, "Kiosk 9")).status, "not-allowed");
+
+    assert.deepEqual(await changes(staffId), [
+      {
+        account: staffId,
+        change: { action: "name-changed", details: { from: "Somchai J", to: "Somchai Jaidee" } },
+        actor: { accountId: staffId, name: "Somchai Jaidee" },
+      },
+      { account: staffId, change: { action: "created", details: { kind: "staff" } }, actor: "server-command" },
+    ]);
+    assert.equal((await changes(kioskId)).length, 1);
+  });
+
+  /** The owner changes their own password at Better Auth's endpoint, as My Account does from the browser. */
+  async function changeOwnPassword(email: string, currentPassword: string, newPassword: string) {
+    const cookie = (await signIn(auth, email, password)).headers.get("set-cookie")!.split(";")[0];
+    return auth.handler(
+      new Request(`${baseURL}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: baseURL, "x-real-ip": nextClientIp(), cookie },
+        body: JSON.stringify({ currentPassword, newPassword, revokeOtherSessions: true }),
+      }),
+    );
+  }
+
+  test("an owner's own password change records it with the owner as actor; a failed or refused one records nothing", async () => {
+    const adminId = await createAccount("admin@example.org", "Napat Wongsa", "admin");
+    const kioskId = await createAccount("kiosk@example.org", "Kiosk 1", "kiosk");
+
+    const wrongCurrent = await changeOwnPassword("admin@example.org", "wrong horse battery", "a brand new password");
+    const kiosk = await changeOwnPassword("kiosk@example.org", password, "a brand new password");
+    const changed = await changeOwnPassword("admin@example.org", password, "a brand new password");
+
+    assert.equal(wrongCurrent.status, 400);
+    assert.equal(kiosk.status, 403);
+    assert.equal(changed.status, 200);
+    assert.deepEqual(await changes(adminId), [
+      { account: adminId, change: { action: "password-changed" }, actor: { accountId: adminId, name: "Napat Wongsa" } },
+      { account: adminId, change: { action: "created", details: { kind: "admin" } }, actor: "server-command" },
+    ]);
+    assert.equal((await changes(kioskId)).length, 1);
+  });
+
+  test("the history comes 50 changes a page, newest first, with the total, for everyone or one Account", async () => {
+    const staffId = await createAccount("staff@example.org", "Name 0");
+    const otherId = await createAccount("other@example.org", "Other");
+    for (let n = 1; n <= 55; n++) await accounts.rename(staffId, `Name ${n}`);
+    const renames = Array.from({ length: 55 }, (_, index) => ({
+      action: "name-changed",
+      details: { from: `Name ${54 - index}`, to: `Name ${55 - index}` },
+    }));
+    const newestFirst = [
+      ...renames,
+      { action: "created", details: { kind: "staff" } }, // Other
+      { action: "created", details: { kind: "staff" } }, // Staff
+    ];
+
+    const pages = [1, 2, 3].map((page) => accounts.history({ page }));
+    const [first, second, third] = await Promise.all(pages);
+
+    assert.deepEqual(
+      [first, second, third].map(({ changes, total, page, pageSize }) => ({ shown: changes.length, total, page, pageSize })),
+      [
+        { shown: 50, total: 57, page: 1, pageSize: 50 },
+        { shown: 7, total: 57, page: 2, pageSize: 50 },
+        { shown: 0, total: 57, page: 3, pageSize: 50 },
+      ],
+    );
+    assert.deepEqual(
+      [...first.changes, ...second.changes].map(({ change }) => change),
+      newestFirst,
+    );
+    assert.deepEqual(
+      second.changes.slice(-2).map(({ account }) => account.id),
+      [otherId, staffId],
+    );
+
+    const staffSecondPage = await accounts.history({ accountId: staffId, page: 2 });
+    assert.equal(staffSecondPage.total, 56);
+    assert.deepEqual(
+      staffSecondPage.changes.map(({ change }) => change),
+      [...renames.slice(50), { action: "created", details: { kind: "staff" } }],
+    );
+    assert.deepEqual(await changes(otherId), [
+      { account: otherId, change: { action: "created", details: { kind: "staff" } }, actor: "server-command" },
+    ]);
+    assert.equal((await accounts.history({ accountId: "no-such-account", page: 1 })).total, 0);
+  });
+
+  test("a page below 1, or not a whole number, reads as the first page", async () => {
+    await createAccount("staff@example.org", "Staff");
+
+    for (const page of [0, -2, 1.5, Number.NaN]) {
+      const history = await accounts.history({ page });
+      assert.equal(history.page, 1, String(page));
+      assert.equal(history.changes.length, 1, String(page));
+    }
+  });
+
+  test("no record holds a password or its hash", async () => {
+    const first = await accounts.createFirst({ email: "admin@example.org", name: "Admin", password }, "server-command");
+    assert.equal(first.status, "created");
+    const staffId = await createAccount("staff@example.org", "Staff");
+    await accounts.resetPassword({ email: "staff@example.org", password: "the password an Admin set" }, { accountId: first.accountId });
+    await accounts.makeAdmin("staff@example.org", "server-command");
+    await accounts.rename(staffId, "Staff Member");
+    const hashesBefore = await database.db.select({ hash: credentials.password }).from(credentials);
+    assert.equal((await changeOwnPassword("admin@example.org", password, "the owner's own password")).status, 200);
+    const hashesAfter = await database.db.select({ hash: credentials.password }).from(credentials);
+
+    const { changes, total } = await accounts.history({ page: 1 });
+
+    assert.equal(total, 6);
+    const recorded = JSON.stringify(changes);
+    for (const secret of [
+      password,
+      "the password an Admin set",
+      "the owner's own password",
+      ...[...hashesBefore, ...hashesAfter].map(({ hash }) => hash!),
+    ]) {
+      assert.ok(!recorded.includes(secret), secret);
+    }
+    assert.ok(!/password"\s*:/i.test(recorded), recorded);
   });
 });
 
@@ -569,7 +809,7 @@ describe("Accounts: signed-in devices", () => {
   before(async () => {
     database = await createTestDatabase();
     auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
-    accounts = createAccounts(auth);
+    accounts = createAccounts(auth, database.db);
   });
 
   beforeEach(async () => {
@@ -587,7 +827,7 @@ describe("Accounts: signed-in devices", () => {
   const FIREFOX_ON_LINUX = "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0";
 
   async function createStaff(email: string) {
-    const created = await accounts.create({ email, name: "Staff", password });
+    const created = await accounts.create({ email, name: "Staff", password }, "server-command");
     assert.equal(created.status, "created");
     return created.accountId;
   }

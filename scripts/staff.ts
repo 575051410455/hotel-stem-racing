@@ -11,7 +11,8 @@
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
 // 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
-// out everywhere. make-admin is also the way back in when no Admin can sign in.
+// out everywhere. make-admin is also the way back in when no Admin can sign in. Every change is
+// recorded in the Account History as made by "Server command".
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
@@ -128,7 +129,7 @@ function passwordProblemMessage(
 
 /** Makes an existing Account an Admin Account. Needs no password. */
 async function makeAdmin(accounts: Accounts, email: string): Promise<number> {
-  const result = await accounts.makeAdmin(email);
+  const result = await accounts.makeAdmin(email, "server-command");
   switch (result.status) {
     case "promoted":
       console.log(
@@ -151,12 +152,10 @@ async function create(
   password: string,
   baseURL: string,
 ): Promise<number> {
-  const result = await accounts.create({
-    email: command.email,
-    name: command.name,
-    password,
-    kind: command.accountKind,
-  });
+  const result = await accounts.create(
+    { email: command.email, name: command.name, password, kind: command.accountKind },
+    "server-command",
+  );
   switch (result.status) {
     case "created":
       console.log(createdMessage(result.kind, result.email, baseURL));
@@ -180,7 +179,7 @@ async function create(
 }
 
 async function resetPassword(accounts: Accounts, email: string, password: string): Promise<number> {
-  const result = await accounts.resetPassword({ email, password });
+  const result = await accounts.resetPassword({ email, password }, "server-command");
   switch (result.status) {
     case "password-reset":
       console.log(`Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.`);
@@ -226,7 +225,7 @@ async function main(): Promise<number> {
   const run = await prepare(command, baseURL);
   const { db, close } = createDatabase(databaseUrl);
   try {
-    return await run(createAccounts(createStaffAuth({ db, secret, baseURL })));
+    return await run(createAccounts(createStaffAuth({ db, secret, baseURL }), db));
   } finally {
     await close();
   }

@@ -45,11 +45,10 @@ async function main(): Promise<number> {
   const { db, close } = createDatabase(databaseUrl);
   try {
     const password = randomPassword();
-    const result = await createAccounts(createStaffAuth({ db, secret, baseURL })).createFirst({
-      email,
-      name,
-      password,
-    });
+    const result = await createAccounts(createStaffAuth({ db, secret, baseURL }), db).createFirst(
+      { email, name, password },
+      "server-command",
+    );
     switch (result.status) {
       case "created":
         console.log(
