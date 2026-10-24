@@ -556,4 +556,76 @@ describe("Accounts: signed-in devices", () => {
     assert.ok(!listed.includes(thisDevice.token));
     assert.ok(!listed.includes(otherDevice.token));
   });
+
+  /** Signs in as one more device, and returns its session and the cookie its browser keeps. */
+  async function signInDevice(email: string) {
+    const response = await signIn(auth, email, password);
+    assert.equal(response.status, 200);
+    const cookie = response.headers.get("set-cookie")!.split(";")[0];
+    const signedIn = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    assert.ok(signedIn);
+    return { session: signedIn.session, cookie };
+  }
+
+  /** Whether the device holding this cookie is still signed in on its next request. */
+  async function isSignedIn(cookie: string) {
+    return (await auth.api.getSession({ headers: new Headers({ cookie }) })) !== null;
+  }
+
+  test("signing out another device ends its session, and only its own", async () => {
+    const accountId = await createStaff("staff@example.org");
+    const thisDevice = await signInDevice("staff@example.org");
+    const lostPhone = await signInDevice("staff@example.org");
+    const laptop = await signInDevice("staff@example.org");
+
+    const result = await accounts.signOutDevice(accountId, lostPhone.session.id, thisDevice.session.id);
+
+    assert.deepEqual(result, { status: "device-signed-out" });
+    assert.equal(await isSignedIn(lostPhone.cookie), false);
+    assert.equal(await isSignedIn(thisDevice.cookie), true);
+    assert.equal(await isSignedIn(laptop.cookie), true);
+  });
+
+  test("this device isn't signed out from the list: it's not found, and stays signed in", async () => {
+    const accountId = await createStaff("staff@example.org");
+    const thisDevice = await signInDevice("staff@example.org");
+
+    const result = await accounts.signOutDevice(accountId, thisDevice.session.id, thisDevice.session.id);
+
+    assert.deepEqual(result, { status: "not-found" });
+    assert.equal(await isSignedIn(thisDevice.cookie), true);
+  });
+
+  test("another Account's device can't be signed out: it's not found, and stays signed in", async () => {
+    const accountId = await createStaff("staff@example.org");
+    await createStaff("someone-else@example.org");
+    const thisDevice = await signInDevice("staff@example.org");
+    const theirDevice = await signInDevice("someone-else@example.org");
+
+    const result = await accounts.signOutDevice(accountId, theirDevice.session.id, thisDevice.session.id);
+
+    assert.deepEqual(result, { status: "not-found" });
+    assert.equal(await isSignedIn(theirDevice.cookie), true);
+  });
+
+  test("signing out all other devices keeps only this one, and no other Account's", async () => {
+    const accountId = await createStaff("staff@example.org");
+    await createStaff("someone-else@example.org");
+    const phone = await signInDevice("staff@example.org");
+    const thisDevice = await signInDevice("staff@example.org");
+    const laptop = await signInDevice("staff@example.org");
+    const theirDevice = await signInDevice("someone-else@example.org");
+
+    const result = await accounts.signOutOtherDevices(accountId, thisDevice.session.id);
+
+    assert.deepEqual(result, { status: "other-devices-signed-out", count: 2 });
+    assert.equal(await isSignedIn(phone.cookie), false);
+    assert.equal(await isSignedIn(laptop.cookie), false);
+    assert.equal(await isSignedIn(thisDevice.cookie), true);
+    assert.equal(await isSignedIn(theirDevice.cookie), true);
+    assert.deepEqual(
+      (await accounts.listDevices(accountId, thisDevice.session.id)).map(({ id }) => id),
+      [thisDevice.session.id],
+    );
+  });
 });

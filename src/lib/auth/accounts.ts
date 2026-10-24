@@ -56,6 +56,11 @@ export type SignedInDevice = {
   isCurrent: boolean;
 };
 
+/** Not found: no such session on this Account, or it is the device asking (it signs out from the account menu). */
+export type SignOutDeviceResult = { status: "device-signed-out" } | { status: "not-found" };
+
+export type SignOutOtherDevicesResult = { status: "other-devices-signed-out"; count: number };
+
 // Deliberately loose: the operator types the address, and Better Auth lower-cases and stores it as given.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -223,6 +228,34 @@ export function createAccounts(auth: StaffAuth) {
           }),
         )
         .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || b.createdAt.getTime() - a.createdAt.getTime());
+    },
+
+    /**
+     * Signs one of the Account's other devices out, for its owner on My Account: it ends on its next
+     * request. Takes the session's id, as `listDevices` gives it; the token it is deleted by is looked
+     * up here and never leaves the server. Records no Account Change.
+     */
+    async signOutDevice(accountId: string, sessionId: string, currentSessionId: string): Promise<SignOutDeviceResult> {
+      // This device signs out from the account menu, which also clears its cookie.
+      if (sessionId === currentSessionId) return { status: "not-found" };
+      const ctx = await auth.$context;
+      const sessions = await ctx.internalAdapter.listSessions(accountId);
+      const session = sessions.find(({ id }) => id === sessionId);
+      if (!session) return { status: "not-found" };
+      await ctx.internalAdapter.deleteSession(session.token);
+      return { status: "device-signed-out" };
+    },
+
+    /**
+     * Signs out every device of the Account except the one `currentSessionId` names, for its owner on
+     * My Account (after losing a phone, say). `count` is how many were signed out. Records no Account
+     * Change.
+     */
+    async signOutOtherDevices(accountId: string, currentSessionId: string): Promise<SignOutOtherDevicesResult> {
+      const ctx = await auth.$context;
+      const others = (await ctx.internalAdapter.listSessions(accountId)).filter(({ id }) => id !== currentSessionId);
+      if (others.length > 0) await ctx.internalAdapter.deleteSessions(others.map(({ token }) => token));
+      return { status: "other-devices-signed-out", count: others.length };
     },
   };
   return accounts;
