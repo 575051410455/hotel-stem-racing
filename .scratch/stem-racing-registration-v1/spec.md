@@ -151,7 +151,7 @@ Delivery is phased:
 - The brand is STEM Racing Thailand × Grand Richmond, used with permission. The organisers will supply original logo files. Until then the header shows a text wordmark. The banner in the repo is the hero image on public pages.
 - Colours: keep the template's light background and white surfaces, and replace its red accent with the magenta→orange brand gradient from the banner. A gradient bar replaces the template's "racing stripe".
 - The UI is Thai only, Back Office included.
-- Font stack, system fonts only, with no font files hosted (the SF Pro licence forbids web embedding): "SF Pro TH", "SF Pro Display", "SF Pro Icons", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif.
+- Font stack, system fonts only, with no font files hosted (the SF Pro licence forbids web embedding): "SF Pro Text", "SF Pro TH", "SF Pro Icons", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif.
 - Footer: logos, © 2026 STEM Racing Thailand, and the organisers' contact channels. Each channel is hidden when not configured.
 - Canonical Thai copy comes from the organisers' form: intro text, field labels, privacy notice and thank-you message.
 

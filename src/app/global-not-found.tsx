@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Container } from "@/components/site/Container";
 import { KeyboardFocus } from "@/components/site/KeyboardFocus";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { PartnerWordmark, Wordmark } from "@/components/site/Wordmark";
+import { HeaderBar } from "@/components/site/SiteHeader";
 import { type Language, languagePath } from "@/lib/language";
 import { en } from "./[lang]/_dictionaries/en";
 import { th } from "./[lang]/_dictionaries/th";
@@ -26,13 +26,7 @@ export default function GlobalNotFound() {
       <body>
         <KeyboardFocus />
         <header className="border-b border-line bg-bg">
-          <Container className="flex h-14 items-center gap-4 tab:h-24 tab:gap-6">
-            <Link href="/" aria-label={th.homeLinkName} className="flex items-center">
-              <Wordmark />
-            </Link>
-            <span aria-hidden="true" className="h-6 w-px bg-divider max-[399px]:hidden tab:h-8" />
-            <PartnerWordmark className="max-[399px]:hidden" />
-          </Container>
+          <HeaderBar homeHref="/" homeLinkName={th.homeLinkName} />
         </header>
         <main id="maincontent" tabIndex={-1}>
           <Container className="py-8 tab:py-10">

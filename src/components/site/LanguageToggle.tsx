@@ -29,7 +29,7 @@ export function LanguageToggleFallback({ language, name }: { language: Language;
 
 function LanguageLinks({ language, name, path }: { language: Language; name: string; path: string }) {
   return (
-    <nav aria-label={name} className="ml-auto">
+    <nav aria-label={name} className="ml-auto shrink-0">
       <ul className="flex items-center rounded-pill border border-line-strong p-0.5 text-[0.875rem] font-bold">
         {choices.map((choice) => {
           const current = choice.language === language;
@@ -40,13 +40,15 @@ function LanguageLinks({ language, name, path }: { language: Language; name: str
                 hrefLang={choice.language}
                 lang={choice.language}
                 data-language-switch
-                aria-label={choice.name}
                 aria-current={current ? "page" : undefined}
-                className={`flex h-10 min-w-12 items-center justify-center rounded-pill px-3 no-underline ${
+                className={`flex h-11 min-w-11 items-center justify-center rounded-pill px-3 no-underline ${
                   current ? "bg-ink-pure text-white" : "text-ink-pure hover:underline"
                 }`}
               >
+                {/* The name starts with the visible code ("EN English"), so a voice command
+                    naming what's on screen ("tap EN") finds the link (WCAG 2.5.3). */}
                 {choice.short}
+                <span className="sr-only"> {choice.name}</span>
               </a>
             </li>
           );

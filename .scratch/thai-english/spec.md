@@ -143,7 +143,7 @@ The organisers also want the Back Office in English.
 - **Markup:** a small `TH | EN` segmented switch at the top right of the public site header, on every public page. Each half is a link to the same page in that language, so it works without JavaScript.
 - **Accessibility:**
   - The group has an accessible name ("เลือกภาษา" / "Choose language").
-  - Each link's accessible name is the language's own name ("ภาษาไทย" / "English"), with matching `lang` and `hreflang`.
+  - Each link's accessible name is its visible code, then the language's own name ("TH ภาษาไทย" / "EN English"), with matching `lang` and `hreflang`. Starting with the visible code lets a voice command such as "tap EN" find it (WCAG 2.5.3).
   - The current language has `aria-current`.
 - **Keeping answers:** on the registration form, following the toggle first saves the current answers and visible errors to `sessionStorage`, for this tab only. The form in the other language restores them once, then clears them. Nothing is saved anywhere else.
 - **The Event Pass page's toggle** keeps the token: `/p/:token` ↔ `/en/p/:token`.
