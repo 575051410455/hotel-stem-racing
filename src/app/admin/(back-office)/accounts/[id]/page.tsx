@@ -11,6 +11,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { PageContent } from "../../_shell/page-header";
 import { AccountStatus, LastSignIn } from "../account-list";
 import { accountHistoryHref } from "../history/links";
+import { AccountAccess } from "./account-access";
 import { AccountDetailsForm } from "./account-details-form";
 import { AccountHeader } from "./account-header";
 import { SetPasswordForm } from "./set-password-form";
@@ -19,10 +20,10 @@ export const metadata: Metadata = { title: "Account" };
 
 // /admin/accounts/{id}: one Account (account-management ticket 07), reached from its row on the
 // Accounts list or from the Account History. An Admin changes its name, email and kind, sets a new
-// password, and goes on to its history. On the Admin's own Account the kind is locked and the
-// password is changed on My Account instead. Admin-only, like the list. The id, the session and the
-// Account are request-time, so it all renders behind one boundary, header included. An unknown id
-// is not found (not-found.tsx, inside the Back Office).
+// password, disables or enables it, and goes on to its history. On the Admin's own Account the kind
+// is locked, the password is changed on My Account instead, and it can't be disabled. Admin-only,
+// like the list. The id, the session and the Account are request-time, so it all renders behind one
+// boundary, header included. An unknown id is not found (not-found.tsx, inside the Back Office).
 export default function AccountPage({ params }: PageProps<"/admin/accounts/[id]">) {
   return (
     <Suspense
@@ -109,6 +110,27 @@ async function AdminOnlyAccount({ params }: Pick<PageProps<"/admin/accounts/[id]
             )}
           </div>
         </section>
+
+        {/* Not on the Admin's own Account: someone else can always manage Accounts (ADR 0004). */}
+        {!isOwnAccount && (
+          <section aria-labelledby="account-access-heading" className="mt-10 border-t pt-6">
+            <h2 id="account-access-heading" className="text-base leading-normal font-semibold">
+              {account.disabledAt ? "Enable Account" : "Disable Account"}
+            </h2>
+            <p id="account-access-description" className="mt-1 text-sm leading-normal text-muted-foreground">
+              {account.disabledAt
+                ? "This Account is disabled: it can't sign in. Enabling it lets it sign in again, as it was; setting a new password doesn't."
+                : "Disabling signs this Account out everywhere at once. It can't sign in until an Admin enables it again."}
+            </p>
+            <div className="mt-4">
+              <AccountAccess
+                account={{ id: account.id, name: account.name, email: account.email }}
+                status={account.disabledAt ? "disabled" : "enabled"}
+                describedBy="account-access-description"
+              />
+            </div>
+          </section>
+        )}
       </PageContent>
     </>
   );

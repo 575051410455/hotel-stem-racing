@@ -2,7 +2,12 @@
 
 import { refresh } from "next/cache";
 import { isAccountKind } from "@/lib/auth/access";
-import type { SetPasswordResult, UpdateAccountResult } from "@/lib/auth/accounts";
+import type {
+  DisableAccountResult,
+  EnableAccountResult,
+  SetPasswordResult,
+  UpdateAccountResult,
+} from "@/lib/auth/accounts";
 import { accounts } from "@/lib/auth/server";
 import { getCurrentAdmin } from "@/lib/auth/session";
 import { text } from "../action-input";
@@ -51,5 +56,34 @@ export async function setAccountPassword(accountId: unknown, password: unknown):
     accountId: admin.id,
   });
   if (result.status === "password-set") refresh();
+  return result;
+}
+
+export type DisableAccountActionResult = DisableAccountResult | { status: "signed-out" };
+
+/**
+ * "Disable Account", once the Admin has confirmed: signs the Account out everywhere at once, and it
+ * can't sign in until it is enabled again. Not the Admin's own, nor the last enabled Admin.
+ */
+export async function disableAccount(accountId: unknown): Promise<DisableAccountActionResult> {
+  const admin = await getCurrentAdmin();
+  if (!admin) return { status: "signed-out" };
+  if (typeof accountId !== "string") return { status: "not-found" };
+
+  const result = await accounts().disable(accountId, { accountId: admin.id });
+  if (result.status === "disabled") refresh();
+  return result;
+}
+
+export type EnableAccountActionResult = EnableAccountResult | { status: "signed-out" };
+
+/** "Enable Account", at once (no confirmation): the Account can sign in again, as it was. */
+export async function enableAccount(accountId: unknown): Promise<EnableAccountActionResult> {
+  const admin = await getCurrentAdmin();
+  if (!admin) return { status: "signed-out" };
+  if (typeof accountId !== "string") return { status: "not-found" };
+
+  const result = await accounts().enable(accountId, { accountId: admin.id });
+  if (result.status === "enabled") refresh();
   return result;
 }
