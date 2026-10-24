@@ -60,7 +60,7 @@ describe("Accounts", () => {
   test("a created Staff Account can sign in", async () => {
     const created = await accounts.create({
       email: "Somchai@Example.org",
-      name: "สมชาย ใจดี",
+      name: "Somchai Jaidee",
       password,
     }, "server-command");
     assert.equal(created.status, "created");
@@ -69,7 +69,7 @@ describe("Accounts", () => {
 
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.user.name, "สมชาย ใจดี");
+    assert.equal(body.user.name, "Somchai Jaidee");
     assert.equal(body.user.email, "somchai@example.org");
   });
 
@@ -260,6 +260,34 @@ describe("Accounts", () => {
     ]);
   });
 
+  test("a new Account's name is in English: a Thai name, or one with no letter, is refused and nothing is created", async () => {
+    const refused = [
+      await accounts.create({ email: "somchai@example.org", name: "สมชาย ใจดี", password }, "server-command"),
+      await accounts.create({ email: "napat@example.org", name: "Napat วงศา", password, kind: "admin" }, "server-command"),
+      await accounts.create({ email: "kiosk-1@example.org", name: "123", password, kind: "kiosk" }, "server-command"),
+    ];
+    for (const [email, name] of [
+      ["napat@example.org", "Napat Wongsa"],
+      ["kiosk-1@example.org", "Kiosk 1"],
+      ["mary-jane@example.org", "Mary-Jane O'Neil"],
+      ["j.smith@example.org", "J. Smith"],
+    ]) {
+      assert.equal((await accounts.create({ email, name, password }, "server-command")).status, "created", name);
+    }
+
+    assert.deepEqual(refused, [
+      { status: "name-not-english" },
+      { status: "name-not-english" },
+      { status: "name-not-english" },
+    ]);
+    assert.deepEqual((await accounts.list()).map(({ name }) => name), [
+      "J. Smith",
+      "Kiosk 1",
+      "Mary-Jane O'Neil",
+      "Napat Wongsa",
+    ]);
+  });
+
   test("signing up through the public API is refused", async () => {
     const clientIp = nextClientIp();
     const response = await post(
@@ -333,7 +361,7 @@ describe("Accounts", () => {
   test("the first Admin Account can sign in with the password it was given", async () => {
     const result = await accounts.createFirst({
       email: " Organiser@Example.org ",
-      name: "เจ้าหน้าที่",
+      name: "Organiser",
       password,
     }, "server-command");
 
@@ -341,14 +369,14 @@ describe("Accounts", () => {
     assert.equal(result.email, "organiser@example.org");
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
     assert.equal(session?.user.kind, "admin");
-    assert.equal(session?.user.name, "เจ้าหน้าที่");
+    assert.equal(session?.user.name, "Organiser");
   });
 
   test("the first Admin Account is created when only Staff and Kiosk Accounts exist", async () => {
     await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
     await accounts.create({ email: "kiosk-1@example.org", name: "Kiosk 1", password, kind: "kiosk" }, "server-command");
 
-    const result = await accounts.createFirst({ email: "organiser@example.org", name: "เจ้าหน้าที่", password }, "server-command");
+    const result = await accounts.createFirst({ email: "organiser@example.org", name: "Organiser", password }, "server-command");
 
     assert.equal(result.status, "created");
     const session = await signInAndGetSession(auth, "organiser@example.org", password);
@@ -362,7 +390,7 @@ describe("Accounts", () => {
 
     const result = await accounts.createFirst({
       email: "organiser@example.org",
-      name: "เจ้าหน้าที่",
+      name: "Organiser",
       password: "another long password",
     }, "server-command");
 
@@ -378,7 +406,7 @@ describe("Accounts", () => {
 
     const result = await accounts.createFirst({
       email: "organiser@example.org",
-      name: "เจ้าหน้าที่",
+      name: "Organiser",
       password: "another long password",
     }, "server-command");
 
@@ -388,7 +416,7 @@ describe("Accounts", () => {
   });
 
   test("the first Admin Account refuses an invalid email or a password out of range", async () => {
-    const name = "เจ้าหน้าที่";
+    const name = "Organiser";
 
     assert.deepEqual(await accounts.createFirst({ email: "not-an-email", name, password }, "server-command"), {
       status: "invalid-email",
@@ -404,10 +432,28 @@ describe("Accounts", () => {
     assert.equal((await signIn(auth, "organiser@example.org", "too short")).status, 401);
   });
 
+  test("the first Admin Account is called Admin when it is given no name, or an empty one", async () => {
+    for (const name of [undefined, "", "   "]) {
+      await database.reset();
+
+      const result = await accounts.createFirst({ email: "organiser@example.org", name, password }, "server-command");
+
+      assert.equal(result.status, "created", JSON.stringify(name));
+      assert.equal((await accounts.getByEmail("organiser@example.org"))?.name, "Admin");
+    }
+  });
+
+  test("the first Admin Account refuses a name that isn't in English, and creates nothing", async () => {
+    const result = await accounts.createFirst({ email: "organiser@example.org", name: "เจ้าหน้าที่", password }, "server-command");
+
+    assert.deepEqual(result, { status: "name-not-english" });
+    assert.deepEqual(await accounts.list(), []);
+  });
+
   test("the first Admin Account still reports an invalid email when an Admin Account exists", async () => {
     await accounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" }, "server-command");
 
-    const result = await accounts.createFirst({ email: "organiser@example", name: "เจ้าหน้าที่", password }, "server-command");
+    const result = await accounts.createFirst({ email: "organiser@example", name: "Organiser", password }, "server-command");
 
     assert.deepEqual(result, { status: "invalid-email" });
   });
@@ -451,11 +497,11 @@ describe("Accounts", () => {
     const signedIn = await signIn(auth, "staff@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
 
-    const result = await accounts.rename(accountId, "  สมชาย ใจดี  ");
+    const result = await accounts.rename(accountId, "  Somchai Jaidee  ");
 
-    assert.deepEqual(result, { status: "renamed", name: "สมชาย ใจดี" });
+    assert.deepEqual(result, { status: "renamed", name: "Somchai Jaidee" });
     const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
-    assert.equal(session?.user.name, "สมชาย ใจดี");
+    assert.equal(session?.user.name, "Somchai Jaidee");
   });
 
   test("a rename to an empty name, or one over 100 characters, is refused and changes nothing", async () => {
@@ -463,14 +509,29 @@ describe("Accounts", () => {
     const accountId = created.status === "created" ? created.accountId : "";
 
     assert.deepEqual(await accounts.rename(accountId, "   "), { status: "invalid-name" });
-    assert.deepEqual(await accounts.rename(accountId, "ก".repeat(101)), {
+    assert.deepEqual(await accounts.rename(accountId, "a".repeat(101)), {
       status: "name-too-long",
       maxLength: 100,
     });
-    assert.deepEqual(await accounts.rename(accountId, "ก".repeat(100)), {
+    assert.deepEqual(await accounts.rename(accountId, "a".repeat(100)), {
       status: "renamed",
-      name: "ก".repeat(100),
+      name: "a".repeat(100),
     });
+  });
+
+  test("a rename to a name that isn't in English is refused; an old Thai name can be saved as it is", async () => {
+    const created = await accounts.create({ email: "staff@example.org", name: "Staff", password }, "server-command");
+    const accountId = created.status === "created" ? created.accountId : "";
+
+    assert.deepEqual(await accounts.rename(accountId, "สมชาย ใจดี"), { status: "name-not-english" });
+    assert.deepEqual(await accounts.rename(accountId, "123"), { status: "name-not-english" });
+    assert.equal((await accounts.get(accountId))?.name, "Staff");
+
+    // A name from before the rule, as an existing Account may have.
+    await (await auth.$context).internalAdapter.updateUser(accountId, { name: "สมชาย ใจดี" });
+    assert.deepEqual(await accounts.rename(accountId, " สมชาย ใจดี "), { status: "renamed", name: "สมชาย ใจดี" });
+    assert.deepEqual(await accounts.rename(accountId, "สมชาย Jaidee"), { status: "name-not-english" });
+    assert.deepEqual(await accounts.rename(accountId, "Somchai Jaidee"), { status: "renamed", name: "Somchai Jaidee" });
   });
 
   test("a Kiosk Account can't be renamed by its owner", async () => {
@@ -683,13 +744,22 @@ describe("Accounts: Account History", () => {
       await accounts.create({ email: "NEW-KIOSK@example.org", name: "Someone", password }, byAdmin),
       await accounts.create({ email: "someone@example.org", name: " ", password }, byAdmin),
       await accounts.create({ email: "someone@example.org", name: "a".repeat(101), password }, byAdmin),
+      await accounts.create({ email: "someone@example.org", name: "สมชาย ใจดี", password }, byAdmin),
       await accounts.create({ email: "someone@example.org", name: "Someone", password: "too short" }, byAdmin),
       await accounts.create({ email: "someone@example.org", name: "Someone", password: "x".repeat(129) }, byAdmin),
     ];
 
     assert.deepEqual(
       refused.map(({ status }) => status),
-      ["invalid-email", "email-taken", "invalid-name", "name-too-long", "password-too-short", "password-too-long"],
+      [
+        "invalid-email",
+        "email-taken",
+        "invalid-name",
+        "name-too-long",
+        "name-not-english",
+        "password-too-short",
+        "password-too-long",
+      ],
     );
     const admin = { accountId: adminId, name: "Napat Wongsa" };
     assert.deepEqual(await changes(), [
@@ -756,6 +826,7 @@ describe("Accounts: Account History", () => {
     assert.equal((await accounts.rename(staffId, "  Somchai Jaidee ")).status, "renamed");
     assert.equal((await accounts.rename(staffId, "Somchai Jaidee")).status, "renamed");
     assert.equal((await accounts.rename(staffId, "   ")).status, "invalid-name");
+    assert.equal((await accounts.rename(staffId, "สมชาย ใจดี")).status, "name-not-english");
     assert.equal((await accounts.rename(kioskId, "Kiosk 9")).status, "not-allowed");
 
     assert.deepEqual(await changes(staffId), [
@@ -1345,6 +1416,40 @@ describe("Accounts: an Admin edits an Account and sets its password", () => {
     assert.deepEqual(await changesSinceCreated(staffId), []);
     const longest = await accounts.update(staffId, { name: "a".repeat(100) }, admin);
     assert.equal(longest.status === "updated" && longest.account.name, "a".repeat(100));
+  });
+
+  test("a name that isn't in English is refused, by anyone, and nothing changes or is recorded, not even the other fields", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+
+    const refused = [
+      await accounts.update(staffId, { name: "สมชาย ใจดี", email: "somchai@example.org", kind: "admin" }, admin),
+      await accounts.update(staffId, { name: "123" }, admin),
+      await accounts.update(staffId, { name: "Somchai ใจดี" }, "server-command"),
+    ];
+
+    assert.deepEqual(refused, [{ status: "name-not-english" }, { status: "name-not-english" }, { status: "name-not-english" }]);
+    const staff = await accounts.get(staffId);
+    assert.deepEqual([staff?.name, staff?.email, staff?.kind], ["Staff", "staff@example.org", "staff"]);
+    assert.deepEqual(await changesSinceCreated(staffId), []);
+  });
+
+  test("an Account whose old name is in Thai keeps it through an email or kind change, sent with all three fields as the page does", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    // A name from before the rule, as an existing Account may have.
+    await (await auth.$context).internalAdapter.updateUser(staffId, { name: "สมชาย ใจดี" });
+
+    const emailChange = await accounts.update(staffId, { name: "สมชาย ใจดี", email: "Somchai@Example.org", kind: "staff" }, admin);
+    const kindChange = await accounts.update(staffId, { name: " สมชาย ใจดี ", email: "somchai@example.org", kind: "admin" }, admin);
+
+    assert.deepEqual([emailChange.status, kindChange.status], ["updated", "updated"]);
+    const account = await accounts.get(staffId);
+    assert.deepEqual([account?.name, account?.email, account?.kind], ["สมชาย ใจดี", "somchai@example.org", "admin"]);
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "kind-changed", details: { from: "staff", to: "admin" } }, actor: admin.accountId },
+      { change: { action: "email-changed", details: { from: "staff@example.org", to: "somchai@example.org" } }, actor: admin.accountId },
+    ]);
   });
 
   test("an Admin can't change their own kind, but can change their own name and email; the server command can change it", async () => {

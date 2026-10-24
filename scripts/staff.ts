@@ -14,7 +14,7 @@
 // out everywhere. make-admin is also the way back in when no Admin can sign in. A Staff or Admin
 // Account created or reset here must choose its own password at its next sign-in; a Kiosk Account
 // needn't. A reset never enables a disabled Account, and says so. Every change is recorded in the
-// Account History as made by "Server command".
+// Account History as made by "Server command". Display names are in English, as in the Back Office.
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
@@ -23,6 +23,7 @@ import { createDatabase } from "@/lib/db/client";
 import { type AccountKind, canChangeOwnPassword } from "@/lib/auth/access";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { type Accounts, createAccounts } from "@/lib/auth/accounts";
+import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
@@ -32,6 +33,7 @@ const USAGE = `Usage:
   npm run staff -- make-admin <email>                     makes an existing Account an Admin Account
   npm run staff -- reset-password <email>                 any kind
 
+The display name is in English: English letters, digits, spaces, - ' and .
 The password is prompted for (hidden), or read from STAFF_PASSWORD if set.`;
 
 const KIND_LABELS: Record<AccountKind, string> = {
@@ -181,6 +183,9 @@ async function create(
       return 1;
     case "name-too-long":
       console.error(`The display name is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
+      return 1;
+    case "name-not-english":
+      console.error(`${ENGLISH_NAME_MESSAGE} Nothing was changed.`);
       return 1;
     case "email-taken":
       console.error(

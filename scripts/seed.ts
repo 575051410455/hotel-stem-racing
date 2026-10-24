@@ -4,7 +4,7 @@
 //   docker compose exec app npm run seed          on the server
 //
 // Creates an Admin Account (the whole Back Office, ADR 0004) from SEED_STAFF_EMAIL (required) and
-// SEED_STAFF_NAME (default "เจ้าหน้าที่") with a random password, and prints the password once. The
+// SEED_STAFF_NAME (in English; "Admin" when empty) with a random password, and prints it once. The
 // password is never read from env or arguments and never written anywhere else, and the operator
 // must choose their own at the first sign-in (account-management 05). Does nothing if an
 // Admin Account already exists (Staff and Kiosk Accounts don't count); further Accounts, make-admin
@@ -21,9 +21,8 @@ import { createDatabase } from "@/lib/db/client";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { randomPassword } from "@/lib/auth/random-password";
 import { createAccounts } from "@/lib/auth/accounts";
+import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
-
-const DEFAULT_NAME = "เจ้าหน้าที่";
 
 class UsageError extends Error {}
 
@@ -34,7 +33,8 @@ function readSeedEnv(env: NodeJS.ProcessEnv = process.env) {
       "SEED_STAFF_EMAIL is not set: add the first Admin Account's email to .env, then run `npm run seed` again.",
     );
   }
-  return { email, name: env.SEED_STAFF_NAME?.trim() || DEFAULT_NAME };
+  // The Accounts module names the first Admin "Admin" when this is empty.
+  return { email, name: env.SEED_STAFF_NAME };
 }
 
 async function main(): Promise<number> {
@@ -81,8 +81,11 @@ async function main(): Promise<number> {
       case "name-too-long":
         console.error(`SEED_STAFF_NAME is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
         return 1;
+      case "name-not-english":
+        console.error(`SEED_STAFF_NAME "${name?.trim()}" isn't in English. ${ENGLISH_NAME_MESSAGE} Nothing was changed.`);
+        return 1;
       default:
-        // An empty name falls back to the default, and the generated password is always in range.
+        // An empty name falls back to "Admin", and the generated password is always in range.
         throw new Error(`Unexpected result: ${result.status}. Nothing was changed.`);
     }
   } finally {

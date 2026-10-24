@@ -5,7 +5,7 @@
 
 import type { AccountKind } from "@/lib/auth/access";
 import { isValidAccountEmail } from "@/lib/auth/email-rules";
-import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
+import { ENGLISH_NAME_MESSAGE, MAX_NAME_LENGTH, nameProblem } from "@/lib/auth/name-rules";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 
 /** The kinds on offer, in this order, each with what it opens (ADR 0003, ADR 0004). */
@@ -15,8 +15,12 @@ export const KIND_CHOICES = [
   { kind: "kiosk", explanation: "Kiosk only, for an unattended iPad" },
 ] as const satisfies readonly { kind: AccountKind; explanation: string }[];
 
+/** Under Name, before anything is typed. */
+export const NAME_HINT = "In English";
 export const NAME_EMPTY = "Please enter a name";
 export const NAME_TOO_LONG = `The name can be at most ${MAX_NAME_LENGTH} characters`;
+/** Also shown as a toast (`updateNameToast`). */
+export const NAME_NOT_ENGLISH = ENGLISH_NAME_MESSAGE;
 export const EMAIL_INVALID = "Please enter a valid email";
 export const EMAIL_TAKEN = "This email already belongs to an Account";
 /** Only a bug or a forged request lands here: the radio group always sends one of the three. */
@@ -29,9 +33,16 @@ export const PASSWORD_TOO_LONG = `The password can be at most ${MAX_PASSWORD_LEN
 
 /** A typed name (already trimmed). */
 export function nameProblems(name: string): { name?: string } {
-  if (!name) return { name: NAME_EMPTY };
-  if (name.length > MAX_NAME_LENGTH) return { name: NAME_TOO_LONG };
-  return {};
+  switch (nameProblem(name)) {
+    case "empty":
+      return { name: NAME_EMPTY };
+    case "too-long":
+      return { name: NAME_TOO_LONG };
+    case "not-english":
+      return { name: NAME_NOT_ENGLISH };
+    case null:
+      return {};
+  }
 }
 
 /** A typed email (already trimmed). */

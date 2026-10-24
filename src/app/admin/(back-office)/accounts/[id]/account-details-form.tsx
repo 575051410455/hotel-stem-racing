@@ -17,6 +17,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { type AccountKind, isAccountKind } from "@/lib/auth/access";
 import { KIND_LABELS } from "@/lib/auth/kind-labels";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
+import { updateNameToast } from "../../_shell/name-toast";
 import { toastSuccess } from "../../_shell/toasts";
 import {
   EMAIL_INVALID,
@@ -25,6 +26,8 @@ import {
   KIND_CHOICES,
   KIND_INVALID,
   NAME_EMPTY,
+  NAME_HINT,
+  NAME_NOT_ENGLISH,
   NAME_TOO_LONG,
   nameProblems,
 } from "../account-form-rules";
@@ -45,6 +48,8 @@ function resultProblems(result: UpdateAccountActionResult | null): Problems {
       return { name: NAME_EMPTY };
     case "name-too-long":
       return { name: NAME_TOO_LONG };
+    case "name-not-english":
+      return { name: NAME_NOT_ENGLISH };
     case "invalid-email":
       return { email: EMAIL_INVALID };
     case "email-taken":
@@ -81,7 +86,7 @@ export function AccountDetailsForm({
   isOwnAccount: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const ids = { form: useId(), kindNote: useId() };
+  const ids = { form: useId(), nameHint: useId(), kindNote: useId() };
   const [kind, setKind] = useState<AccountKind>(account.kind);
   const [problems, setProblems] = useState<Problems>({});
   const [pending, setPending] = useState(false);
@@ -115,6 +120,7 @@ export function AccountDetailsForm({
 
   function showProblems(found: Problems) {
     setProblems(found);
+    updateNameToast(found.name);
     focusFirstProblem(found);
   }
 
@@ -127,8 +133,12 @@ export function AccountDetailsForm({
     };
 
     // Checked in the browser so the Admin can fix them without a request; the Accounts module
-    // enforces the same rules.
-    const inputProblems: Problems = { ...nameProblems(typed.name), ...emailProblems(typed.email) };
+    // enforces the same rules. Like the module, only a changed name is checked, so an old name in
+    // Thai doesn't stop an email or kind change.
+    const inputProblems: Problems = {
+      ...(typed.name !== account.name && nameProblems(typed.name)),
+      ...emailProblems(typed.email),
+    };
     if (Object.keys(inputProblems).length > 0) return showProblems(inputProblems);
 
     setPending(true);
@@ -148,13 +158,14 @@ export function AccountDetailsForm({
       const emailInput = fields?.namedItem("email");
       if (nameInput instanceof HTMLInputElement) nameInput.value = result.account.name;
       if (emailInput instanceof HTMLInputElement) emailInput.value = result.account.email;
+      updateNameToast(undefined);
       toastSuccess("Account updated");
       return;
     }
     showProblems(resultProblems(result));
   }
 
-  function fieldProps(name: Exclude<FieldName, "kind">) {
+  function fieldProps(name: Exclude<FieldName, "kind">, describedBy?: string) {
     const problem = problems[name];
     const errorId = `${ids.form}-${name}-error`;
     return {
@@ -162,7 +173,7 @@ export function AccountDetailsForm({
       name,
       required: true,
       "aria-invalid": problem ? true : undefined,
-      "aria-describedby": problem ? errorId : undefined,
+      "aria-describedby": [describedBy, problem && errorId].filter(Boolean).join(" ") || undefined,
     } as const;
   }
 
@@ -176,7 +187,8 @@ export function AccountDetailsForm({
       <FieldGroup>
         <Field data-invalid={problems.name ? true : undefined}>
           <FieldLabel htmlFor={`${ids.form}-name`}>Name</FieldLabel>
-          <Input {...fieldProps("name")} type="text" autoComplete="off" defaultValue={account.name} />
+          <Input {...fieldProps("name", ids.nameHint)} type="text" autoComplete="off" defaultValue={account.name} />
+          <FieldDescription id={ids.nameHint}>{NAME_HINT}</FieldDescription>
           {fieldError("name")}
         </Field>
         <Field data-invalid={problems.email ? true : undefined}>

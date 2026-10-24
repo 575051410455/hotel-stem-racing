@@ -2,10 +2,11 @@
 
 import { type FormEvent, type ReactNode, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { MAX_NAME_LENGTH } from "@/lib/auth/name-rules";
+import { ENGLISH_NAME_MESSAGE, MAX_NAME_LENGTH, nameProblem } from "@/lib/auth/name-rules";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../_shell/form-messages";
+import { updateNameToast } from "../_shell/name-toast";
 import { toastSuccess } from "../_shell/toasts";
 import { type RenameOwnAccountResult, renameOwnAccount } from "./actions";
 
@@ -15,11 +16,22 @@ const TOO_LONG = `Your name can be at most ${MAX_NAME_LENGTH} characters`;
 /** What went wrong: next to the field, or (`form`) for the whole form, above the button. */
 type Problems = { name?: string; form?: ReactNode };
 
-/** Checked in the browser so Staff can fix it without a request; the Accounts module enforces the same rules. */
-function checkInput(name: string): Problems {
-  if (!name) return { name: EMPTY };
-  if (name.length > MAX_NAME_LENGTH) return { name: TOO_LONG };
-  return {};
+/**
+ * Checked in the browser so Staff can fix it without a request; the Accounts module enforces the
+ * same rules. Like the module, a name saved unchanged isn't checked, so an old name in Thai can stay.
+ */
+function checkInput(name: string, savedName: string): Problems {
+  if (name === savedName) return {};
+  switch (nameProblem(name)) {
+    case "empty":
+      return { name: EMPTY };
+    case "too-long":
+      return { name: TOO_LONG };
+    case "not-english":
+      return { name: ENGLISH_NAME_MESSAGE };
+    case null:
+      return {};
+  }
 }
 
 function resultProblems(result: RenameOwnAccountResult | null): Problems {
@@ -30,6 +42,8 @@ function resultProblems(result: RenameOwnAccountResult | null): Problems {
       return { name: EMPTY };
     case "name-too-long":
       return { name: TOO_LONG };
+    case "name-not-english":
+      return { name: ENGLISH_NAME_MESSAGE };
     case "signed-out":
       return { form: <SessionExpired /> };
     case undefined:
@@ -50,9 +64,11 @@ export function RenameForm({ name }: { name: string }) {
   const [problems, setProblems] = useState<Problems>({});
   const [pending, setPending] = useState(false);
   const errorId = `${ids.form}-name-error`;
+  const hintId = `${ids.form}-name-hint`;
 
   function showProblems(found: Problems) {
     setProblems(found);
+    updateNameToast(found.name);
     if (found.name) {
       inputRef.current?.focus();
       inputRef.current?.select();
@@ -63,7 +79,7 @@ export function RenameForm({ name }: { name: string }) {
     formEvent.preventDefault();
     const typed = String(new FormData(formEvent.currentTarget).get("name") ?? "").trim();
 
-    const inputProblems = checkInput(typed);
+    const inputProblems = checkInput(typed, name);
     if (Object.keys(inputProblems).length > 0) return showProblems(inputProblems);
 
     setPending(true);
@@ -78,6 +94,7 @@ export function RenameForm({ name }: { name: string }) {
 
     if (result?.status === "renamed") {
       if (inputRef.current) inputRef.current.value = result.name;
+      updateNameToast(undefined);
       toastSuccess("Name saved");
       return;
     }
@@ -99,8 +116,9 @@ export function RenameForm({ name }: { name: string }) {
             required
             defaultValue={name}
             aria-invalid={problems.name ? true : undefined}
-            aria-describedby={problems.name ? errorId : undefined}
+            aria-describedby={problems.name ? `${hintId} ${errorId}` : hintId}
           />
+          <FieldDescription id={hintId}>In English</FieldDescription>
           <FieldError id={errorId}>{problems.name}</FieldError>
         </Field>
         <Field>
