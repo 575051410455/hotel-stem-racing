@@ -251,6 +251,7 @@ Since account-management 02, this form is the "Change password" section of My Ac
 | ยังไม่ได้ตั้งค่าการส่งอีเมล (SMTP) จึงส่งไม่ได้ | Email (SMTP) isn't set up, so nothing can be sent. |
 | ส่งสำเร็จ {n} ฉบับ · ไม่สำเร็จ {m} ฉบับ | {n} sent · {m} failed |
 | ส่งอีเมล Event Pass เสร็จแล้ว (toast) | Event Pass emails sent |
+| ส่งอีเมล Event Pass เสร็จแล้ว แต่มีบางฉบับไม่สำเร็จ (toast) | Event Pass emails finished |
 | หยุดการส่งอีเมล Event Pass ไว้ (toast) | Event Pass emails paused |
 | กำลังส่งอีเมล Event Pass… / หยุดการส่งไว้ / ส่งเสร็จแล้ว | Sending Event Pass emails… / Paused / Finished |
 | หยุด / กำลังหยุดเมื่อจบชุดนี้… | Stop / Stopping after this batch… |

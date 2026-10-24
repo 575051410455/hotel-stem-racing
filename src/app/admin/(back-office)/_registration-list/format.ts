@@ -1,8 +1,7 @@
 // How the Back Office Registration list shows stored values, in English. Pure; safe in browser and
 // server.
 
-import { bangkokTime } from "@/lib/bangkok-time";
-import { event } from "@/lib/event";
+import { bangkokEnglishDateTime } from "@/lib/bangkok-time";
 import { formatPhoneAsYouType } from "@/lib/registrations/fields";
 
 type DateParts = Partial<Record<Intl.DateTimeFormatPartTypes, string>>;
@@ -19,18 +18,9 @@ function englishDateParts(options: Intl.DateTimeFormatOptions): (instant: Date) 
   };
 }
 
-const createdAtParts = englishDateParts({
-  timeZone: event.timeZone,
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
 /** "22 Oct 2026, 14:05": always Bangkok time, whatever the browser's zone, on a 24-hour clock. */
 export function formatCreatedAt(iso: string): string {
-  const instant = new Date(iso);
-  const { day, month, year } = createdAtParts(instant);
-  return `${day} ${month} ${year}, ${bangkokTime(instant)}`;
+  return bangkokEnglishDateTime(new Date(iso));
 }
 
 /** An ISO Event Day has no time, so it is read as a UTC calendar day. */

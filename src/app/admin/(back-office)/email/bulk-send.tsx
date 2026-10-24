@@ -371,8 +371,9 @@ const pauseMessages: Record<PauseReason, string> = {
 function toastRunEnded(run: Run) {
   const tally = `${formatCount(run.sent)} sent · ${formatCount(run.failures.length)} failed`;
   if (run.state === "done") {
-    const toast = run.failures.length > 0 ? toastError : toastSuccess;
-    toast("Event Pass emails sent", { description: tally });
+    // "Finished", not "sent", when some failed (the organisers' choice).
+    if (run.failures.length > 0) toastError("Event Pass emails finished", { description: tally });
+    else toastSuccess("Event Pass emails sent", { description: tally });
     return;
   }
   const reason = run.pauseReason ?? "stopped";

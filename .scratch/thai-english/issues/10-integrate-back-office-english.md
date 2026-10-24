@@ -26,9 +26,10 @@ Done on the integration branch `back-office-english`, merged into `main` on 24 O
 
 ### Decisions left for the organisers' review
 
-- **CSV timestamps** stay `2026-10-22 14:05:09` (Bangkok time) rather than the deck's "22 Oct 2026, 14:05": ticket 15 chose that form so Excel reads and sorts it as a date and time, and it has no Thai in it. The headers say "(Bangkok time)".
-- **Bulk send:** when some emails fail, the finished toast still says "Event Pass emails sent" (the deck's wording); "Event Pass emails finished" may read better.
-- **"Sep"** rather than "Sept" for September in Back Office dates (07).
+- **Decided 2026-10-24 (branch `organiser-wording-csv-toast`):**
+  - **CSV timestamps** are now the deck's "22 Oct 2026, 14:05" (Bangkok time), the same as the list and detail: one helper, `bangkokEnglishDateTime` in `src/lib/bangkok-time.ts`, serves both. This was picked over ticket 15's `2026-10-22 14:05:09`, knowing Excel keeps the new form as text and won't sort by it. The cell is quoted because of its comma. The headers still say "(Bangkok time)".
+  - **Bulk send:** a finished run with failures now toasts "Event Pass emails finished" (an error toast, "4 sent · 1 failed"). With none failed it stays "Event Pass emails sent".
+  - **"Sep"** stays for September in Back Office dates (07).
 - **Apostrophes:** Staff-facing English uses the deck's straight `'`; the Kiosk's Attendee-facing English keeps its curly `’`, unchanged.
 - Strings not in the deck are listed in tickets 08 and 09's Answers.
 
