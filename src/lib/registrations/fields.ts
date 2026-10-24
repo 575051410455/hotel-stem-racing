@@ -279,8 +279,8 @@ const THAI_COUNTRY_CODE = "+66";
 /** The Thai national number ("0812345678") for spaces, dashes and an optional +66 prefix. */
 function nationalNumber(raw: string): string | null {
   const compact = raw.replace(/[\s-]+/g, "");
-  if (compact.startsWith("+66")) {
-    const rest = compact.slice(3);
+  if (compact.startsWith(THAI_COUNTRY_CODE)) {
+    const rest = compact.slice(THAI_COUNTRY_CODE.length);
     // "+66 081-…" is a common slip: the trunk 0 kept after the country code.
     return /^\d+$/.test(rest) ? (rest.startsWith("0") ? rest : `0${rest}`) : null;
   }
@@ -298,7 +298,7 @@ export function phoneToE164(raw: string): string | null {
   }
   const national = nationalNumber(raw);
   if (!national || !(MOBILE.test(national) || LANDLINE.test(national))) return null;
-  return `+66${national.slice(1)}`;
+  return `${THAI_COUNTRY_CODE}${national.slice(1)}`;
 }
 
 /** Digits split into dash-joined groups; the last group keeps any extra digits. */
@@ -340,7 +340,7 @@ export function formatPhoneAsYouType(raw: string): string {
   if (!digits.startsWith("66")) return `+${typed.slice(1).replace(/[^\d\s-]/g, "")}`;
   if (digits.length === 2) return THAI_COUNTRY_CODE;
   const rest = digits.slice(2);
-  return `+66 ${groupDigits(rest, rest.startsWith("0") ? nationalGroups(rest) : subscriberGroups(rest))}`;
+  return `${THAI_COUNTRY_CODE} ${groupDigits(rest, rest.startsWith("0") ? nationalGroups(rest) : subscriberGroups(rest))}`;
 }
 
 function validatePhone(raw: string, language: Language) {

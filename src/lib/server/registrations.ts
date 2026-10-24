@@ -31,6 +31,11 @@ export function registrations(): Registrations {
   return globalForRegistrations.registrations;
 }
 
+/** The configured domain (APP_URL), or undefined when it isn't set. */
+export function appUrl(): string | undefined {
+  return process.env.APP_URL || undefined;
+}
+
 /** The Event Pass link for a token, on the configured domain (APP_URL). Call at render time. */
 export function eventPassLink(token: string): string {
   return passLink(token, process.env.APP_URL);

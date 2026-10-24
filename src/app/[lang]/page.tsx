@@ -7,6 +7,7 @@ import { RegistrationForm } from "@/components/registration/RegistrationForm";
 import { Container } from "@/components/site/Container";
 import { type Language, languagePath } from "@/lib/language";
 import { openEventDays } from "@/lib/registrations/event-day-availability";
+import { appUrl } from "@/lib/server/registrations";
 import { currentLanguage, type Dictionary, getDictionary } from "./_dictionaries";
 import { submitRegistration } from "./actions";
 
@@ -16,10 +17,10 @@ import { submitRegistration } from "./actions";
  * they are left out rather than pointing at localhost.
  */
 export function generateMetadata(): Metadata {
-  const appUrl = process.env.APP_URL;
-  if (!appUrl) return {};
+  const siteUrl = appUrl();
+  if (!siteUrl) return {};
   return {
-    metadataBase: new URL(appUrl),
+    metadataBase: new URL(siteUrl),
     alternates: {
       languages: { th: languagePath("th", "/"), en: languagePath("en", "/"), "x-default": languagePath("th", "/") },
     },
