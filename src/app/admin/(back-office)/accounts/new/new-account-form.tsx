@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { type AccountKind, canChangeOwnPassword, isAccountKind } from "@/lib/auth/access";
 import { KIND_LABELS } from "@/lib/auth/kind-labels";
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
 import { toastSuccess } from "../../_shell/toasts";
 import {
@@ -33,6 +32,7 @@ import {
   PASSWORD_TOO_SHORT,
   passwordProblems,
 } from "../account-form-rules";
+import { PasswordFields } from "../password-fields";
 import { type CreateAccountActionResult, createAccount } from "./actions";
 
 /** Where the Admin goes once the Account is created. */
@@ -82,7 +82,7 @@ function resultProblems(result: CreateAccountActionResult | null): Problems {
 }
 
 /**
- * An Admin creates an Account of any kind, with a password they type twice, on
+ * An Admin creates an Account of any kind, with a password they type twice or generate, on
  * /admin/accounts/new. It goes through a Server Action to the Accounts module, which records it
  * with the Admin as actor; then "Account created" and back to the list. A Staff or Admin Account's
  * owner chooses their own password at the first sign-in, and the form says so.
@@ -90,7 +90,7 @@ function resultProblems(result: CreateAccountActionResult | null): Problems {
 export function NewAccountForm() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const ids = { form: useId(), passwordHint: useId(), firstSignIn: useId() };
+  const ids = { form: useId(), firstSignIn: useId() };
   const [kind, setKind] = useState<AccountKind>(FIRST_KIND);
   const [problems, setProblems] = useState<Problems>({});
   const [pending, setPending] = useState(false);
@@ -216,19 +216,11 @@ export function NewAccountForm() {
           </RadioGroup>
           {fieldError("kind")}
         </FieldSet>
-        <Field data-invalid={problems.password ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-password`}>Password</FieldLabel>
-          <Input {...fieldProps("password", ids.passwordHint)} type="password" autoComplete="new-password" />
-          <FieldDescription id={ids.passwordHint}>
-            {MIN_PASSWORD_LENGTH} to {MAX_PASSWORD_LENGTH} characters
-          </FieldDescription>
-          {fieldError("password")}
-        </Field>
-        <Field data-invalid={problems.confirmation ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-confirmation`}>Confirm password</FieldLabel>
-          <Input {...fieldProps("confirmation")} type="password" autoComplete="new-password" />
-          {fieldError("confirmation")}
-        </Field>
+        <PasswordFields
+          labels={{ password: "Password", confirmation: "Confirm password" }}
+          problems={problems}
+          onGenerate={() => setProblems((found) => ({ ...found, password: undefined, confirmation: undefined }))}
+        />
         <Field>
           {/* Someone else chose the password (the Admin), so a Staff or Admin Account's owner chooses their own. */}
           {canChangeOwnPassword(kind) && (

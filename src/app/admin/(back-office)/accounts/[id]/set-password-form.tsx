@@ -2,13 +2,12 @@
 
 import { type FormEvent, type ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { type AccountKind, canChangeOwnPassword } from "@/lib/auth/access";
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
 import { toastSuccess } from "../../_shell/toasts";
 import { PASSWORD_TOO_LONG, PASSWORD_TOO_SHORT, passwordProblems } from "../account-form-rules";
+import { PasswordFields } from "../password-fields";
 import { type SetAccountPasswordActionResult, setAccountPassword } from "./actions";
 
 type FieldName = "password" | "confirmation";
@@ -38,15 +37,15 @@ function resultProblems(result: SetAccountPasswordActionResult | null): Problems
 }
 
 /**
- * "Set a new password" on an Account's page: an Admin types a password twice for someone who forgot
- * theirs. It goes through a Server Action to the Accounts module, which signs the Account out
+ * "Set a new password" on an Account's page: an Admin types a password twice, or generates one, for
+ * someone who forgot theirs. It goes through a Server Action to the Accounts module, which signs the Account out
  * everywhere and records it; then "Password set". A Staff or Admin Account's owner chooses their
  * own at the next sign-in (`kind`, as saved), and the form says so. Not on the Admin's own
  * Account: they change theirs on My Account.
  */
 export function SetPasswordForm({ accountId, kind }: { accountId: string; kind: AccountKind }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const ids = { form: useId(), passwordHint: useId(), warning: useId(), nextSignIn: useId() };
+  const ids = { warning: useId(), nextSignIn: useId() };
   const [problems, setProblems] = useState<Problems>({});
   const [pending, setPending] = useState(false);
   const ownerChoosesOwn = canChangeOwnPassword(kind);
@@ -106,42 +105,16 @@ export function SetPasswordForm({ accountId, kind }: { accountId: string; kind: 
     showProblems(resultProblems(result));
   }
 
-  function fieldProps(name: FieldName, describedBy?: string) {
-    const problem = problems[name];
-    const errorId = `${ids.form}-${name}-error`;
-    return {
-      id: `${ids.form}-${name}`,
-      name,
-      type: "password",
-      autoComplete: "new-password",
-      required: true,
-      "aria-invalid": problem ? true : undefined,
-      "aria-describedby": [describedBy, problem && errorId].filter(Boolean).join(" ") || undefined,
-    } as const;
-  }
-
-  function fieldError(name: FieldName) {
-    return <FieldError id={`${ids.form}-${name}-error`}>{problems[name]}</FieldError>;
-  }
-
   return (
     // method="dialog" makes a submit before hydration a no-op instead of a GET that would put the
     // password in the URL. Once hydrated, handleSubmit handles everything.
     <form ref={formRef} method="dialog" onSubmit={handleSubmit} noValidate className="w-full max-w-sm">
       <FieldGroup>
-        <Field data-invalid={problems.password ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-password`}>New password</FieldLabel>
-          <Input {...fieldProps("password", ids.passwordHint)} />
-          <FieldDescription id={ids.passwordHint}>
-            {MIN_PASSWORD_LENGTH} to {MAX_PASSWORD_LENGTH} characters
-          </FieldDescription>
-          {fieldError("password")}
-        </Field>
-        <Field data-invalid={problems.confirmation ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-confirmation`}>Confirm new password</FieldLabel>
-          <Input {...fieldProps("confirmation")} />
-          {fieldError("confirmation")}
-        </Field>
+        <PasswordFields
+          labels={{ password: "New password", confirmation: "Confirm new password" }}
+          problems={problems}
+          onGenerate={() => setProblems((found) => ({ ...found, password: undefined, confirmation: undefined }))}
+        />
         <Field>
           <FieldDescription id={ids.warning}>Setting a password signs this Account out everywhere.</FieldDescription>
           {/* Someone else chose it (the Admin), so a Staff or Admin Account's owner chooses their own. */}
