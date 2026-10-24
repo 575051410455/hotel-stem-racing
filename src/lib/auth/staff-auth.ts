@@ -9,7 +9,8 @@ import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./password-rules";
 
 /**
  * 30 days. The spec asks for at least 7. A Kiosk signed in during setup has to stay signed in through
- * the whole Event, and Server Components cannot extend the session cookie (see the ticket 04 notes).
+ * the whole Event, and nothing it does extends the session: Server Components cannot write the
+ * cookie (see the ticket 04 notes), and the check-in Server Action doesn't (`getCurrentCheckInAccount`).
  */
 export const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30;
 
@@ -19,6 +20,12 @@ export type StaffAuthConfig = {
   secret: string;
   /** BETTER_AUTH_URL: the public origin, e.g. https://register.example.org. Also the trusted origin for CSRF checks. */
   baseURL: string;
+  /**
+   * Whether `auth.api.*` calls in Server Actions write the cookies they set (Better Auth's
+   * `nextCookies()`). Default true. False for an instance that only reads sessions: see
+   * `staffSessionReader` in server.ts.
+   */
+  writesCookies?: boolean;
 };
 
 /**
@@ -26,7 +33,7 @@ export type StaffAuthConfig = {
  * The app builds one from env in `src/lib/auth/server.ts`; tests, `scripts/staff.ts` and
  * `scripts/seed.ts` build their own.
  */
-export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
+export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: StaffAuthConfig) {
   return betterAuth({
     appName: "STEM Racing Thailand 2026 Back Office",
     secret,
@@ -94,7 +101,7 @@ export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
     },
     telemetry: { enabled: false },
     // Must stay last: lets Server Actions that call `auth.api.*` set and clear the session cookie.
-    plugins: [nextCookies()],
+    plugins: writesCookies ? [nextCookies()] : [],
   });
 }
 
