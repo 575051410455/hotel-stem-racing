@@ -1,6 +1,6 @@
 "use client";
 
-import { EllipsisVerticalIcon, KeyRoundIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
+import { EllipsisVerticalIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { useTransition } from "react";
 import { signOut } from "@/app/admin/actions";
@@ -21,8 +21,8 @@ import type { CurrentStaff } from "@/lib/auth/session";
 type SignedInAccount = Pick<CurrentStaff, "name" | "email">;
 
 /**
- * The Staff account menu's button and dropdown (change password, sign out); `StaffAccountMenu`
- * passes in who is signed in.
+ * The Staff account menu's button and dropdown (My Account, sign out); `StaffAccountMenu` passes in
+ * who is signed in.
  */
 export function StaffAccountDropdown({ account }: { account: SignedInAccount }) {
   const { isMobile, setOpenMobile } = useSidebar();
@@ -57,9 +57,9 @@ export function StaffAccountDropdown({ account }: { account: SignedInAccount }) 
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
                 {/* On a phone the sidebar is a sheet over the page: close it, as the page links do. */}
-                <Link href="/admin/password" onClick={() => setOpenMobile(false)}>
-                  <KeyRoundIcon aria-hidden="true" />
-                  เปลี่ยนรหัสผ่าน
+                <Link href="/admin/account" onClick={() => setOpenMobile(false)}>
+                  <UserRoundIcon aria-hidden="true" />
+                  My Account
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

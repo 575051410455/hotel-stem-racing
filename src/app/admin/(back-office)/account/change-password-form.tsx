@@ -15,18 +15,18 @@ type FieldName = "currentPassword" | "newPassword" | "confirmation";
 /** What went wrong: next to a field, or (`form`) for the whole form, above the button. */
 type Problems = Partial<Record<FieldName, string>> & { form?: ReactNode };
 
-const TOO_SHORT = `รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`;
-const TOO_LONG = `รหัสผ่านใหม่ยาวได้ไม่เกิน ${MAX_PASSWORD_LENGTH} ตัวอักษร`;
-const WRONG_CURRENT_PASSWORD = "รหัสผ่านปัจจุบันไม่ถูกต้อง";
+const TOO_SHORT = `The new password needs at least ${MIN_PASSWORD_LENGTH} characters`;
+const TOO_LONG = `The new password can be at most ${MAX_PASSWORD_LENGTH} characters`;
+const WRONG_CURRENT_PASSWORD = "Wrong current password";
 
 /** Checked in the browser so Staff can fix them without a request; the server enforces the same limits. */
 function checkInput(currentPassword: string, newPassword: string, confirmation: string): Problems {
   const problems: Problems = {};
-  if (!currentPassword) problems.currentPassword = "กรุณากรอกรหัสผ่านปัจจุบัน";
+  if (!currentPassword) problems.currentPassword = "Please enter your current password";
   if (newPassword.length < MIN_PASSWORD_LENGTH) problems.newPassword = TOO_SHORT;
   else if (newPassword.length > MAX_PASSWORD_LENGTH) problems.newPassword = TOO_LONG;
-  if (!confirmation) problems.confirmation = "กรุณากรอกรหัสผ่านใหม่อีกครั้ง";
-  else if (confirmation !== newPassword) problems.confirmation = "รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน";
+  if (!confirmation) problems.confirmation = "Please enter the new password again";
+  else if (confirmation !== newPassword) problems.confirmation = "The new passwords don't match";
   return problems;
 }
 
@@ -36,17 +36,17 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
   if (status === 429) {
     return {
       form: retryAfterSeconds
-        ? `พยายามเปลี่ยนรหัสผ่านหลายครั้งเกินไป กรุณารอ ${retryAfterSeconds} วินาทีแล้วลองใหม่`
-        : "พยายามเปลี่ยนรหัสผ่านหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่",
+        ? `Too many attempts. Wait ${retryAfterSeconds} seconds and try again.`
+        : "Too many attempts. Wait a moment and try again.",
     };
   }
   if (status === 401) {
     return {
       form: (
         <>
-          หมดเวลาการเข้าสู่ระบบ{" "}
+          Session expired.{" "}
           <Link href={SIGN_IN_PATH} className="font-medium underline underline-offset-4">
-            เข้าสู่ระบบอีกครั้ง
+            Sign in again
           </Link>
         </>
       ),
@@ -60,14 +60,14 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
       ? { newPassword: TOO_LONG }
       : { currentPassword: WRONG_CURRENT_PASSWORD };
   }
-  if (status === 0) return { form: "เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่" };
-  return { form: "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  if (status === 0) return { form: "Can't reach the server. Check your internet connection and try again." };
+  return { form: "Couldn't change the password. Please try again." };
 }
 
 /**
- * Staff change their own password. It goes from the browser to Better Auth's change-password
- * endpoint, like sign-in, so it is rate-limited, and it signs every other device out; this one gets
- * a fresh session cookie and stays signed in.
+ * Staff (a Staff or Admin Account) change their own password, on My Account. It goes from the
+ * browser to Better Auth's change-password endpoint, like sign-in, so it is rate-limited, and it
+ * signs every other device out; this one gets a fresh session cookie and stays signed in.
  */
 export function ChangePasswordForm({ email }: { email: string }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -126,7 +126,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
       return;
     }
     formRef.current?.reset();
-    toastSuccess("เปลี่ยนรหัสผ่านแล้ว");
+    toastSuccess("Password changed");
   }
 
   function fieldProps(name: FieldName, describedBy?: string) {
@@ -159,29 +159,29 @@ export function ChangePasswordForm({ email }: { email: string }) {
       />
       <FieldGroup>
         <Field data-invalid={problems.currentPassword ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-currentPassword`}>รหัสผ่านปัจจุบัน</FieldLabel>
+          <FieldLabel htmlFor={`${ids.form}-currentPassword`}>Current password</FieldLabel>
           <Input {...fieldProps("currentPassword")} autoComplete="current-password" />
           {fieldError("currentPassword")}
         </Field>
         <Field data-invalid={problems.newPassword ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-newPassword`}>รหัสผ่านใหม่</FieldLabel>
+          <FieldLabel htmlFor={`${ids.form}-newPassword`}>New password</FieldLabel>
           <Input {...fieldProps("newPassword", ids.hint)} autoComplete="new-password" />
-          <FieldDescription id={ids.hint}>อย่างน้อย {MIN_PASSWORD_LENGTH} ตัวอักษร</FieldDescription>
+          <FieldDescription id={ids.hint}>At least {MIN_PASSWORD_LENGTH} characters</FieldDescription>
           {fieldError("newPassword")}
         </Field>
         <Field data-invalid={problems.confirmation ? true : undefined}>
-          <FieldLabel htmlFor={`${ids.form}-confirmation`}>ยืนยันรหัสผ่านใหม่</FieldLabel>
+          <FieldLabel htmlFor={`${ids.form}-confirmation`}>Confirm new password</FieldLabel>
           <Input {...fieldProps("confirmation")} autoComplete="new-password" />
           {fieldError("confirmation")}
         </Field>
         <Field>
-          <FieldDescription id={ids.warning}>อุปกรณ์อื่นที่ใช้บัญชีนี้จะต้องเข้าสู่ระบบใหม่</FieldDescription>
+          <FieldDescription id={ids.warning}>Other devices using this Account will have to sign in again.</FieldDescription>
           {/* Always rendered, even empty, so screen readers announce each new message. */}
           <p role="alert" className="text-sm leading-normal text-destructive">
             {problems.form}
           </p>
           <Button type="submit" disabled={pending} aria-describedby={ids.warning}>
-            {pending ? "กำลังเปลี่ยนรหัสผ่าน…" : "เปลี่ยนรหัสผ่าน"}
+            {pending ? "Changing password…" : "Change password"}
           </Button>
         </Field>
       </FieldGroup>

@@ -101,7 +101,7 @@ describe("Staff Accounts", () => {
     assert.equal(session?.user.kind, "staff");
   });
 
-  test("a signed-in Kiosk Account can't make itself a Staff Account through the public API", async () => {
+  test("a signed-in Kiosk Account can't make itself an Admin Account through the public API", async () => {
     await staffAccounts.create({ email: "kiosk@example.org", name: "Kiosk", password, kind: "kiosk" });
     const signedIn = await signIn(auth, "kiosk@example.org", password);
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
@@ -110,13 +110,33 @@ describe("Staff Accounts", () => {
       new Request(`${baseURL}/api/auth/update-user`, {
         method: "POST",
         headers: { "content-type": "application/json", origin: baseURL, "x-real-ip": nextClientIp(), cookie },
-        body: JSON.stringify({ kind: "staff" }),
+        body: JSON.stringify({ kind: "admin" }),
       }),
     );
 
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 403);
     const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
     assert.equal(session?.user.kind, "kiosk");
+  });
+
+  test("no signed-in Account can rename itself through Better Auth's endpoint", async () => {
+    for (const kind of ["admin", "staff", "kiosk"] as const) {
+      const email = `${kind}@example.org`;
+      await staffAccounts.create({ email, name: "Before", password, kind });
+      const cookie = (await signIn(auth, email, password)).headers.get("set-cookie")!.split(";")[0];
+
+      const response = await auth.handler(
+        new Request(`${baseURL}/api/auth/update-user`, {
+          method: "POST",
+          headers: { "content-type": "application/json", origin: baseURL, "x-real-ip": nextClientIp(), cookie },
+          body: JSON.stringify({ name: "After" }),
+        }),
+      );
+
+      assert.equal(response.status, 403, kind);
+      const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+      assert.equal(session?.user.name, "Before", kind);
+    }
   });
 
   test("a signed-in Staff Account changes its own password through the public API, signing out its other devices", async () => {
@@ -384,6 +404,43 @@ describe("Staff Accounts", () => {
 
   test("making an unknown email an Admin reports it", async () => {
     assert.deepEqual(await staffAccounts.makeAdmin("nobody@example.org"), { status: "not-found" });
+  });
+
+  test("a Staff Account renames itself, trimmed, and keeps its sessions", async () => {
+    const created = await staffAccounts.create({ email: "staff@example.org", name: "Staff", password });
+    const accountId = created.status === "created" ? created.accountId : "";
+    const signedIn = await signIn(auth, "staff@example.org", password);
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+
+    const result = await staffAccounts.rename(accountId, "  สมชาย ใจดี  ");
+
+    assert.deepEqual(result, { status: "renamed", name: "สมชาย ใจดี" });
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    assert.equal(session?.user.name, "สมชาย ใจดี");
+  });
+
+  test("a rename to an empty name, or one over 100 characters, is refused and changes nothing", async () => {
+    const created = await staffAccounts.create({ email: "admin@example.org", name: "Admin", password, kind: "admin" });
+    const accountId = created.status === "created" ? created.accountId : "";
+
+    assert.deepEqual(await staffAccounts.rename(accountId, "   "), { status: "invalid-name" });
+    assert.deepEqual(await staffAccounts.rename(accountId, "ก".repeat(101)), {
+      status: "name-too-long",
+      maxLength: 100,
+    });
+    assert.deepEqual(await staffAccounts.rename(accountId, "ก".repeat(100)), {
+      status: "renamed",
+      name: "ก".repeat(100),
+    });
+  });
+
+  test("a Kiosk Account can't be renamed by its owner", async () => {
+    const created = await staffAccounts.create({ email: "kiosk@example.org", name: "Kiosk 1", password, kind: "kiosk" });
+    const accountId = created.status === "created" ? created.accountId : "";
+
+    assert.deepEqual(await staffAccounts.rename(accountId, "Kiosk 9"), { status: "not-allowed" });
+    const session = await signInAndGetSession(auth, "kiosk@example.org", password);
+    assert.equal(session?.user.name, "Kiosk 1");
   });
 
   test("resetting the password of an unknown email reports it", async () => {

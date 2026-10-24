@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
     globalNotFound: true,
   },
   partialPrefetching: true,
+  async redirects() {
+    return [
+      // Changing your password moved into My Account (account-management ticket 02).
+      { source: "/admin/password", destination: "/admin/account", permanent: true },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

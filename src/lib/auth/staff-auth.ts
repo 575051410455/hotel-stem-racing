@@ -65,11 +65,21 @@ export function createStaffAuth({ db, secret, baseURL }: StaffAuthConfig) {
       },
     },
     hooks: {
-      // Better Auth lets any signed-in Account change its password. A Kiosk Account may not
-      // (ADR 0003): /admin/password already sends it back to the Kiosk, and this refuses the
+      // Better Auth lets any signed-in Account change its own name (and image) at /update-user.
+      // Names change only through the Accounts module (My Account, ADR 0004), so this refuses the
+      // endpoint for everyone, signed in or not.
+      //
+      // Better Auth also lets any signed-in Account change its password. A Kiosk Account may not
+      // (ADR 0003): My Account (/admin/account) already sends it back to the Kiosk, and this refuses the
       // endpoint. Fails closed: an unknown kind is refused too. A signed-out request falls through
       // to the endpoint's own 401.
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/update-user") {
+          throw APIError.from("FORBIDDEN", {
+            message: "An Account's name is changed at My Account in the Back Office",
+            code: "UPDATE_USER_NOT_ALLOWED",
+          });
+        }
         if (ctx.path !== "/change-password") return;
         const session = await getSessionFromCtx(ctx, { disableRefresh: true });
         if (!session) return;
