@@ -13,7 +13,8 @@ const choices = [
  * The `TH | EN` switch at the top right of every public page. Each half is a plain link to this
  * page in that language (`/p/x` ↔ `/en/p/x`), so it works before scripts load, and it is a full
  * page load: the other language is a different root layout (`<html lang>`). Reads the address,
- * so on a request-time page render it below a <Suspense> boundary (`fallbackPath` covers that).
+ * so on a request-time page render it below a <Suspense> boundary (`LanguageToggleFallback`).
+ * The registration form listens for clicks on `[data-language-switch]` to keep its answers.
  */
 export function LanguageToggle({ language, name }: { language: Language; name: string }) {
   // The address bar's path; the Proxy may have rewritten it to /th/… internally, so strip either.
@@ -38,6 +39,7 @@ function LanguageLinks({ language, name, path }: { language: Language; name: str
                 href={languagePath(choice.language, path)}
                 hrefLang={choice.language}
                 lang={choice.language}
+                data-language-switch
                 aria-label={choice.name}
                 aria-current={current ? "page" : undefined}
                 className={`flex h-10 min-w-12 items-center justify-center rounded-pill px-3 no-underline ${

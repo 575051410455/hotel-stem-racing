@@ -6,6 +6,7 @@ import {
   startTransition,
   useActionState,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -31,6 +32,7 @@ import {
 import { BotProtection, type BotProtectionCopy } from "./BotProtection";
 import { ChoiceGroup, TextAreaField, TextField } from "./controls";
 import { type DuplicateRegistrationCopy, DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
+import { keepAnswers, takeKeptAnswers } from "./kept-answers";
 import { RegistrationClosed, type RegistrationClosedCopy } from "./RegistrationClosed";
 import type { RegistrationFormState, SubmitRegistrationAction } from "./form-state";
 
@@ -142,6 +144,31 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
     if (state.status === "closed") closedRef.current?.focus();
     if (state.status === "duplicate") duplicateRef.current?.focus();
   }, [state]);
+
+  // Answers given in the other language, kept when the Attendee followed the TH | EN toggle. Read
+  // after hydration (the server can't see this tab's storage) but before paint, so the form never
+  // flashes empty. A day that has ended since is dropped: it has no box to show it ticked.
+  useLayoutEffect(() => {
+    const kept = takeKeptAnswers();
+    if (!kept) return;
+    const openDays = eventDays.map((day) => day.date);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-off read of browser storage
+    setValues({ ...kept.values, eventDays: kept.values.eventDays.filter((day) => openDays.includes(day)) });
+    setErrored(new Set(kept.errored));
+  }, [eventDays]);
+
+  // Following the toggle is a full page load, so the answers go to this tab's sessionStorage first.
+  const keepAnswersForSwitch = useEffectEvent(() => {
+    if (state.status === "closed" || state.status === "duplicate") return;
+    keepAnswers({ values, errored: [...errored] });
+  });
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest("[data-language-switch]")) keepAnswersForSwitch();
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
 
   useLayoutEffect(() => {
     const input = phoneRef.current;
