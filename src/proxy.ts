@@ -1,28 +1,55 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
+import { defaultLanguage, type Language, splitLanguagePath } from "@/lib/language";
 import { registrations } from "@/lib/server/registrations";
 
+const STAFF_AREAS = ["/admin", "/kiosk"];
 const EVENT_PASS_PREFIX = "/p/";
 const UNKNOWN_EVENT_PASS_PATH = "/p/unknown";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname.startsWith(EVENT_PASS_PREFIX)) {
-    return requireEventPass(request, pathname.slice(EVENT_PASS_PREFIX.length));
+  if (STAFF_AREAS.some((area) => pathname === area || pathname.startsWith(`${area}/`))) {
+    return requireSessionCookie(request);
   }
-  return requireSessionCookie(request);
+  return routePublicPage(request);
 }
 
 /**
- * Gives an unknown or malformed Event Pass token a real 404. The page's own notFound() comes too
- * late: its 200 has already been sent. So this looks the token up first and rewrites misses to a
- * route prerendered as 404, and a real token pays one extra indexed read.
+ * Public pages live under src/app/[lang]. Thai keeps the unprefixed addresses: they are rewritten
+ * to /th/… internally, so the address bar never shows /th, and a typed /th/… redirects to its
+ * unprefixed form. English addresses (/en/…) already name their segment.
  */
-async function requireEventPass(request: NextRequest, token: string) {
+async function routePublicPage(request: NextRequest) {
+  const { language, path, prefixed } = splitLanguagePath(request.nextUrl.pathname);
+  if (prefixed && language === defaultLanguage) {
+    const unprefixed = request.nextUrl.clone();
+    unprefixed.pathname = path;
+    return NextResponse.redirect(unprefixed);
+  }
+  if (path.startsWith(EVENT_PASS_PREFIX)) {
+    return requireEventPass(request, language, path, path.slice(EVENT_PASS_PREFIX.length));
+  }
+  return prefixed ? NextResponse.next() : rewriteTo(request, language, path);
+}
+
+/** Serves `path` from the `[lang]` segment of `language`; the address bar keeps the request's URL. */
+function rewriteTo(request: NextRequest, language: Language, path: string) {
+  const internal = request.nextUrl.clone();
+  internal.pathname = path === "/" ? `/${language}` : `/${language}${path}`;
+  return NextResponse.rewrite(internal);
+}
+
+/**
+ * Gives an unknown or malformed Event Pass token a real 404, in either language. The page's own
+ * notFound() comes too late: its 200 has already been sent. So this looks the token up first and
+ * rewrites misses to a route prerendered as 404, and a real token pays one extra indexed read.
+ */
+async function requireEventPass(request: NextRequest, language: Language, path: string, token: string) {
   const lookup = await registrations().getEventPass(token);
-  if (lookup.status === "found") return NextResponse.next();
-  return NextResponse.rewrite(new URL(UNKNOWN_EVENT_PASS_PATH, request.url));
+  if (lookup.status !== "found") return rewriteTo(request, language, UNKNOWN_EVENT_PASS_PATH);
+  return language === defaultLanguage ? rewriteTo(request, language, path) : NextResponse.next();
 }
 
 /**
@@ -43,6 +70,6 @@ function requireSessionCookie(request: NextRequest) {
 }
 
 export const config = {
-  // `:path*` also matches the bare path, so /kiosk itself is covered. `/p/:token` is one segment.
-  matcher: ["/admin/:path*", "/kiosk/:path*", "/p/:token"],
+  // Every page address: not /api, not Next's own files, and not files from public/ (they have a dot).
+  matcher: ["/((?!api/|_next/|.*\\..*).*)"],
 };

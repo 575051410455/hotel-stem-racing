@@ -100,7 +100,7 @@ function panelDetails({ result, scan }: CheckInAttempt): ReactNode {
           <p className="text-lg leading-normal font-semibold">บันทึกการเช็คอินแล้ว</p>
           <AttendeeLines attendee={result.attendee} />
           <p className="mt-3 text-base leading-normal">
-            ลงทะเบียนไว้: {result.attendee.eventDays.map(eventDayLabel).join(" และ ")}
+            ลงทะเบียนไว้: {result.attendee.eventDays.map((day) => eventDayLabel(day, "th")).join(" และ ")}
           </p>
           <EventDayLine date={result.eventDay} />
         </>
@@ -162,7 +162,7 @@ function AttendeeLines({ attendee }: { attendee: CheckedInAttendee }) {
 }
 
 function EventDayLine({ date }: { date: string }) {
-  return <p className="mt-3 text-sm leading-normal opacity-90">เช็คอินสำหรับ{eventDayLabel(date)}</p>;
+  return <p className="mt-3 text-sm leading-normal opacity-90">เช็คอินสำหรับ{eventDayLabel(date, "th")}</p>;
 }
 
 function ScannedText({ scan }: { scan: string }) {

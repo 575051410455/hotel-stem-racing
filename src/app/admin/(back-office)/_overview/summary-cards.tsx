@@ -73,7 +73,7 @@ export async function HeadCountCards() {
       {counts.eventDays.map((day) => (
         <SummaryCard
           key={day.eventDay}
-          title={eventDayLabel(day.eventDay)}
+          title={eventDayLabel(day.eventDay, "th")}
           value={<People count={day.total} />}
           footer={
             <p className="font-medium">
@@ -143,7 +143,7 @@ export function HeadCountCardsSkeleton() {
     <>
       <SummaryCardSkeleton title={TOTAL_TITLE} />
       {event.eventDays.map(({ date, label }) => (
-        <SummaryCardSkeleton key={date} title={label} />
+        <SummaryCardSkeleton key={date} title={label.th} />
       ))}
     </>
   );

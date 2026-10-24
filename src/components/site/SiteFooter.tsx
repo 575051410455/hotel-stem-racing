@@ -1,16 +1,17 @@
 import { contactChannels } from "@/lib/contact";
+import type { Language } from "@/lib/language";
 import { Container } from "./Container";
 import { Wordmark } from "./Wordmark";
 
-export function SiteFooter() {
-  const channels = contactChannels();
+export function SiteFooter({ language, contactListName }: { language: Language; contactListName: string }) {
+  const channels = contactChannels(language);
 
   return (
     <footer className="border-t border-line bg-bg py-4 tab:py-10">
       <Container className="flex flex-col gap-8 tab:gap-10">
         {channels.length > 0 && (
           <ul
-            aria-label="ช่องทางติดต่อผู้จัดงาน"
+            aria-label={contactListName}
             className="flex flex-col gap-6 text-[0.75rem] tab:flex-row tab:justify-between"
           >
             {channels.map((channel) => (

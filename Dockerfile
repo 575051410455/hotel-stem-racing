@@ -35,11 +35,14 @@ COPY . .
 # NEXT_PUBLIC_* values are inlined into the bundle at build time, so they come in as build args
 # (Compose passes them from the server's .env). Changing one needs a rebuild.
 # No runtime secrets are available here: code must not need DATABASE_URL, BETTER_AUTH_SECRET,
-# SMTP_* and so on at build or prerender time.
+# SMTP_* and so on at build or prerender time. APP_URL isn't secret: the prerendered registration
+# pages use it for their absolute hreflang links (left out when it is empty).
+ARG APP_URL=""
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
 ARG NEXT_PUBLIC_CONTACT_LINE=""
 ARG NEXT_PUBLIC_CONTACT_PHONE=""
-ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY} \
+ENV APP_URL=${APP_URL} \
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY} \
     NEXT_PUBLIC_CONTACT_LINE=${NEXT_PUBLIC_CONTACT_LINE} \
     NEXT_PUBLIC_CONTACT_PHONE=${NEXT_PUBLIC_CONTACT_PHONE}
 RUN npm run build

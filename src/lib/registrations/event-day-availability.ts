@@ -30,7 +30,7 @@ export function endedEventDayErrors(chosen: readonly string[], now: Date): Field
     (day) => chosen.includes(day.date) && !open.some((openDay) => openDay.date === day.date),
   );
   if (ended.length === 0) return {};
-  const labels = ended.map((day) => day.label).join(" และ ");
+  const labels = ended.map((day) => day.label.th).join(" และ ");
   return { eventDays: `${labels} ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น` };
 }
 

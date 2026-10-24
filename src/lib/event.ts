@@ -1,19 +1,24 @@
 // The Event this app registers Attendees for. Safe to import from server and browser code.
 
+import type { Language } from "./language";
+
+/** Text in each public language. English uses Gregorian years and English day names. */
+type InEachLanguage = Readonly<Record<Language, string>>;
+
 export type EventDay = {
   /** ISO date in the Event's time zone, e.g. "2026-10-31". */
   date: string;
-  label: string;
+  label: InEachLanguage;
 };
 
 export const event = {
   name: "STEM Racing Thailand 2026",
-  venue: "โรงแรมแกรนด์ ริชมอนด์ จังหวัดนนทบุรี",
-  dateRangeLabel: "31 ตุลาคม – 1 พฤศจิกายน 2569",
+  venue: { th: "โรงแรมแกรนด์ ริชมอนด์ จังหวัดนนทบุรี", en: "Grand Richmond Hotel, Nonthaburi" },
+  dateRangeLabel: { th: "31 ตุลาคม – 1 พฤศจิกายน 2569", en: "31 October – 1 November 2026" },
   timeZone: "Asia/Bangkok",
   eventDays: [
-    { date: "2026-10-31", label: "วันที่ 31 ตุลาคม 2569" },
-    { date: "2026-11-01", label: "วันที่ 1 พฤศจิกายน 2569" },
+    { date: "2026-10-31", label: { th: "วันที่ 31 ตุลาคม 2569", en: "Saturday 31 October 2026" } },
+    { date: "2026-11-01", label: { th: "วันที่ 1 พฤศจิกายน 2569", en: "Sunday 1 November 2026" } },
   ] satisfies EventDay[],
 } as const;
 
@@ -22,7 +27,17 @@ export function findEventDay(date: string | null | undefined): EventDay | undefi
   return event.eventDays.find((day) => day.date === date);
 }
 
-/** The Thai label of an Event Day ("วันที่ 31 ตุลาคม 2569"), or the date itself if it isn't one. */
-export function eventDayLabel(date: string): string {
-  return findEventDay(date)?.label ?? date;
+/** An Event Day's label ("วันที่ 31 ตุลาคม 2569", "Saturday 31 October 2026"), or the date itself if it isn't one. */
+export function eventDayLabel(date: string, language: Language): string {
+  return findEventDay(date)?.label[language] ?? date;
+}
+
+/** "31 ตุลาคม – 1 พฤศจิกายน 2569" / "31 October – 1 November 2026". */
+export function eventDateRangeLabel(language: Language): string {
+  return event.dateRangeLabel[language];
+}
+
+/** The venue's name in `language`. */
+export function eventVenue(language: Language): string {
+  return event.venue[language];
 }

@@ -1,0 +1,81 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { RegistrationClosed } from "@/components/registration/RegistrationClosed";
+import { RegistrationForm } from "@/components/registration/RegistrationForm";
+import { Container } from "@/components/site/Container";
+import { type Language, languagePath } from "@/lib/language";
+import { openEventDays } from "@/lib/registrations/event-day-availability";
+import { currentLanguage, type Dictionary, getDictionary } from "./_dictionaries";
+import { submitRegistration } from "./actions";
+
+/**
+ * Pairs the Thai and English registration pages for search engines, Thai as the default. The
+ * links must be absolute, so they need APP_URL at build time (a build arg in Docker); without it
+ * they are left out rather than pointing at localhost.
+ */
+export function generateMetadata(): Metadata {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) return {};
+  return {
+    metadataBase: new URL(appUrl),
+    alternates: {
+      languages: { th: languagePath("th", "/"), en: languagePath("en", "/"), "x-default": languagePath("th", "/") },
+    },
+  };
+}
+
+export default async function RegistrationPage() {
+  const language = await currentLanguage();
+  const dictionary = getDictionary(language);
+  const copy = dictionary.registrationPage;
+
+  return (
+    <>
+      <Image
+        src="/brand/banner.jpg"
+        alt={copy.bannerAlt}
+        width={5000}
+        height={1250}
+        sizes="100vw"
+        loading="eager"
+        fetchPriority="high"
+        className="h-auto w-full"
+      />
+      <Container className="flex flex-col gap-8 py-8 tab:gap-10 tab:py-10">
+        <section className="mx-auto flex w-[min(100%,528px)] flex-col gap-2">
+          <h1 className="text-[1.25rem] font-black italic tab:text-[1.5rem]">{copy.heading}</h1>
+          <p>{copy.introduction}</p>
+          <p className="text-muted">{copy.dateAndVenue}</p>
+        </section>
+        <Suspense fallback={<RegistrationPlaceholder text={copy.loading} />}>
+          <Registration language={language} dictionary={dictionary} />
+        </Suspense>
+      </Container>
+    </>
+  );
+}
+
+// Which Event Days are still open depends on the current time, so it is read per request.
+async function Registration({ language, dictionary }: { language: Language; dictionary: Dictionary }) {
+  await connection();
+  const closedCopy = { ...dictionary.registrationClosed, contactListName: dictionary.contactListName };
+  const eventDays = openEventDays(new Date());
+  if (eventDays.length === 0) return <RegistrationClosed copy={closedCopy} language={language} />;
+
+  return (
+    <RegistrationForm action={submitRegistration} eventDays={eventDays} language={language} closedCopy={closedCopy} />
+  );
+}
+
+function RegistrationPlaceholder({ text }: { text: string }) {
+  return (
+    <div
+      aria-busy="true"
+      className="mx-auto flex h-[640px] w-[min(100%,528px)] items-center justify-center rounded-input border border-line bg-surface text-muted"
+    >
+      {text}
+    </div>
+  );
+}

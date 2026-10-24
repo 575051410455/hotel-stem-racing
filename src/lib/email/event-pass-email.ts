@@ -3,7 +3,7 @@
 // Outlook where a background is used, and every Attendee-entered value HTML-escaped.
 
 import QRCode from "qrcode";
-import { event } from "../event";
+import { event, eventVenue } from "../event";
 import type { EventPassMessage } from "../registrations/ports";
 import { formatEventDates, type OpeningHours } from "./event-dates";
 import { escapeHtml, readableTextColor } from "./html";
@@ -54,8 +54,6 @@ const BRAND = {
 const FONT =
   "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, 'Leelawadee UI', 'Noto Sans Thai', Tahoma, sans-serif";
 const MONO = "Consolas, Menlo, Monaco, 'Courier New', monospace";
-
-const VENUE_EN = "Grand Richmond Hotel, Nonthaburi";
 
 /** Short conditions shown on every Event Pass email, Thai then English. */
 const CONDITIONS = [
@@ -112,8 +110,8 @@ export async function buildEventPassEmail(
     `งาน / Event: ${event.name}`,
     `วันที่: ${dates.th}`,
     `Date: ${dates.en}`,
-    `สถานที่: ${event.venue}`,
-    `Venue: ${VENUE_EN}`,
+    `สถานที่: ${eventVenue("th")}`,
+    `Venue: ${eventVenue("en")}`,
     `ผู้เข้าร่วมงาน / Attendee: ${name}`,
     "",
     `รหัส Event Pass / Pass Code: ${pass.passCode}`,
@@ -181,7 +179,7 @@ ${header(eventName, values.hasBanner)}
 ${detailsTable([
   ["งาน", "Event", eventName],
   ["วันที่", "Date", `${values.datesTh}<br><span style="color:${BRAND.muted};">${values.datesEn}</span>`],
-  ["สถานที่", "Venue", `${escapeHtml(event.venue)}<br><span style="color:${BRAND.muted};">${escapeHtml(VENUE_EN)}</span>`],
+  ["สถานที่", "Venue", `${escapeHtml(eventVenue("th"))}<br><span style="color:${BRAND.muted};">${escapeHtml(eventVenue("en"))}</span>`],
   ["ผู้เข้าร่วมงาน", "Attendee", values.name],
 ])}
 </td></tr>

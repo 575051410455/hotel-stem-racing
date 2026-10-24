@@ -219,7 +219,7 @@ export function RegistrationList() {
             <NativeSelectOption value="">ทุกวัน</NativeSelectOption>
             {event.eventDays.map(({ date, label }) => (
               <NativeSelectOption key={date} value={date}>
-                {label}
+                {label.th}
               </NativeSelectOption>
             ))}
           </NativeSelect>
