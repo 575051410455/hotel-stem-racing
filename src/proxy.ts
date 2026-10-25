@@ -1,7 +1,7 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
-import { defaultLanguage, type Language, splitLanguagePath } from "@/lib/language";
+import { defaultLanguage, homeLanguage, type Language, languagePath, splitLanguagePath } from "@/lib/language";
 import { registrations } from "@/lib/server/registrations";
 
 const STAFF_AREAS = ["/admin", "/kiosk"];
@@ -19,20 +19,25 @@ export async function proxy(request: NextRequest) {
 
 /**
  * Public pages live under src/app/[lang]. Thai keeps the unprefixed addresses: they are rewritten
- * to /th/… internally, so the address bar never shows /th, and a typed /th/… redirects to its
- * unprefixed form. English addresses (/en/…) already name their segment.
+ * to /th/… internally, and a typed /th/… redirects to its unprefixed form. English addresses
+ * (/en/…) already name their segment. The home page is the exception: `/` redirects to it in
+ * `homeLanguage` (/en), and Thai's is /th itself.
  */
 async function routePublicPage(request: NextRequest) {
   const { language, path, prefixed } = splitLanguagePath(request.nextUrl.pathname);
-  if (prefixed && language === defaultLanguage) {
-    const unprefixed = request.nextUrl.clone();
-    unprefixed.pathname = path;
-    return NextResponse.redirect(unprefixed);
-  }
+  if (path === "/") return prefixed ? NextResponse.next() : redirectTo(request, languagePath(homeLanguage, path));
+  if (prefixed && language === defaultLanguage) return redirectTo(request, path);
   if (path.startsWith(EVENT_PASS_PREFIX)) {
     return requireEventPass(request, language, path, path.slice(EVENT_PASS_PREFIX.length));
   }
   return prefixed ? NextResponse.next() : rewriteTo(request, language, path);
+}
+
+/** Redirects to `pathname` on this site, keeping the query string (tracking parameters included). */
+function redirectTo(request: NextRequest, pathname: string) {
+  const target = request.nextUrl.clone();
+  target.pathname = pathname;
+  return NextResponse.redirect(target);
 }
 
 /** Serves `path` from the `[lang]` segment of `language`; the address bar keeps the request's URL. */

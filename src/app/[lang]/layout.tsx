@@ -8,7 +8,8 @@ import { currentLanguage, getDictionary } from "./_dictionaries";
 import "../globals.css";
 
 // The public pages' root layout, one per language: Thai at the unprefixed addresses (the Proxy
-// rewrites them to /th/…) and English under /en. Each language prerenders.
+// rewrites them to /th/…) apart from its home page /th, and English under /en. The bare domain
+// redirects to /en. Each language prerenders.
 export function generateStaticParams() {
   return languages.map((lang) => ({ lang }));
 }

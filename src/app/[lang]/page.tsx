@@ -5,22 +5,27 @@ import { Suspense } from "react";
 import { RegistrationClosed } from "@/components/registration/RegistrationClosed";
 import { RegistrationForm } from "@/components/registration/RegistrationForm";
 import { Container } from "@/components/site/Container";
-import { type Language, languagePath } from "@/lib/language";
+import { homeLanguage, type Language, languagePath } from "@/lib/language";
 import { openEventDays } from "@/lib/registrations/event-day-availability";
 import { appUrl } from "@/lib/server/registrations";
 import { currentLanguage, type Dictionary, getDictionary } from "./_dictionaries";
 import { submitRegistration } from "./actions";
 
 /**
- * Pairs the Thai and English registration pages for search engines, Thai as the default. The
- * links must be absolute: they resolve against the layout's `metadataBase`, from APP_URL at build
- * time (a build arg in Docker). Without it they are left out rather than pointing at localhost.
+ * Pairs the Thai and English registration pages for search engines, with the one the bare domain
+ * opens as the default. The links must be absolute: they resolve against the layout's
+ * `metadataBase`, from APP_URL at build time (a build arg in Docker). Without it they are left out
+ * rather than pointing at localhost.
  */
 export function generateMetadata(): Metadata {
   if (!appUrl()) return {};
   return {
     alternates: {
-      languages: { th: languagePath("th", "/"), en: languagePath("en", "/"), "x-default": languagePath("th", "/") },
+      languages: {
+        th: languagePath("th", "/"),
+        en: languagePath("en", "/"),
+        "x-default": languagePath(homeLanguage, "/"),
+      },
     },
   };
 }

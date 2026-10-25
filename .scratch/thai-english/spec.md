@@ -123,6 +123,8 @@ The organisers also want the Back Office in English.
 - **`<html lang>` per area:** `th` for Thai public pages, `en` for English public pages and the Back Office. The Kiosk page keeps `th`, with English lines marked `lang="en"` as now. This means separate root layouts per area.
 - **Metadata:** title and description per language, with `hreflang` alternates pairing each Thai page with its English page. The Thai page is the `x-default`.
 
+_2026-10-25: the organisers chose English for the bare domain. `/` now redirects to `/en`, Thai's home page moved from `/` to `/th`, and the English page is the `x-default`. Every other Thai address keeps its unprefixed form, so Event Pass links in QR codes and emails still open in Thai._
+
 ### Public wording (dictionaries)
 
 - **Dictionaries:** one per language, hand-written, typed so both have exactly the same keys. A missing translation is a type error. No i18n library.

@@ -95,3 +95,7 @@ Checked against `next start`: the status codes above, a Ctrl-click keeping nothi
 - Checked with curl (no JavaScript): `/xyz`, `/en/xyz`, `/en/xyz/deeper`, unknown and malformed tokens under `/p/` and `/en/p/` (dots included), `/foo.html`, `/index.html` and `/api/nope` answer 404 with `<html lang="th">`, the title "ไม่พบหน้านี้ · Page not found" and the Thai heading in the HTML; real passes, `/` and `/en` still 200; `/brand/banner.jpg`, `/favicon.ico` and `/_next/image` still served. In headless Chrome at 375 and 1280 px: both language blocks, the footer, no sideways scroll, no console errors, and the English link lands on `/en`.
 
 Not taken up (judgement calls): placeholder style, the `.th` pins in the Back Office (tickets 06–09), copy types re-declaring the dictionary's shape, and the `docs/deploy.md` note for the `APP_URL` build arg.
+
+## Comments
+
+- 2026-10-25: The bare domain now opens in English, at the organisers' request. `/` redirects to `/en` (307, query string kept), and Thai's home page is `/th`, which the Proxy no longer redirects. `languagePath` gives both home pages a prefix; every other address is unchanged, so `/p/:token` in QR codes and emails is still Thai. The English page is the `x-default`. See the spec's note under "Languages and addresses".
