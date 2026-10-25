@@ -40,6 +40,8 @@ export type RegistrationDetail = {
   /** The Attendee's own words when a Referral Source is "other"; otherwise null. */
   referralOther: string | null;
   competingTeamCheeredFor: string | null;
+  /** The retired help-needed question: only Registrations made before 25 Oct 2026 can have an answer. */
+  accessibilityNeeds: string | null;
   comments: string | null;
   pdpaAcknowledgedAt: Date | null;
   pdpaNoticeVersion: string | null;
@@ -74,6 +76,7 @@ const detailColumns = {
   referralSources: registrationsTable.referralSources,
   referralOther: registrationsTable.referralOther,
   competingTeamCheeredFor: registrationsTable.competingTeamCheeredFor,
+  accessibilityNeeds: registrationsTable.accessibilityNeeds,
   comments: registrationsTable.comments,
   pdpaAcknowledgedAt: registrationsTable.pdpaAcknowledgedAt,
   pdpaNoticeVersion: registrationsTable.pdpaNoticeVersion,

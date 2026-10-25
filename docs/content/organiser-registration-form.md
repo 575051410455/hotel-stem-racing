@@ -56,7 +56,7 @@ Supplied by the organisers as a Google Form draft. This is the source of truth f
 **10. ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (ถ้ามี)**
 เช่น การอำนวยความสะดวกสำหรับผู้ใช้รถเข็น
 ไม่จำเป็นต้องระบุข้อมูลสุขภาพหรือการวินิจฉัยโรค
-[Retired 2026-10-25: no longer on the form. Answers given before then stay in the database.]
+[Retired 2026-10-25: no longer on the form. Answers given before then still show on Registration detail.]
 
 **11. ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม**
 

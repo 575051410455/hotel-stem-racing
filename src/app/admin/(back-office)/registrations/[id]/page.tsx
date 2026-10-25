@@ -254,6 +254,10 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       ),
     },
     { label: "Team cheering for", value: registration.competingTeamCheeredFor },
+    // The form no longer asks this; show it only where an earlier Registration answered it.
+    ...(registration.accessibilityNeeds
+      ? [{ label: "Help needed to attend", value: registration.accessibilityNeeds }]
+      : []),
     { label: "Questions or suggestions", value: registration.comments },
   ];
 

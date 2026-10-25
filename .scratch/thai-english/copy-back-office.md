@@ -194,6 +194,7 @@ Since account-management 02, this form is the "Change password" section of My Ac
 | ชื่อ / นามสกุล / เบอร์โทรศัพท์ / อีเมล | Given name / Family name / Phone / Email |
 | ฐานะการเข้าร่วมงาน / วันเข้าร่วมงาน / ช่องทางที่ทราบข่าว | Attendee Role / Event Days / Referral Sources |
 | ทีมที่ต้องการมาเชียร์ | Team cheering for |
+| ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (only on Registrations that answered it before 25 Oct 2026) | Help needed to attend |
 | ข้อสอบถามหรือข้อเสนอแนะ | Questions or suggestions |
 | ไม่ได้ระบุ | Not given |
 | — (added in English only, 2026-10-25) | PDPA acknowledgment / Acknowledged (Bangkok time) / Event notice version / Policy URL |

@@ -91,6 +91,7 @@ describe("Registration module: detail and delete", () => {
         referralSources: ["line", "other"],
         referralOther: "ป้ายหน้างาน",
         competingTeamCheeredFor: "ทีมสายฟ้า",
+        accessibilityNeeds: null,
         comments: "มากัน 2 คน",
         pdpaAcknowledgedAt: registeredAt,
         pdpaNoticeVersion: PDPA_NOTICE_VERSION,
@@ -117,6 +118,18 @@ describe("Registration module: detail and delete", () => {
     assert.equal(result.registration.pdpaAcknowledgedAt, null);
     assert.equal(result.registration.pdpaNoticeVersion, null);
     assert.equal(result.registration.pdpaPolicyUrl, null);
+  });
+
+  test("an answer to the retired help-needed question is still shown", async () => {
+    const { row } = await register();
+    await database.db
+      .update(registrationsTable)
+      .set({ accessibilityNeeds: "ใช้รถเข็น\nต้องการที่นั่งใกล้ทางเข้า" })
+      .where(eq(registrationsTable.id, row.id));
+
+    const result = await registrationsAt(registeredAt).getRegistrationDetail(row.id);
+    assert.equal(result.status, "found");
+    assert.equal(result.registration.accessibilityNeeds, "ใช้รถเข็น\nต้องการที่นั่งใกล้ทางเข้า");
   });
 
   test("an id with no Registration is not found", async () => {

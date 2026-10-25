@@ -48,7 +48,7 @@ Delivery is phased:
 17. As an Attendee arriving after the last Event Day has ended, I want to see that registration is closed, so that I'm not left with a broken form.
 18. As an Attendee, I want to tick every channel through which I heard about the Event, and type one if it's "Other", so that the organisers learn what works.
 19. As an Attendee, I want to optionally name the Competing Team I'm coming to cheer, so that the organisers know who supports whom.
-20. Retired (2026-10-25): this field is no longer collected.
+20. Retired (2026-10-25): this field is no longer collected. Answers given before then still show on Registration detail.
 21. As an Attendee, I want to leave a question or suggestion, so that I can reach the organisers.
 22. As an Attendee, I want each field's error shown in Thai when I leave the field, and re-checked as I type after an error, so that I can fix mistakes as I go.
 23. As an Attendee, I want required fields clearly marked, so that I know what I must fill in.
