@@ -4,7 +4,7 @@ import { type ExternalToast, toast } from "sonner";
 // Back Office action feedback (spec "Toasts"): the results of resending an Event Pass email, of a
 // bulk send, of a delete and of changing a password, shown by the Toaster the Back Office layout
 // mounts. Check-In results, form validation errors and the list's load errors stay on the page,
-// never in a toast.
+// never in a toast; the one exception is a name that isn't in English (name-toast.ts).
 
 /** About as long as it takes to read a short line; success needs no action. */
 const SUCCESS_MS = 4_000;
@@ -30,6 +30,11 @@ export function toastInfo(title: ReactNode, options?: ToastOptions) {
 export function toastError(title: ReactNode, options?: ToastOptions) {
   if (suppressors > 0) return;
   toast.error(title, { ...options, duration: Infinity, closeButton: true });
+}
+
+/** Closes the toast shown with this `id`, if it is still up. */
+export function dismissToast(id: string) {
+  toast.dismiss(id);
 }
 
 /**

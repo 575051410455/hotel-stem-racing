@@ -13,11 +13,15 @@ const globalForStaffAuth = globalThis as unknown as {
   staffAuthDatabase?: Database;
 };
 
+/** The database both auth instances and the Accounts module use: one connection pool. */
+function staffAuthDatabase(): Database {
+  globalForStaffAuth.staffAuthDatabase ??= createDatabase(readStaffAuthEnv().databaseUrl).db;
+  return globalForStaffAuth.staffAuthDatabase;
+}
+
 function buildStaffAuth(writesCookies: boolean): StaffAuth {
-  const { databaseUrl, secret, baseURL } = readStaffAuthEnv();
-  // Both instances share one connection pool.
-  globalForStaffAuth.staffAuthDatabase ??= createDatabase(databaseUrl).db;
-  return createStaffAuth({ db: globalForStaffAuth.staffAuthDatabase, secret, baseURL, writesCookies });
+  const { secret, baseURL } = readStaffAuthEnv();
+  return createStaffAuth({ db: staffAuthDatabase(), secret, baseURL, writesCookies });
 }
 
 export function staffAuth(): StaffAuth {
@@ -36,5 +40,5 @@ export function staffSessionReader(): StaffAuth {
 
 /** The Accounts module on the app's auth instance, for Back Office Server Actions. */
 export function accounts(): Accounts {
-  return createAccounts(staffAuth());
+  return createAccounts(staffAuth(), staffAuthDatabase());
 }

@@ -1,8 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -10,6 +13,9 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+// Relative, not "@/…", so drizzle-kit needs no path aliases to load this file.
+import { ACCOUNT_CHANGE_ACTIONS, type AccountChange } from "../auth/account-changes";
+import { users } from "./auth-schema";
 
 export const attendeeRole = pgEnum("attendee_role", [
   "parent",
@@ -79,4 +85,39 @@ export const checkIns = pgTable(
     outsideRegisteredDay: boolean().notNull().default(false),
   },
   (table) => [unique().on(table.registrationId, table.eventDay)],
+);
+
+/** What `account_changes.details` holds for each action; null for the actions that have none. */
+type AccountChangeDetails = Extract<AccountChange, { details: unknown }>["details"];
+
+/**
+ * The Account History (account-management ticket 04): one row per Account Change, written by the
+ * Accounts module and the owner's change-password hook (src/lib/auth/account-history.ts), never a
+ * password or its hash. Rows are never edited or deleted, and neither are Accounts (ADR 0004), so
+ * neither reference cascades.
+ */
+export const accountChanges = pgTable(
+  "account_changes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    /** The Account that changed. */
+    accountId: text()
+      .notNull()
+      .references(() => users.id),
+    /** The Account that made the change; null for the server command (`npm run staff`, `npm run seed`). */
+    actorAccountId: text().references(() => users.id),
+    action: text({ enum: ACCOUNT_CHANGE_ACTIONS }).notNull(),
+    /** `{ kind }` for `created`, `{ from, to }` for the `*-changed` actions with values, else null. */
+    details: jsonb().$type<AccountChangeDetails>(),
+    changedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One Account's history, and everyone's, each newest first.
+    index().on(table.accountId, table.changedAt.desc()),
+    index().on(table.changedAt.desc()),
+    check(
+      "account_changes_action_check",
+      sql`${table.action} in (${sql.raw(ACCOUNT_CHANGE_ACTIONS.map((action) => `'${action}'`).join(", "))})`,
+    ),
+  ],
 );

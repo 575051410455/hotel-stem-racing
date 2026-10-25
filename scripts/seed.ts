@@ -4,8 +4,9 @@
 //   docker compose exec app npm run seed          on the server
 //
 // Creates an Admin Account (the whole Back Office, ADR 0004) from SEED_STAFF_EMAIL (required) and
-// SEED_STAFF_NAME (default "เจ้าหน้าที่") with a random password, and prints the password once. The
-// password is never read from env or arguments and never written anywhere else. Does nothing if an
+// SEED_STAFF_NAME (in English; "Admin" when empty) with a random password, and prints it once. The
+// password is never read from env or arguments and never written anywhere else, and the operator
+// must choose their own at the first sign-in (account-management 05). Does nothing if an
 // Admin Account already exists (Staff and Kiosk Accounts don't count); further Accounts, make-admin
 // and resets use `npm run staff`. The env names predate Admin Accounts and are kept for `.env`.
 // Creates no other data.
@@ -20,9 +21,8 @@ import { createDatabase } from "@/lib/db/client";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { randomPassword } from "@/lib/auth/random-password";
 import { createAccounts } from "@/lib/auth/accounts";
+import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
-
-const DEFAULT_NAME = "เจ้าหน้าที่";
 
 class UsageError extends Error {}
 
@@ -33,7 +33,8 @@ function readSeedEnv(env: NodeJS.ProcessEnv = process.env) {
       "SEED_STAFF_EMAIL is not set: add the first Admin Account's email to .env, then run `npm run seed` again.",
     );
   }
-  return { email, name: env.SEED_STAFF_NAME?.trim() || DEFAULT_NAME };
+  // The Accounts module names the first Admin "Admin" when this is empty.
+  return { email, name: env.SEED_STAFF_NAME };
 }
 
 async function main(): Promise<number> {
@@ -45,11 +46,10 @@ async function main(): Promise<number> {
   const { db, close } = createDatabase(databaseUrl);
   try {
     const password = randomPassword();
-    const result = await createAccounts(createStaffAuth({ db, secret, baseURL })).createFirst({
-      email,
-      name,
-      password,
-    });
+    const result = await createAccounts(createStaffAuth({ db, secret, baseURL }), db).createFirst(
+      { email, name, password },
+      "server-command",
+    );
     switch (result.status) {
       case "created":
         console.log(
@@ -59,7 +59,7 @@ async function main(): Promise<number> {
             `  Email:     ${result.email}`,
             `  Password:  ${password}`,
             "",
-            `Sign in at ${baseURL}/admin/login, then change the password at "My Account" in the account menu.`,
+            `Sign in at ${baseURL}/admin/login with it: you'll be asked to choose your own password before anything else.`,
           ].join("\n"),
         );
         return 0;
@@ -78,8 +78,14 @@ async function main(): Promise<number> {
             `\`npm run staff -- make-admin ${email}\`; or set SEED_STAFF_EMAIL to another email. Nothing was changed.`,
         );
         return 1;
+      case "name-too-long":
+        console.error(`SEED_STAFF_NAME is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
+        return 1;
+      case "name-not-english":
+        console.error(`SEED_STAFF_NAME "${name?.trim()}" isn't in English. ${ENGLISH_NAME_MESSAGE} Nothing was changed.`);
+        return 1;
       default:
-        // An empty name falls back to the default, and the generated password is always in range.
+        // An empty name falls back to "Admin", and the generated password is always in range.
         throw new Error(`Unexpected result: ${result.status}. Nothing was changed.`);
     }
   } finally {

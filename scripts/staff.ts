@@ -11,15 +11,20 @@
 // The password is read from a hidden prompt (typed twice), or from STAFF_PASSWORD when set, for
 // non-interactive use: `STAFF_PASSWORD=... npm run staff -- create ...`. Passwords need at least
 // 12 characters for every kind; there are no other rules. A reset or make-admin signs that Account
-// out everywhere. make-admin is also the way back in when no Admin can sign in.
+// out everywhere. make-admin is also the way back in when no Admin can sign in, and it enables a
+// disabled Account (an Admin's too), saying so. A Staff or Admin Account created or reset here must
+// choose its own password at its next sign-in; a Kiosk Account needn't. A reset never enables a
+// disabled Account, and says so. Every change is recorded in the Account History as made by
+// "Server command". Display names are in English, as in the Back Office.
 //
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
 
 import { createDatabase } from "@/lib/db/client";
-import type { AccountKind } from "@/lib/auth/access";
+import { type AccountKind, canChangeOwnPassword } from "@/lib/auth/access";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { type Accounts, createAccounts } from "@/lib/auth/accounts";
+import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
 import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
@@ -29,6 +34,7 @@ const USAGE = `Usage:
   npm run staff -- make-admin <email>                     makes an existing Account an Admin Account
   npm run staff -- reset-password <email>                 any kind
 
+The display name is in English: English letters, digits, spaces, - ' and .
 The password is prompted for (hidden), or read from STAFF_PASSWORD if set.`;
 
 const KIND_LABELS: Record<AccountKind, string> = {
@@ -62,13 +68,24 @@ function parseCommand(args: string[]): Command {
   throw new UsageError(USAGE);
 }
 
+/** Said after a password this command set, when the Account's owner must then choose their own. */
+function chooseOwnPasswordNote(kind: AccountKind, when: "first" | "next") {
+  return canChangeOwnPassword(kind) ? ` At their ${when} sign-in they must choose their own password.` : "";
+}
+
 /** What the new Account can open, said once it is created. */
 function createdMessage(kind: AccountKind, email: string, baseURL: string) {
   switch (kind) {
     case "admin":
-      return `Created the Admin Account ${email}. They can sign in at ${baseURL}/admin/login and use the whole Back Office.`;
+      return (
+        `Created the Admin Account ${email}. They can sign in at ${baseURL}/admin/login and use the whole Back Office.` +
+        chooseOwnPasswordNote(kind, "first")
+      );
     case "staff":
-      return `Created the Staff Account ${email}. They can sign in at ${baseURL}/admin/login: it opens only the check-in desk.`;
+      return (
+        `Created the Staff Account ${email}. They can sign in at ${baseURL}/admin/login: it opens only the check-in desk.` +
+        chooseOwnPasswordNote(kind, "first")
+      );
     case "kiosk":
       return (
         `Created the Kiosk Account ${email}. Sign a Kiosk iPad in with it at ${baseURL}/admin/login: ` +
@@ -128,16 +145,21 @@ function passwordProblemMessage(
 
 /** Makes an existing Account an Admin Account. Needs no password. */
 async function makeAdmin(accounts: Accounts, email: string): Promise<number> {
-  const result = await accounts.makeAdmin(email);
+  const result = await accounts.makeAdmin(email, "server-command");
   switch (result.status) {
     case "promoted":
       console.log(
-        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]}) and signed it out of ` +
-          "every device. It now sees the whole Back Office.",
+        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]})` +
+          (result.enabled ? ", enabled it again (it was disabled)" : "") +
+          " and signed it out of every device. It now sees the whole Back Office.",
       );
       return 0;
     case "already-admin":
-      console.log(`${email} is already an Admin Account. Nothing was changed.`);
+      console.log(
+        result.enabled
+          ? `${email} is already an Admin Account. It was disabled: enabled it again, so it can sign in.`
+          : `${email} is already an Admin Account. Nothing was changed.`,
+      );
       return 0;
     case "not-found":
       console.error(`There is no Account for ${email}. Nothing was changed.`);
@@ -151,12 +173,10 @@ async function create(
   password: string,
   baseURL: string,
 ): Promise<number> {
-  const result = await accounts.create({
-    email: command.email,
-    name: command.name,
-    password,
-    kind: command.accountKind,
-  });
+  const result = await accounts.create(
+    { email: command.email, name: command.name, password, kind: command.accountKind },
+    "server-command",
+  );
   switch (result.status) {
     case "created":
       console.log(createdMessage(result.kind, result.email, baseURL));
@@ -166,6 +186,12 @@ async function create(
       return 1;
     case "invalid-name":
       console.error("The display name is empty. Nothing was changed.");
+      return 1;
+    case "name-too-long":
+      console.error(`The display name is too long: use at most ${result.maxLength} characters. Nothing was changed.`);
+      return 1;
+    case "name-not-english":
+      console.error(`${ENGLISH_NAME_MESSAGE} Nothing was changed.`);
       return 1;
     case "email-taken":
       console.error(
@@ -179,15 +205,28 @@ async function create(
   }
 }
 
+/**
+ * Sets the password of the Account with this email, any kind, the operator's own included: rules
+ * about yourself don't apply to the server command.
+ */
 async function resetPassword(accounts: Accounts, email: string, password: string): Promise<number> {
-  const result = await accounts.resetPassword({ email, password });
+  const account = await accounts.getByEmail(email);
+  const result = account && (await accounts.setPassword(account.id, password, "server-command"));
+  if (!result || result.status === "not-found") {
+    console.error(`There is no Account for ${email}. Nothing was changed.`);
+    return 1;
+  }
   switch (result.status) {
-    case "password-reset":
-      console.log(`Reset the password for the ${KIND_LABELS[result.kind]} ${email} and signed it out of every device.`);
+    case "password-set":
+      console.log(
+        `Reset the password for the ${KIND_LABELS[result.kind]} ${result.email} and signed it out of every device.` +
+          chooseOwnPasswordNote(result.kind, "next") +
+          (result.staysDisabled ? " It stays disabled: it can't sign in until an Admin enables it again." : ""),
+      );
       return 0;
-    case "not-found":
-      console.error(`There is no Account for ${email}. Nothing was changed.`);
-      return 1;
+    case "own-account":
+      // Only an Account actor has an Account of its own; the server command has none.
+      throw new Error("The server command was refused as the Account's owner");
     default:
       console.error(passwordProblemMessage(result));
       return 1;
@@ -226,7 +265,7 @@ async function main(): Promise<number> {
   const run = await prepare(command, baseURL);
   const { db, close } = createDatabase(databaseUrl);
   try {
-    return await run(createAccounts(createStaffAuth({ db, secret, baseURL })));
+    return await run(createAccounts(createStaffAuth({ db, secret, baseURL }), db));
   } finally {
     await close();
   }

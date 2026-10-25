@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import * as authSchema from "@/lib/db/auth-schema";
 import { ACCOUNT_KINDS, canChangeOwnPassword, isAccountKind } from "./access";
+import { recordAccountChange } from "./account-history";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./password-rules";
 
 /**
@@ -29,7 +31,7 @@ export type StaffAuthConfig = {
 };
 
 /**
- * Builds the Better Auth instance for Account sign-in (Staff and Kiosk Accounts) on the given database.
+ * Builds the Better Auth instance for Account sign-in (Admin, Staff and Kiosk Accounts) on the given database.
  * The app builds one from env in `src/lib/auth/server.ts`; tests, `scripts/staff.ts` and
  * `scripts/seed.ts` build their own.
  */
@@ -41,21 +43,61 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
     database: drizzleAdapter(db, { provider: "pg", schema: authSchema, usePlural: true }),
     emailAndPassword: {
       enabled: true,
-      // Accounts are created only by the server command (ADR 0001).
+      // No sign-up: Accounts are created only through the Accounts module, by an Admin on the Back
+      // Office's New Account page or with the server command (ADR 0001, ADR 0004).
       disableSignUp: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
     },
     user: {
       additionalFields: {
-        // Staff Account or Kiosk Account (`users.kind`, ADR 0003), returned on every session.
+        // Admin, Staff or Kiosk Account (`users.kind`, ADR 0003, ADR 0004), returned on every session.
         // `input: false`: no request can set it, not even /update-user from a signed-in Kiosk.
         kind: { type: [...ACCOUNT_KINDS], required: true, defaultValue: "staff", input: false },
+        // Part 2 (account-management ticket 03), also returned on every session and never set from
+        // a request. Only the Accounts module and the hooks below write them.
+        mustChangePassword: { type: "boolean", required: true, defaultValue: false, input: false },
+        disabledAt: { type: "date", required: false, input: false },
+        lastSignedInAt: { type: "date", required: false, input: false },
       },
     },
     session: {
       expiresIn: SESSION_LIFETIME_SECONDS,
       updateAge: 60 * 60 * 24,
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // A disabled Account can't sign in (account-management ticket 08): its new session is
+          // refused. Better Auth creates it only after the password matched, so a wrong password
+          // still gets the usual "wrong email or password", and only someone who knows the password
+          // learns that the Account is disabled (ADR 0004). Every new session comes through here, a
+          // password change's fresh one too. Read straight from the table, like `.after`.
+          before: async (session) => {
+            const [user] = await db
+              .select({ disabledAt: authSchema.users.disabledAt })
+              .from(authSchema.users)
+              .where(eq(authSchema.users.id, session.userId));
+            if (user?.disabledAt) {
+              throw APIError.from("FORBIDDEN", {
+                message: "This Account is disabled. Ask an Admin to turn it back on.",
+                code: "ACCOUNT_DISABLED",
+              });
+            }
+          },
+          // Last sign-in (account-management ticket 03): set as each session is created, for every
+          // kind of Account, so an unused Kiosk iPad shows up like an unused helper. A wrong password
+          // never gets here, and neither does a disabled Account, refused in `.before`. Changing a
+          // password starts a fresh session too, which counts: its owner is there. Written straight
+          // to the table: the endpoint context, and with it the internal adapter, can be null here.
+          after: async (session) => {
+            await db
+              .update(authSchema.users)
+              .set({ lastSignedInAt: session.createdAt })
+              .where(eq(authSchema.users.id, session.userId));
+          },
+        },
+      },
     },
     rateLimit: {
       // Better Auth turns this off outside production by default; keep it on everywhere so dev and
@@ -73,8 +115,8 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
     },
     hooks: {
       // Better Auth lets any signed-in Account change its own name (and image) at /update-user.
-      // Names change only through the Accounts module (My Account, ADR 0004), so this refuses the
-      // endpoint for everyone, signed in or not.
+      // Names change only through the Accounts module (My Account, an Account's page; ADR 0004), so
+      // this refuses the endpoint for everyone, signed in or not.
       //
       // Better Auth also lets any signed-in Account change its password. A Kiosk Account may not
       // (ADR 0003): My Account (/admin/account) already sends it back to the Kiosk, and this refuses the
@@ -93,10 +135,25 @@ export function createStaffAuth({ db, secret, baseURL, writesCookies = true }: S
         const { kind } = session.user as { kind?: unknown };
         if (!isAccountKind(kind) || !canChangeOwnPassword(kind)) {
           throw APIError.from("FORBIDDEN", {
-            message: "This Account's password is changed with the server command",
+            message: "This Account's password is set by an Admin",
             code: "PASSWORD_CHANGE_NOT_ALLOWED",
           });
         }
+      }),
+      // The owner's own password change (My Account). Now only its owner knows the password, so it
+      // no longer has to choose its own (`must_change_password`, account-management 05): cleared
+      // first, so its owner isn't held at My Account even if recording fails. It is then an Account
+      // Change like any other: recorded as `password-changed`, with the owner as actor. A refused or
+      // failed change (wrong current password, a Kiosk Account, signed out) returns an error, so the
+      // flag stays and nothing is recorded. Never the password.
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password") return;
+        const returned: unknown = ctx.context.returned;
+        if (!returned || isAPIError(returned)) return;
+        const ownerId = (returned as { user?: { id?: unknown } }).user?.id;
+        if (typeof ownerId !== "string") throw new Error("The changed password's Account is unknown, so it isn't recorded");
+        await db.update(authSchema.users).set({ mustChangePassword: false }).where(eq(authSchema.users.id, ownerId));
+        await recordAccountChange(db, ownerId, { action: "password-changed" }, { accountId: ownerId });
       }),
     },
     telemetry: { enabled: false },

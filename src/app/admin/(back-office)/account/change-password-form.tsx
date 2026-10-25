@@ -1,13 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { staffAuthClient } from "@/lib/auth/client";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
+import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../_shell/form-messages";
 import { toastSuccess } from "../_shell/toasts";
-import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "./form-messages";
 
 type FieldName = "currentPassword" | "newPassword" | "confirmation";
 
@@ -56,8 +57,11 @@ function failureProblems({ status, code, retryAfterSeconds }: ChangeFailure, new
  * Staff (a Staff or Admin Account) change their own password, on My Account. It goes from the
  * browser to Better Auth's change-password endpoint, like sign-in, so it is rate-limited, and it
  * signs every other device out; this one gets a fresh session cookie and stays signed in.
+ * `homeAfterChange`: where to go once it's changed, given while the Account must choose its own
+ * password (someone else set it); otherwise the form stays on My Account.
  */
-export function ChangePasswordForm({ email }: { email: string }) {
+export function ChangePasswordForm({ email, homeAfterChange }: { email: string; homeAfterChange?: string }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const ids = { form: useId(), hint: useId(), warning: useId() };
   const [problems, setProblems] = useState<Problems>({});
@@ -115,6 +119,11 @@ export function ChangePasswordForm({ email }: { email: string }) {
     }
     formRef.current?.reset();
     toastSuccess("Password changed");
+    // The server cleared the flag: on to the Account's home. The sidebar sits in a layout, which a
+    // navigation doesn't read again, so the refresh below brings back its page links.
+    if (homeAfterChange) router.replace(homeAfterChange);
+    // The other devices are signed out and this one has a new session: read Signed-in devices again.
+    router.refresh();
   }
 
   function fieldProps(name: FieldName, describedBy?: string) {

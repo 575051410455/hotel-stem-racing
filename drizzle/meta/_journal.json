@@ -29,6 +29,20 @@
       "when": 1792815085632,
       "tag": "0003_admin_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792850400235,
+      "tag": "0004_account-management",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792851674538,
+      "tag": "0005_account-history",
+      "breakpoints": true
     }
   ]
 }
