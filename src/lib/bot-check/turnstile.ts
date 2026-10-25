@@ -62,7 +62,7 @@ export function createTurnstileVerifier(options: {
 
       try {
         const body = new URLSearchParams({ secret: secretKey, response: token });
-        // Only a real address helps Cloudflare; the "unknown" fallback key would be noise.
+        // Only a real address helps Cloudflare, and X-Real-IP arrives unchecked.
         if (remoteIp && isIP(remoteIp)) body.set("remoteip", remoteIp);
 
         const response = await (options.fetch ?? fetch)(SITEVERIFY_URL, {

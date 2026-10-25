@@ -20,12 +20,12 @@
 // Runs in the production image (`docker compose exec app npm run staff -- ...`), so it imports only
 // runtime dependencies and nothing that uses `server-only`. CommonJS: no top-level await.
 
-import { createDatabase } from "@/lib/db/client";
 import { type AccountKind, canChangeOwnPassword } from "@/lib/auth/access";
+import type { Accounts } from "@/lib/auth/accounts";
+import { openCommandAccounts } from "@/lib/auth/command-accounts";
 import { readStaffAuthEnv } from "@/lib/auth/env";
-import { type Accounts, createAccounts } from "@/lib/auth/accounts";
+import { KIND_LABELS } from "@/lib/auth/kind-labels";
 import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
-import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 const USAGE = `Usage:
   npm run staff -- create <email> <display name>          a Staff Account (the check-in desk only)
@@ -37,11 +37,10 @@ const USAGE = `Usage:
 The display name is in English: English letters, digits, spaces, - ' and .
 The password is prompted for (hidden), or read from STAFF_PASSWORD if set.`;
 
-const KIND_LABELS: Record<AccountKind, string> = {
-  admin: "Admin Account",
-  staff: "Staff Account",
-  kiosk: "Kiosk Account",
-};
+/** "Admin Account", "Staff Account" or "Kiosk Account" (GLOSSARY), from the Back Office's names. */
+function accountLabel(kind: AccountKind) {
+  return `${KIND_LABELS[kind]} Account`;
+}
 
 const CREATE_SUBCOMMANDS: Record<string, AccountKind> = {
   create: "staff",
@@ -149,7 +148,7 @@ async function makeAdmin(accounts: Accounts, email: string): Promise<number> {
   switch (result.status) {
     case "promoted":
       console.log(
-        `Made ${email} an Admin Account (it was a ${KIND_LABELS[result.from]})` +
+        `Made ${email} an Admin Account (it was a ${accountLabel(result.from)})` +
           (result.enabled ? ", enabled it again (it was disabled)" : "") +
           " and signed it out of every device. It now sees the whole Back Office.",
       );
@@ -219,7 +218,7 @@ async function resetPassword(accounts: Accounts, email: string, password: string
   switch (result.status) {
     case "password-set":
       console.log(
-        `Reset the password for the ${KIND_LABELS[result.kind]} ${result.email} and signed it out of every device.` +
+        `Reset the password for the ${accountLabel(result.kind)} ${result.email} and signed it out of every device.` +
           chooseOwnPasswordNote(result.kind, "next") +
           (result.staysDisabled ? " It stays disabled: it can't sign in until an Admin enables it again." : ""),
       );
@@ -261,11 +260,11 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const { databaseUrl, secret, baseURL } = readStaffAuthEnv();
-  const run = await prepare(command, baseURL);
-  const { db, close } = createDatabase(databaseUrl);
+  const authEnv = readStaffAuthEnv();
+  const run = await prepare(command, authEnv.baseURL);
+  const { accounts, close } = openCommandAccounts(authEnv);
   try {
-    return await run(createAccounts(createStaffAuth({ db, secret, baseURL }), db));
+    return await run(accounts);
   } finally {
     await close();
   }

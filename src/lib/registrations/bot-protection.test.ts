@@ -39,7 +39,7 @@ describe("Bot protection on submitting a Registration", () => {
 
     const result = await registrations.submit(attendee, {
       botCheckToken: "turnstile-token",
-      remoteIp: "203.0.113.7",
+      ...fromIp("203.0.113.7"),
     });
 
     assert.deepEqual(result, { status: "bot-check-failed" });
@@ -58,16 +58,16 @@ describe("Bot protection on submitting a Registration", () => {
     const registrations = createRegistrations({ db: database.db, clock: beforeTheEvent, botCheck: failingBotCheck });
 
     for (let n = 0; n < 300; n++) {
-      const result = await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "203.0.113.7" });
+      const result = await registrations.submit(attendee, { botCheckToken: "junk", ...fromIp("203.0.113.7") });
       assert.deepEqual(result, { status: "bot-check-failed" }, `attempt ${n + 1}`);
     }
     assert.deepEqual(
-      await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "203.0.113.7" }),
+      await registrations.submit(attendee, { botCheckToken: "junk", ...fromIp("203.0.113.7") }),
       { status: "rate-limited" },
     );
     assert.equal(checks, 300);
     assert.deepEqual(
-      await registrations.submit(attendee, { botCheckToken: "junk", remoteIp: "198.51.100.20" }),
+      await registrations.submit(attendee, { botCheckToken: "junk", ...fromIp("198.51.100.20") }),
       { status: "bot-check-failed" },
     );
     assert.equal(await savedRegistrations(), 0);
@@ -85,7 +85,7 @@ describe("Bot protection on submitting a Registration", () => {
 
     const result = await registrations.submit(attendee, {
       botCheckToken: "turnstile-token",
-      remoteIp: "203.0.113.7",
+      ...fromIp("203.0.113.7"),
     });
 
     assert.equal(result.status, "accepted");
@@ -97,8 +97,8 @@ describe("Bot protection on submitting a Registration", () => {
     let now = new Date("2026-10-22T12:00:00+07:00");
     const registrations = createRegistrations({ db: database.db, clock: () => now });
     // A different phone each time, so none of these is a Duplicate Registration.
-    const submitFrom = (remoteIp: string, n: number) =>
-      registrations.submit({ ...attendee, phone: `081-234-${5600 + n}` }, { remoteIp });
+    const submitFrom = (ip: string, n: number) =>
+      registrations.submit({ ...attendee, phone: `081-234-${5600 + n}` }, fromIp(ip));
 
     // A queue at the door on the venue Wi-Fi: 60 Attendees five seconds apart, all one IP.
     for (let n = 0; n < 60; n++) {
@@ -117,6 +117,9 @@ describe("Bot protection on submitting a Registration", () => {
 });
 
 const beforeTheEvent = () => new Date("2026-10-22T12:00:00+07:00");
+
+/** A submission from this IP, as the public form's Server Action passes it along. */
+const fromIp = (ip: string) => ({ clientIp: ip, rateLimitKey: ip });
 
 const attendee: RegistrationForm = {
   givenName: "วิชัย",

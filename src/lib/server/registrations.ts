@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { createTurnstileBotCheck } from "@/lib/bot-check/turnstile";
-import { createDatabase } from "@/lib/db/client";
+import { createDatabase, databaseUrlFrom } from "@/lib/db/client";
 import { createSmtpEmailSender } from "@/lib/email/smtp-sender";
 import { passLink } from "@/lib/registrations/event-pass-codec";
 import { createRegistrations, type Registrations } from "@/lib/registrations/registrations";
@@ -14,9 +14,7 @@ const globalForRegistrations = globalThis as unknown as {
 
 export function registrations(): Registrations {
   if (!globalForRegistrations.registrations) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is not set");
-    const { db } = createDatabase(url);
+    const { db } = createDatabase(databaseUrlFrom(process.env));
     globalForRegistrations.registrations = createRegistrations({
       db,
       // The no-op unconfiguredEmailSender when SMTP_USER is empty. Built once: one SMTP pool.

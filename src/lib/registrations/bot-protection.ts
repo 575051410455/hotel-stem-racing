@@ -6,11 +6,14 @@
 export type SubmissionContext = {
   /** The Turnstile response token the widget put in the form. */
   botCheckToken?: string;
+  /** The visitor's IP, which nginx restores from Cloudflare's header (X-Real-IP), when known. */
+  clientIp?: string;
   /**
-   * The client IP nginx restored from Cloudflare's header (X-Real-IP), or a fixed fallback key.
-   * Submissions without one (scripts, tests) are not rate limited.
+   * What the per-IP limits count this submission against: the client IP, or one key shared by
+   * every request that arrives without one. Submissions without a key (scripts, tests) are not
+   * rate limited.
    */
-  remoteIp?: string;
+  rateLimitKey?: string;
 };
 
 // Generous on purpose: Turnstile is the bot defence, and many real Attendees share one IP

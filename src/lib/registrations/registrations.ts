@@ -196,13 +196,13 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
       // siteverify calls. Then the bot check before the tighter rate limit, so only verified
       // submissions use up an IP's allowance: bots on a shared IP (venue Wi-Fi, carrier NAT)
       // can't lock real Attendees out.
-      if (context.remoteIp !== undefined && !attemptLimiter.tryAcquire(context.remoteIp, now)) {
+      if (context.rateLimitKey !== undefined && !attemptLimiter.tryAcquire(context.rateLimitKey, now)) {
         return { status: "rate-limited" };
       }
-      if (!(await deps.botCheck.verify(context.botCheckToken, context.remoteIp))) {
+      if (!(await deps.botCheck.verify(context.botCheckToken, context.clientIp))) {
         return { status: "bot-check-failed" };
       }
-      if (context.remoteIp !== undefined && !rateLimiter.tryAcquire(context.remoteIp, now)) {
+      if (context.rateLimitKey !== undefined && !rateLimiter.tryAcquire(context.rateLimitKey, now)) {
         return { status: "rate-limited" };
       }
 
