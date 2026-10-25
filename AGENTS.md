@@ -11,7 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Project conventions
 
 - Spec: `.scratch/stem-racing-registration-v1/spec.md`; tickets in `.scratch/stem-racing-registration-v1/issues/`. Use `GLOSSARY.md` terms in code, tests and UI copy.
-- Commands: `npm run typecheck` (runs `next typegen` first), `npm run lint`, `npm test`, `npm run build`. All four must pass before a commit.
+- Commands: `npm run typecheck` (runs `next typegen` first), `npm run lint`, `npm test`, `npm run build`. All four must pass before a commit. CI (`.github/workflows/ci.yml`) reruns them on every push and also builds the Docker image.
 - Tests: Node's test runner through tsx, files named `*.test.ts` under `src/`. Test only at the agreed seams: the Registration module (against a real database from `src/test-support/database.ts`, which creates and drops a fresh database per test file; call its `reset()` in `beforeEach`) and the pure modules named in the spec. Fake only boundaries: email sender, bot-check verifier, clock.
 - The repo lives in iCloud-synced `~/Documents/Web Developer/hotel-stem-racing`. `node_modules`, `.next` and `.claude/worktrees` are excluded from sync by `scripts/icloud-exclude.mjs` (it runs on `postinstall`; run `npm run icloud:exclude` if you recreate one of them by hand). Never rename them to `*.nosync` with a symlink: Next.js relies on `/node_modules/` in package paths.
 - Local Postgres 17 (Homebrew) runs without a password for the current macOS user; binaries are in `/opt/homebrew/opt/postgresql@17/bin`.
