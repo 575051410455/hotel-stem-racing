@@ -22,7 +22,7 @@ Accounts are disabled, never deleted.
 
 **Two parts, two timings:**
 - **Part 1, before the Event:** tickets 01–02, merged into `main` by **28 October 2026**. It covers the Admin Account kind, check-in-only Staff Accounts, My Account, and the commands. It goes **before** the English Back Office (thai-english 06–09). Both must reach `main` by 28 October: the whole Back Office is in English at the Event.
-- **Part 2, after the Event:** tickets 03–13, on the integration branch `account-management`, merged into `main` after 1 November 2026. Work on the branch started on 24 October 2026; nothing reaches `main` before 2 November. It covers the Accounts pages, the Account History, forced password change, and creating, editing, disabling and enabling Accounts. Since the second grilling (24 October 2026, below) it also covers each Account's last sign-in, the owner's signed-in devices, generated passwords, and Account names in English. The Back Office is frozen from 29 October to 1 November.
+- **Part 2, after the Event:** tickets 03–13, on the integration branch `account-management`, merged into `main` after 1 November 2026. Work on the branch started on 24 October 2026; nothing reaches `main` before 2 November. It covers the Accounts pages, the Account History, forced password change, and creating, editing, disabling and enabling Accounts. Since the second grilling (24 October 2026, below) it also covers each Account's last sign-in, the owner's signed-in devices, generated passwords, and Account names in English. The Back Office is frozen from 29 October to 1 November. _(changed 2026-10-25: Part 2 was merged into `main` on 25 October and ships with the next deploy, before the Event; recorded in ADR 0004. The freeze still applies.)_
 - **Copy:** all new Back Office copy is English.
 - **Contingency:** if thai-english ticket 10 can't merge by 28 October, Part 1's new strings are translated to Thai on `main` before the freeze, so the Back Office never ships half Thai, half English. The thai-english spec's rule still holds.
 
@@ -535,7 +535,7 @@ The second grilling (24 October 2026) mapped the blueprint onto this design. Bet
 - **Part 2:**
   - started on 24 October 2026 on `account-management`, branching from `main`;
   - tickets in this order: 03, 04, 05, 06, 07, then 08, 11 and 12, then 13. 09 and then 10 run alongside, since they need only 02. 11 adds the English-name rule to the forms from 06, 07 and 02; 13 uses 11's rule for its initials;
-  - merged into `main` after 1 November, once 08, 10, 12 and 13 are done.
+  - merged into `main` after 1 November, once 08, 10, 12 and 13 are done _(changed 2026-10-25: merged on 25 October, before the Event)_.
 - **The User Manager Blueprint:** the organisers' notes from hotel-e-voucher, at https://claude.ai/artifact/L8g4M7T7dSCZjg5DBmYA3W. The second grilling took last sign-in, avatars and Badges, generated passwords, enabling without confirmation and signed-in devices from it. English names came up in that grilling. Everything else is under "Out of Scope".
 - **Operator guide:** when Part 2 merges, `docs/deploy-guide/index.html` and `.env.example` get the new seed default ("Admin") and the English-name rule for the commands.
 - **Deploy (Part 1):**

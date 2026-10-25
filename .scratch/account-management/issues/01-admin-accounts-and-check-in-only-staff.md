@@ -134,3 +134,7 @@ Done on branch `account-01-admin-accounts`.
   - `make-admin` on an unknown email, and on an Admin ("already");
   - `seed` on a fresh database (creates), again (skips), and with a Staff Account's email (suggests `make-admin`).
 - **Local demo database `stem_racing`:** migrated, and `staff@local.test` is now an Admin Account.
+
+## Comments
+
+- 2026-10-25: Story 18's note, that an existing Staff Account sees only the desk until `make-admin`, was lost when `f842cde` replaced `docs/deploy.md` with the HTML guide. It is back in section 6 of `docs/deploy-guide/index.html` and in `docs/deploy.md`.

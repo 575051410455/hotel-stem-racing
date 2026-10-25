@@ -96,3 +96,4 @@ Done on branch `staff-02-seed`.
     - With `SEED_STAFF_EMAIL`: it printed ".env not found. Continuing without it." (as `docs/deploy.md` says), created the Account and printed the password.
     - Run again: skipped.
   - **Still to do on the server:** run `docker compose exec app npm run seed` once against the real image, and check that the password is not in `docker compose logs app`.
+- 2026-10-25: Done on the real image: `docker compose exec app npm run seed` creates the first Admin Account, a second run creates nothing, and `docker compose logs app` doesn't contain the password (checked in Docker in the CI/CD review: the production image built with `docker compose build` and run with `db`, `app` and `nginx`, with requests sent as `cloudflared` would (no Cloudflare)). The operator guide now gives that log check.

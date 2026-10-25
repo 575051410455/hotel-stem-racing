@@ -51,3 +51,7 @@ Done in commit "fix(event-pass): unknown Event Pass links return 404 …".
   - **`next dev`:** same three results.
 - The not-found copy only appears in the real-token response inside the RSC payload script, not in visible HTML.
 - **On the server:** after deploy, `curl -sI https://<domain>/p/00000000-0000-4000-8000-000000000000` should answer 404, and a real pass link 200.
+
+## Comments
+
+- 2026-10-25: An unknown Event Pass link answers 404 through nginx (checked in Docker in the CI/CD review: the production image built with `docker compose build` and run with `db`, `app` and `nginx`, with requests sent as `cloudflared` would (no Cloudflare)). The check after a deploy is now step 5 of `docs/deploy-guide/index.html`.

@@ -305,10 +305,11 @@ Decision-level, not final column names:
 - **Staff auth**: Better Auth's own tables (users, sessions, accounts, verifications).
 
 ### Deployment
-- Docker Compose on Ubuntu with three services:
+- Docker Compose on Ubuntu with four services _(three until 2026-10-24, when ADR 0005 added `cloudflared`)_:
   - **app**: Next.js standalone output
   - **db**: PostgreSQL 17 on a named volume
   - **nginx**: reverse proxy with a Cloudflare Origin Certificate behind Cloudflare's proxy, restoring the real client IP from Cloudflare's forwarded header for Cloudflare's IP ranges _(changed 2026-10-24: behind a Cloudflare Tunnel, trusting the header only from `cloudflared`; ADR 0005)_
+  - **cloudflared**: keeps the Cloudflare Tunnel open, so the server publishes no port (ADR 0005)
 - Environment variables, documented in an example file:
   - `APP_URL`
   - `DATABASE_URL`
@@ -317,7 +318,9 @@ Decision-level, not final column names:
   - SMTP host, port, user and password
   - `EMAIL_FROM`
   - `NEXT_PUBLIC_CONTACT_LINE` and `NEXT_PUBLIC_CONTACT_PHONE`
+  - `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` _(added 2026-10-25)_: a fixed key for the Docker build, so Server Action IDs survive a deploy and open Kiosk and check-in pages keep working
 - Local development uses Homebrew PostgreSQL 17 (there is no Docker on the dev machine).
+- CI _(added 2026-10-25)_: GitHub Actions runs the four gates (typecheck, lint, test, build) and builds the Docker image on every push. Deploying stays manual: the server pulls and builds.
 
 ### Phasing
 - **Phase 1, live 23 Oct:**
