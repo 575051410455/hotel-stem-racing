@@ -77,3 +77,11 @@ So `npm run <name>` works exactly as it does locally, and tsx resolves `@/` from
 - HTTPS works through Cloudflare Full (strict), and HTTP returns 301
 - nginx access lines show the visitor's IP followed by `via <Cloudflare IP>`
 - `npm run staff` and `npm run email:test` work via `docker compose exec`
+
+## Comments
+
+- **2026-10-25, CI/CD review:**
+  - **Superseded by ADR 0005 (Cloudflare Tunnel, 2026-10-24):** the Origin Certificate, HTTPS on nginx, Cloudflare's IP ranges, `cloudflare-realip.conf`, `update-cloudflare-ips.sh`, "IPv4 only", Full (strict) and "via <Cloudflare IP>" above. nginx now trusts `CF-Connecting-IP` only from `cloudflared`, logs "via 10.203.47.2", and has no published port. The current steps are in `docs/deploy-guide/index.html`.
+  - **"Verify on the server", checked in Docker instead** (the production image built with `docker compose build` and run with `db`, `app` and `nginx`; requests sent as `cloudflared` would, without Cloudflare): `docker compose config` valid; migrations on start, then `db` and `app` healthy; `nginx -t` passes; plain HTTP gets 301; the access log shows the visitor's IP "via 10.203.47.2" and ignores the header from any other peer; `npm run seed` and `npm run staff` work through `docker compose exec`.
+  - **Still only on the real server:** the tunnel connection and hostname, the Cloudflare settings, the real Turnstile keys, sending email, and the devices at the door.
+  - **Changed:** a fixed `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` from `.env` for the build (Server Action IDs survive a deploy); nginx config is now `deploy/nginx/templates/default.conf.template`, with `cloudflared`'s address from `docker-compose.yml`, `max_fails=0` and `valid=1s` (a redeploy cost about 2 s of 502s in most Docker runs, up to 8 s in two, instead of 11 s every time); CI in `.github/workflows/ci.yml`.

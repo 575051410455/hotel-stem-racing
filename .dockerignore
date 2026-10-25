@@ -13,6 +13,8 @@ npm-debug.log*
 deploy
 *.pem
 *.key
+# Database backups hold every Registration. The operator guide keeps them in ~/backups.
+*.dump
 
 # Not needed to build or run the app.
 .agents

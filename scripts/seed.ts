@@ -17,12 +17,10 @@
 // Runs in the production image, so it imports only runtime dependencies and nothing that uses
 // `server-only`. CommonJS: no top-level await.
 
-import { createDatabase } from "@/lib/db/client";
+import { openCommandAccounts } from "@/lib/auth/command-accounts";
 import { readStaffAuthEnv } from "@/lib/auth/env";
 import { randomPassword } from "@/lib/auth/random-password";
-import { createAccounts } from "@/lib/auth/accounts";
 import { ENGLISH_NAME_MESSAGE } from "@/lib/auth/name-rules";
-import { createStaffAuth } from "@/lib/auth/staff-auth";
 
 class UsageError extends Error {}
 
@@ -42,14 +40,12 @@ async function main(): Promise<number> {
     throw new UsageError("npm run seed takes no arguments: it reads SEED_STAFF_EMAIL and SEED_STAFF_NAME from .env.");
   }
   const { email, name } = readSeedEnv();
-  const { databaseUrl, secret, baseURL } = readStaffAuthEnv();
-  const { db, close } = createDatabase(databaseUrl);
+  const authEnv = readStaffAuthEnv();
+  const { baseURL } = authEnv;
+  const { accounts, close } = openCommandAccounts(authEnv);
   try {
     const password = randomPassword();
-    const result = await createAccounts(createStaffAuth({ db, secret, baseURL }), db).createFirst(
-      { email, name, password },
-      "server-command",
-    );
+    const result = await accounts.createFirst({ email, name, password }, "server-command");
     switch (result.status) {
       case "created":
         console.log(

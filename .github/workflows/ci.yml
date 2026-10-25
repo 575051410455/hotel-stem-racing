@@ -1,0 +1,70 @@
+# The four gates from AGENTS.md (typecheck, lint, test, build), plus the production Docker image
+# and its Compose and nginx configuration, on every push. Nothing here deploys: the server still
+# pulls and builds itself (docs/deploy-guide/index.html).
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Typecheck, lint, test and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      # The same PostgreSQL as production. Each test file creates and drops its own database.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          # The Node version of the Docker image (Dockerfile).
+          node-version: 24.22.1
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    name: Docker image, Compose and nginx
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # Placeholders for the variables Compose requires; nothing is started that uses them.
+      POSTGRES_PASSWORD: ci
+      CLOUDFLARE_TUNNEL_TOKEN: ci
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check docker-compose.yml and the nginx configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose run --rm --no-deps nginx nginx -t
+      - name: Build the app image as a deploy does
+        run: |
+          # Any valid key will do: this only checks that the image builds.
+          export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+          docker compose build app

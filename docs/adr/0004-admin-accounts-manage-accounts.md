@@ -26,3 +26,5 @@ At the entrance, looking an Attendee up by name and re-sending an Event Pass sta
 - **Disabled Accounts:** they are refused at session creation, after the password is checked, so sign-in doesn't reveal which emails have Accounts.
 
 **Timing:** the split of Staff and Admin Accounts ships before the Event (by 28 October 2026). Managing Accounts from the Back Office ships after it, because the Back Office is frozen from 29 October to 1 November.
+
+_Timing changed (2026-10-25): Part 2, managing Accounts from the Back Office, was merged into `main` on 25 October and ships with the next deploy, before the Event. The freeze from 29 October to 1 November still applies._

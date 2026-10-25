@@ -132,3 +132,7 @@ The Accounts module still makes every decision about the Account (email taken, n
 - **11:** the English-name rule goes into `create` next to the length check (`checkNewAccount`), and into the form's `checkInput` beside `NAME_EMPTY`/`NAME_TOO_LONG`, with the "In English" hint under Name.
 - **12:** Generate, Copy and show/hide go on the Password and Confirm fields here. The note for Staff and Admin is already next to them, above the button.
 - **13:** nothing here; the list keeps its rows.
+
+## Comments
+
+- 2026-10-25: Part 2 is on `main`, so the operator guide now mentions the Accounts pages, New Account included (section 6).

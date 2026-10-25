@@ -252,3 +252,7 @@ The Accounts module still makes every decision about the Account.
 - **13 (avatars and Badges):**
   - The header block is the top of `AdminOnlyAccount` in `[id]/page.tsx`: the `h1` name, the email, and a `dl` with Kind, Status and Last sign-in. Put the avatar beside the `h1`, and Badges in place of the Kind and Status text.
   - In the list, the name cell is now a `Link`, and in the stacked list a stretched one.
+
+## Comments
+
+- 2026-10-25: Part 2 is on `main`. The operator guide now covers editing an Account and setting its password in the Back Office, and says that `reset-password` leaves a disabled Account disabled (section 6).

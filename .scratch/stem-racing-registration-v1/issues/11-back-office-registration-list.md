@@ -124,3 +124,7 @@ type RegistrationSearchResult = {
   - No console messages.
   - Layout at 1280 px and 390 px (iframes, as the window couldn't be resized): no page-level horizontal scroll; at 390 px the table scrolls inside its container.
 - TanStack Table v9 dev warnings: driving the same features and columns through `constructTable` with `NODE_ENV=development` logged none.
+
+## Comments
+
+- 2026-10-25: The operator note's ICU check passes in `postgres:17-alpine`: `th-TH-x-icu` exists (checked in Docker in the CI/CD review: the production image built with `docker compose build` and run with `db`, `app` and `nginx`, with requests sent as `cloudflared` would (no Cloudflare)).
