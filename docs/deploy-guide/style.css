@@ -217,7 +217,9 @@ table.kv th { width: 40%; font-weight: 600; }
 
 /* ---- Tasks ---- */
 
-ol.tasks { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+/* minmax(0, 1fr) here and in dl.ops, as in .layout: a long command scrolls inside its code block
+   instead of widening the step, and with it the page. */
+ol.tasks { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .task { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
 .task.done { border-color: var(--done); }
 .check { display: flex; gap: 12px; align-items: flex-start; font-weight: 600; cursor: pointer; }
@@ -265,7 +267,7 @@ pre.has-copy { padding-top: 40px; }
 
 /* ---- Day-to-day ---- */
 
-dl.ops { margin: 0; display: grid; gap: 4px; }
+dl.ops { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 dl.ops dt { font-weight: 700; margin-top: 12px; }
 dl.ops dt.danger { color: var(--danger); }
 dl.ops dd { margin: 0; }

@@ -100,7 +100,7 @@
             <thead><tr><th>Service</th><th>Image</th><th>What it does</th></tr></thead>
             <tbody>
               <tr><td><code>cloudflared</code></td><td><code>cloudflare/cloudflared:2026.10.0</code></td><td>Keeps outbound connections open to Cloudflare's edge and passes each request for your hostname to nginx. It sits alone with nginx on the private <code>tunnel</code> network.</td></tr>
-              <tr><td><code>nginx</code></td><td><code>nginx:1.30.6-alpine</code></td><td>Restores the visitor's IP from Cloudflare's <code>CF-Connecting-IP</code> header, but only when the request comes from <code>cloudflared</code>. Then it proxies to the app. Config: <code>deploy/nginx/conf.d/app.conf</code>.</td></tr>
+              <tr><td><code>nginx</code></td><td><code>nginx:1.30.6-alpine</code></td><td>Restores the visitor's IP from Cloudflare's <code>CF-Connecting-IP</code> header, but only when the request comes from <code>cloudflared</code>. Then it proxies to the app. Config: <code>deploy/nginx/templates/default.conf.template</code>, which gets <code>cloudflared</code>'s address from <code>docker-compose.yml</code>.</td></tr>
               <tr><td><code>app</code></td><td>built from <code>Dockerfile</code></td><td>The Next.js server. It applies database migrations on every start, then serves on port 3000 inside Compose.</td></tr>
               <tr><td><code>db</code></td><td><code>postgres:17-alpine</code></td><td>Data lives in the volume <code>stem-racing_db-data</code>. Rebuilding the app never touches it.</td></tr>
             </tbody>
@@ -215,7 +215,7 @@ cd {{dir}}</code></pre>
         <h2>4. Fill in .env</h2>
         <ol class="tasks">
           <li class="task">
-            <label class="check"><input type="checkbox" data-task="env-generate"><span>Create <code>.env</code> with the URLs and two new secrets.</span></label>
+            <label class="check"><input type="checkbox" data-task="env-generate"><span>Create <code>.env</code> with the URLs and three new secrets.</span></label>
             <div class="body">
               <pre><code>cp .env.example .env &amp;&amp; chmod 600 .env
 sed -i \
@@ -223,8 +223,11 @@ sed -i \
   -e "s|^BETTER_AUTH_URL=.*|BETTER_AUTH_URL=https://{{domain}}|" \
   -e "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -hex 32)|" \
   -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" \
+  -e "s|^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=.*|NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(openssl rand -base64 32)|" \
   .env</code></pre>
               <p class="warn">Run this only once, before the first start. The database keeps the password it was created with: running it again would give the app a password the database doesn't know.</p>
+              <p>A server set up before 25 October 2026 has a <code>.env</code> without <code>NEXT_SERVER_ACTIONS_ENCRYPTION_KEY</code>, and the next build stops until it has one. Add it once, without touching anything else:</p>
+              <pre><code>grep -q '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=.' .env || { sed -i '/^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=/d' .env; echo "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(openssl rand -base64 32)" &gt;&gt; .env; }</code></pre>
             </div>
           </li>
           <li class="task">
@@ -240,13 +243,14 @@ sed -i \
                     <tr><td><code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code>, <code>TURNSTILE_SECRET_KEY</code></td><td>the real Turnstile keys. The example values are test keys that let everything through.</td></tr>
                     <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>EMAIL_FROM</code></td><td>the Gmail or Google Workspace account. <code>SMTP_PASS</code> is an app password, written without spaces. <code>EMAIL_FROM</code> must be a verified alias of <code>SMTP_USER</code>. Leave <code>SMTP_USER</code> empty to launch without email.</td></tr>
                     <tr><td><code>NEXT_PUBLIC_CONTACT_LINE</code>, <code>NEXT_PUBLIC_CONTACT_PHONE</code></td><td>the organisers' contact channels. Each is hidden when empty.</td></tr>
-                    <tr><td><code>APP_URL</code>, <code>BETTER_AUTH_URL</code>, <code>BETTER_AUTH_SECRET</code>, <code>POSTGRES_PASSWORD</code></td><td>already set by the command above. Check that both URLs read <code>https://<span class="var" data-var="domain"></span></code>, with no trailing slash.</td></tr>
+                    <tr><td><code>APP_URL</code>, <code>BETTER_AUTH_URL</code>, <code>BETTER_AUTH_SECRET</code>, <code>POSTGRES_PASSWORD</code>, <code>NEXT_SERVER_ACTIONS_ENCRYPTION_KEY</code></td><td>already set by the command above. Check that both URLs read <code>https://<span class="var" data-var="domain"></span></code>, with no trailing slash.</td></tr>
                     <tr><td><code>DATABASE_URL</code>, <code>TEST_DATABASE_ADMIN_URL</code></td><td>leave as they are. Compose builds the app's database address from <code>POSTGRES_PASSWORD</code>.</td></tr>
                   </tbody>
                 </table>
               </div>
               <ul class="notes">
                 <li><code>NEXT_PUBLIC_*</code> and <code>APP_URL</code> are built into the app. After changing one, rebuild with <code>docker compose up -d --build</code>.</li>
+                <li>Keep <code>NEXT_SERVER_ACTIONS_ENCRYPTION_KEY</code> as it is. The Kiosk iPads and check-in desks call the app with IDs made from it, so a deploy with the same key leaves their open pages working. A new key would make every open page fail until reloaded.</li>
                 <li>Avoid <code>$</code> in values: Compose reads it as a variable.</li>
                 <li>To change <code>POSTGRES_PASSWORD</code> later, run <code>ALTER USER stem_racing PASSWORD '…'</code> in the database shell (step 9) first, then update <code>.env</code> and run <code>docker compose up -d</code>.</li>
               </ul>
@@ -289,6 +293,13 @@ docker compose exec nginx nginx -t</code></pre>
             </div>
           </li>
           <li class="task">
+            <label class="check"><input type="checkbox" data-task="start-404"><span>Check that an unknown Event Pass link answers 404.</span></label>
+            <div class="body">
+              <pre><code>curl -s -o /dev/null -w "%{http_code}\n" https://{{domain}}/p/00000000-0000-4000-8000-000000000000</code></pre>
+              <p>Expect <code>404</code>. A <code>500</code> means the app isn't listening on every address: the <code>Dockerfile</code> must keep <code>HOSTNAME=0.0.0.0</code>.</p>
+            </div>
+          </li>
+          <li class="task">
             <label class="check"><input type="checkbox" data-task="start-icu"><span>Check the Thai collation once.</span></label>
             <div class="body">
               <p>Sorting the Registration list by name needs PostgreSQL's ICU collation. This should print <code>1</code>:</p>
@@ -312,6 +323,8 @@ docker compose exec nginx nginx -t</code></pre>
             </tbody>
           </table>
         </div>
+        <p class="callout">Updating a server whose database already has Staff Accounts, from before Admin Accounts existed? After the update, every one of them opens only the check-in desk. Make the organisers who need Registrations, the CSV export and email into Admin Accounts with <code>make-admin</code> (below).</p>
+        <p>Once an Admin can sign in, Accounts can also be managed in the Back Office, at <a class="var-link" data-href="https://{{domain}}/admin/accounts" href="#"><span class="var" data-var="url"></span>/admin/accounts</a>. There an Admin creates Accounts, changes a name or kind, sets a password (its owner then chooses their own at the next sign-in), disables and enables Accounts, and reads the Account History. On <b>My Account</b>, everyone sees the devices they're signed in on and can sign the others out. The commands stay for the first Admin and as the way back in.</p>
         <ol class="tasks">
           <li class="task">
             <label class="check"><input type="checkbox" data-task="admin-seed"><span>Create the first Admin Account.</span></label>
@@ -319,7 +332,7 @@ docker compose exec nginx nginx -t</code></pre>
               <p>It uses <code>SEED_STAFF_EMAIL</code> (<span class="var" data-var="adminEmail"></span>) and <code>SEED_STAFF_NAME</code> from <code>.env</code>:</p>
               <pre><code>docker compose exec app npm run seed</code></pre>
               <ul class="notes">
-                <li>It prints the email and a random password <b>once</b>. Copy the password straight away: it isn't stored anywhere and doesn't appear in <code>docker compose logs</code>.</li>
+                <li>It prints the email and a random password <b>once</b>. Copy the password straight away: it isn't stored anywhere and doesn't appear in <code>docker compose logs</code>. To check, this prints <code>0</code>: <code>docker compose logs app | grep -c 'Password:'</code></li>
                 <li>If an Admin Account already exists, it creates nothing and says so, so running it again is safe.</li>
                 <li>If the email already belongs to an Account, it stops and suggests <code>make-admin</code> (below).</li>
                 <li>If it stops because <code>SEED_STAFF_EMAIL</code> is missing or invalid, or <code>SEED_STAFF_NAME</code> isn't in English, fix <code>.env</code>, run <code>docker compose up -d</code> so the container picks it up, and run it again.</li>
@@ -338,15 +351,15 @@ docker compose exec nginx nginx -t</code></pre>
               <p>Use <code>-it</code> so the command can ask for the password: at least 12 characters, typed twice. Change the email and the name in quotes. Names are in English: English letters, digits, spaces, <code>-</code>, <code>'</code> and <code>.</code>, such as <code>"Somchai Jaidee"</code> or <code>"Kiosk 1"</code>. A Thai name is refused, for every kind of Account:</p>
               <pre><code>docker compose exec -it app npm run staff -- create-admin organiser2@example.com "Organiser name"</code></pre>
               <p>Pass the password on to its owner. At their first sign-in they choose their own, as you did.</p>
-              <p>Keep at least one Admin at the entrance on Event days: looking an Attendee up by name and re-sending an Event Pass need an Admin Account.</p>
+              <p>Keep at least one Admin at the entrance on Event Days: looking an Attendee up by name and re-sending an Event Pass need an Admin Account.</p>
             </div>
           </li>
           <li class="task">
             <label class="check"><input type="checkbox" data-task="admin-promote"><span>Know how to make an existing Account an Admin, and how to reset a password.</span></label>
             <div class="body">
-              <p><code>make-admin</code> turns an existing Account into an Admin Account. It needs no password, and it signs that Account out everywhere so it signs in again with the whole Back Office. It is also the way back in if no Admin can sign in:</p>
+              <p><code>make-admin</code> turns an existing Account into an Admin Account, and enables it if it was disabled. It needs no password, and it signs that Account out everywhere so it signs in again with the whole Back Office. It is also the way back in if no Admin can sign in:</p>
               <pre><code>docker compose exec app npm run staff -- make-admin {{adminEmail}}</code></pre>
-              <p>A lost password: <code>reset-password</code> works for every kind of Account. It asks for the new password and signs that Account out everywhere. A Staff or Admin Account then chooses its own password at its next sign-in; a Kiosk Account just signs in with the new one:</p>
+              <p>A lost password: <code>reset-password</code> works for every kind of Account. It asks for the new password and signs that Account out everywhere. A Staff or Admin Account then chooses its own password at its next sign-in; a Kiosk Account just signs in with the new one. A disabled Account stays disabled: an Admin enables it on its page under Accounts.</p>
               <pre><code>docker compose exec -it app npm run staff -- reset-password {{adminEmail}}</code></pre>
             </div>
           </li>
@@ -404,7 +417,8 @@ docker compose exec -it app npm run staff -- create-kiosk kiosk-2@example.com "K
               <p>Visit the site, then:</p>
               <pre><code>docker compose logs --tail 20 nginx</code></pre>
               <p>Each access line starts with <code>&lt;visitor IP&gt; via 10.203.47.2</code>. The visitor IP must be your own public IP: <a class="var-link" data-href="https://{{domain}}/cdn-cgi/trace" href="#"><span class="var" data-var="url"></span>/cdn-cgi/trace</a> shows it as <code>ip=</code>.</p>
-              <p>If a line starts with <code>10.203.47.2</code> itself, nginx isn't restoring the IP, and every visitor would share one sign-in rate limit. Check that <code>cloudflared</code>'s address in <code>docker-compose.yml</code> and <code>set_real_ip_from</code> in <code>deploy/nginx/conf.d/app.conf</code> are the same.</p>
+              <p>If a line starts with <code>10.203.47.2</code> itself, nginx isn't restoring the IP, and every visitor would share one sign-in rate limit. nginx must trust <code>cloudflared</code>'s address, <code>x-cloudflared-ip</code> in <code>docker-compose.yml</code>. This shows what it trusts:</p>
+              <pre><code>docker compose exec nginx grep set_real_ip_from /etc/nginx/conf.d/default.conf</code></pre>
             </div>
           </li>
           <li class="task">
@@ -423,17 +437,23 @@ docker compose logs --tail 100 db</code></pre>
       <section id="daily">
         <h2>9. Day-to-day</h2>
         <dl class="ops">
+          <dt>Back up</dt>
+          <dd><pre><code>mkdir -p ~/backups
+docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; ~/backups/stem-racing-$(date +%F-%H%M).dump</code></pre>Do it before every deploy. Backups go to <code>~/backups</code>, outside the checkout, so they never reach a Docker build. A backup on the server is lost with the server: copy it to your own computer as well (run this there, with your SSH login):<pre><code>scp '&lt;user&gt;@&lt;server&gt;:backups/stem-racing-*.dump' .</code></pre></dd>
           <dt>Deploy a new version</dt>
-          <dd><pre><code>cd {{dir}} &amp;&amp; git pull &amp;&amp; docker compose up -d --build</code></pre>Migrations run on start. The database volume is untouched.</dd>
+          <dd><pre><code>cd {{dir}} &amp;&amp; git pull &amp;&amp; docker compose up -d --build</code></pre>Back up first (above). If the build fails, the running version keeps serving. Migrations run on start, and the database volume is untouched. While the new app starts, visitors get errors for a few seconds (about 2 in most test runs), so avoid the busiest entry times. Afterwards:<ul class="notes"><li>Reload every Kiosk iPad and every open check-in desk, so they run the new version.</li><li>Run the 404 check from step 5.</li></ul></dd>
+          <dt>Go back to the previous version</dt>
+          <dd><pre><code>git log --oneline -5                      # the version that worked
+git checkout &lt;commit&gt; &amp;&amp; docker compose up -d --build</code></pre>If the bad version applied a migration (its log said <code>applied 1 new migration(s)</code> or more), the older app may not work with the newer database. Only then, restore the backup taken before the deploy (below): it also undoes every Registration and Check-In made since. Before the next deploy, return with <code>git checkout main</code>.</dd>
+          <dt>Back up every night (recommended during Event week)</dt>
+          <dd>Add this line with <code>crontab -e</code>. It keeps two weeks of nightly backups:<pre><code>0 3 * * * cd {{dir}} &amp;&amp; docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; $HOME/backups/stem-racing-$(date +\%F).dump &amp;&amp; find $HOME/backups -name 'stem-racing-*.dump' -mtime +14 -delete</code></pre></dd>
           <dt>Restart the app</dt>
           <dd><pre><code>docker compose restart app</code></pre></dd>
           <dt>Database shell</dt>
           <dd><pre><code>docker compose exec db psql -U stem_racing stem_racing</code></pre></dd>
-          <dt>Back up (before the Event and before risky changes)</dt>
-          <dd><pre><code>docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; stem-racing-$(date +%F-%H%M).dump</code></pre></dd>
           <dt>Restore (replaces the current data)</dt>
           <dd><pre><code>docker compose stop app
-docker compose exec -T db pg_restore -U stem_racing -d stem_racing --clean --if-exists &lt; file.dump
+docker compose exec -T db pg_restore -U stem_racing -d stem_racing --clean --if-exists &lt; ~/backups/&lt;file&gt;.dump
 docker compose start app</code></pre></dd>
           <dt>Replace the tunnel token</dt>
           <dd>If the token may have leaked, delete the tunnel in Zero Trust and create a new one with the same hostname (step 2), put its token in <code>.env</code>, then run: <pre><code>docker compose up -d cloudflared</code></pre></dd>
@@ -453,8 +473,10 @@ docker compose start app</code></pre></dd>
               <tr><td>Cloudflare error <b>1033</b></td><td><code>cloudflared</code> isn't connected. Check <code>docker compose logs cloudflared</code>: a wrong or missing <code>CLOUDFLARE_TUNNEL_TOKEN</code>, or outbound port 7844 blocked.</td></tr>
               <tr><td><b>502 Bad Gateway</b> from Cloudflare</td><td>The hostname's service isn't <code>http://nginx:80</code>, or nginx isn't running (<code>docker compose ps</code>).</td></tr>
               <tr><td><b>502</b> from nginx</td><td>The app isn't ready or crashed. Check <code>docker compose logs app</code>.</td></tr>
-              <tr><td><code>Pool overlaps with other one on this address space</code></td><td>Another Docker network on the server already uses <code>10.203.47.0/28</code>. Pick another private <code>/28</code> in <code>docker-compose.yml</code> (the subnet, <code>ip_range</code> and <code>cloudflared</code>'s address) and change <code>set_real_ip_from</code> in <code>app.conf</code> to match.</td></tr>
+              <tr><td><code>Pool overlaps with other one on this address space</code></td><td>Another Docker network on the server already uses <code>10.203.47.0/28</code>. Pick another private <code>/28</code> in <code>docker-compose.yml</code>: change the subnet, its <code>ip_range</code> and <code>x-cloudflared-ip</code> together. nginx picks up the new address by itself.</td></tr>
               <tr><td><code>required variable CLOUDFLARE_TUNNEL_TOKEN is missing</code></td><td>Every <code>docker compose</code> command needs it. Fill it in <code>.env</code>.</td></tr>
+              <tr><td>The build stops with <code>Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY in .env</code></td><td>It is missing or isn't 32 random bytes in base64. Add it as in step 4, then build again. The running version keeps serving meanwhile.</td></tr>
+              <tr><td>Every scan fails at a Kiosk or the desk after a deploy</td><td>Reload the page. If it keeps failing, check that <code>NEXT_SERVER_ACTIONS_ENCRYPTION_KEY</code> in <code>.env</code> wasn't changed.</td></tr>
               <tr><td>Sign-in fails with 403</td><td><code>BETTER_AUTH_URL</code> isn't exactly <code>https://<span class="var" data-var="domain"></span></code>. Fix <code>.env</code>, then <code>docker compose up -d</code>.</td></tr>
               <tr><td>The registration form's bot check fails</td><td>The Turnstile keys are wrong, or the hostname isn't on the widget (step 3). After changing the site key, rebuild with <code>docker compose up -d --build</code>.</td></tr>
               <tr><td>Error <b>524</b></td><td>A request took longer than Cloudflare's 100 s limit. Bulk email works in batches that each finish well within it.</td></tr>
@@ -469,7 +491,8 @@ docker compose start app</code></pre></dd>
           <li><b>Timeouts:</b> nginx allows requests of up to 300 s, but Cloudflare ends any request after 100 s with error 524 on non-Enterprise plans.</li>
           <li><b>Client IP for the app:</b> nginx sends the restored visitor IP as <code>X-Real-IP</code> and sets <code>X-Forwarded-For</code> to that same single address. It removes <code>CF-Connecting-IP</code> and <code>True-Client-IP</code> before proxying.</li>
           <li><b>Streaming:</b> nginx doesn't buffer the app's responses (<code>proxy_buffering off</code>), so pages stream through.</li>
-          <li><b>Files:</b> <code>docker-compose.yml</code>, <code>deploy/nginx/conf.d/app.conf</code>, <code>.env.example</code> and <code>Dockerfile</code> in the repository.</li>
+          <li><b>Files:</b> <code>docker-compose.yml</code>, <code>deploy/nginx/templates/default.conf.template</code>, <code>.env.example</code> and <code>Dockerfile</code> in the repository.</li>
+          <li><b>CI:</b> every push to GitHub runs the four checks (typecheck, lint, tests, build) and builds this Docker image (<code>.github/workflows/ci.yml</code>). Deploy a commit only once its run is green.</li>
         </ul>
       </section>
     </main>

@@ -45,7 +45,16 @@ ENV APP_URL=${APP_URL} \
     NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY} \
     NEXT_PUBLIC_CONTACT_LINE=${NEXT_PUBLIC_CONTACT_LINE} \
     NEXT_PUBLIC_CONTACT_PHONE=${NEXT_PUBLIC_CONTACT_PHONE}
-RUN npm run build
+# Next hashes Server Action IDs with NEXT_SERVER_ACTIONS_ENCRYPTION_KEY, and an open page calls its
+# actions by those IDs. Left unset, every build makes up a new key, so after each deploy every open
+# Kiosk and check-in desk would fail each scan until reloaded. Compose passes the fixed key from
+# .env as a build secret, which stays out of the build history. An empty or malformed key would
+# silently fall back to a random one, so the build stops instead.
+RUN --mount=type=secret,id=next_server_actions_encryption_key,env=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
+    case "$(printf %s "$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY" | base64 -d 2>/dev/null | wc -c)" in \
+      16|24|32) npm run build ;; \
+      *) echo "Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY in .env to the output of: openssl rand -base64 32" >&2; exit 1 ;; \
+    esac
 
 # ---- Runtime ----
 FROM base AS runner
