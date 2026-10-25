@@ -3,6 +3,7 @@ import { KeyboardFocus } from "@/components/site/KeyboardFocus";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { languages } from "@/lib/language";
+import { appUrl } from "@/lib/server/registrations";
 import { currentLanguage, getDictionary } from "./_dictionaries";
 import "../globals.css";
 
@@ -12,9 +13,19 @@ export function generateStaticParams() {
   return languages.map((lang) => ({ lang }));
 }
 
+/**
+ * Next also gives the title and description, with opengraph-image.jpg, to link previews on
+ * Facebook and LINE. The preview image needs an absolute address, so `metadataBase` comes from
+ * APP_URL at build time (a build arg in Docker); without it Next falls back to localhost.
+ */
 export async function generateMetadata(): Promise<Metadata> {
   const { registrationPage } = getDictionary(await currentLanguage());
-  return { title: registrationPage.title, description: registrationPage.description };
+  const siteUrl = appUrl();
+  return {
+    metadataBase: siteUrl ? new URL(siteUrl) : undefined,
+    title: registrationPage.title,
+    description: registrationPage.description,
+  };
 }
 
 export default async function PublicLayout({ children }: LayoutProps<"/[lang]">) {
