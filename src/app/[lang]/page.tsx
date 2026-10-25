@@ -13,14 +13,12 @@ import { submitRegistration } from "./actions";
 
 /**
  * Pairs the Thai and English registration pages for search engines, Thai as the default. The
- * links must be absolute, so they need APP_URL at build time (a build arg in Docker); without it
- * they are left out rather than pointing at localhost.
+ * links must be absolute: they resolve against the layout's `metadataBase`, from APP_URL at build
+ * time (a build arg in Docker). Without it they are left out rather than pointing at localhost.
  */
 export function generateMetadata(): Metadata {
-  const siteUrl = appUrl();
-  if (!siteUrl) return {};
+  if (!appUrl()) return {};
   return {
-    metadataBase: new URL(siteUrl),
     alternates: {
       languages: { th: languagePath("th", "/"), en: languagePath("en", "/"), "x-default": languagePath("th", "/") },
     },
