@@ -11,9 +11,10 @@ const choices = [
 
 /**
  * The `TH | EN` switch at the top right of every public page. Each half is a plain link to this
- * page in that language (`/p/x` ↔ `/en/p/x`), so it works before scripts load, and it is a full
- * page load: the other language is a different root layout (`<html lang>`). Reads the address,
- * so on a request-time page render it below a <Suspense> boundary (`LanguageToggleFallback`).
+ * page in that language (`/th` ↔ `/en`, `/p/x` ↔ `/en/p/x`), so it works before scripts load,
+ * and it is a full page load: the other language is a different root layout (`<html lang>`).
+ * Reads the address, so on a request-time page render it below a <Suspense> boundary
+ * (`LanguageToggleFallback`).
  * The registration form listens for clicks on `[data-language-switch]` to keep its answers.
  */
 export function LanguageToggle({ language, name }: { language: Language; name: string }) {
