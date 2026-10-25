@@ -416,7 +416,8 @@ export function CameraScanner({
       aria-labelledby={`${previewId}-heading`}
       className={cn(kiosk ? "flex min-h-0 flex-col" : "mt-6", className)}
     >
-      <h2 id={`${previewId}-heading`} className={kiosk ? "sr-only" : "text-sm leading-normal font-medium"}>
+      {/* Names the section for screen readers; on screen, the camera button says the same. */}
+      <h2 id={`${previewId}-heading`} className="sr-only">
         <Words message={HEADING} kiosk={kiosk} />
       </h2>
 
@@ -426,7 +427,7 @@ export function CameraScanner({
           kiosk
             ? // A size container, so the reader can be sized to fit both ways (KIOSK_READER_WIDTH).
               "grid min-h-0 flex-1 place-content-center rounded-2xl [container-type:size]"
-            : ["mt-2 w-full max-w-md rounded-xl", status === "off" && "hidden", status === "starting" && "min-h-48"],
+            : ["w-full rounded-xl", status === "off" && "hidden", status === "starting" && "min-h-48"],
         )}
       >
         {/* html5-qrcode owns this element's children (video and canvas), so React renders none.
@@ -487,7 +488,8 @@ export function CameraScanner({
 
       {!kiosk && (
         <>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {/* Full-width buttons, one under another: they fit a phone whatever the label's length. */}
+          <div className={cn("grid gap-2", status !== "off" && "mt-3")}>
             {status === "off" ? (
               <Button type="button" size="lg" onClick={start}>
                 Open camera to scan QR

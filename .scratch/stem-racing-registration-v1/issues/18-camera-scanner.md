@@ -136,3 +136,7 @@ Done in commit "feat(check-in): camera scanner …". Notes for ticket 19 and the
   - **Everywhere:**
     - A LINE OA poster and a Wi-Fi QR give the orange toast, with no panel change and no repeat within 10 s.
     - A pass held in view for 10 s gives one Check-In and stays green.
+
+## Comments
+
+- 2026-10-25: Pass-shaped text the server rejects now shows a red "Not an Event Pass" panel, not a neutral one (see ticket 13's comment of the same date).

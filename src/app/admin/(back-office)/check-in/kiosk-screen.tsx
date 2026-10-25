@@ -219,7 +219,7 @@ function Note({ thai, english }: { thai: string; english: string }) {
   return (
     <p className="mt-1 text-xl leading-normal font-medium landscape:tab:text-2xl">
       {thai}
-      <span lang="en" className="block text-lg font-normal opacity-90 landscape:tab:text-xl">
+      <span lang="en" className="block text-lg font-normal landscape:tab:text-xl">
         {english}
       </span>
     </p>

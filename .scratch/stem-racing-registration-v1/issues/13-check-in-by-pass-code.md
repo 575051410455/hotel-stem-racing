@@ -108,3 +108,7 @@ Done in commit "feat(check-in): Check-In by Pass Code …". Notes for downstream
   - The database held exactly 3 rows, with the flag, Bangkok times and the signed-in Staff Account id.
   - After every result the input was empty and focused.
   - No horizontal scroll at 320, 734 or 900px. No console errors.
+
+## Comments
+
+- 2026-10-25: The result colours are now traffic lights, replacing "Colours" above. Green: checked in. Yellow: look before letting them in (already checked in, or checked in outside a registered day). Red: no Check-In recorded (not an Event Pass, not an Event Day, failed, session expired). White stays for "Checking…" only. The Kiosk uses the same `tones`. No result panel is orange now, so ticket 18's orange camera notice no longer matches any of them. The desk is one centred card, no wider than a phone (`max-w-md`), in this order: the Event Day choice, a square result area with a dashed placeholder before the first scan, the camera button, then the Pass Code box. Kiosk mode sits in a card below. Behaviour and copy are unchanged. Text on green smaller than 24px stays fully opaque: white on `green-700` is 4.94:1, and 90% opacity drops it to 4.31:1. Checked with `next start` and a scratch database at 375 and 1280 px, and the Kiosk at 1024×768 and 768×1024 with a fake camera: no horizontal scroll and no page errors.

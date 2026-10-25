@@ -15,8 +15,9 @@ export default function CheckInPage() {
       <PageHeader>
         <PageTitle>Check-In</PageTitle>
       </PageHeader>
-      <PageContent narrow>
-        <Suspense fallback={<p className="text-sm leading-normal text-muted-foreground">Loading…</p>}>
+      {/* Full width: the desk centres its own card. */}
+      <PageContent>
+        <Suspense fallback={<p className="text-center text-sm leading-normal text-muted-foreground">Loading…</p>}>
           <CheckInStation />
         </Suspense>
       </PageContent>

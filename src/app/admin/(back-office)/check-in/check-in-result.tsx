@@ -3,6 +3,7 @@
 // result; colour and icon only reinforce it. The desk is in English; the Kiosk shares the
 // headings below in Thai, with an English line for Attendees.
 
+import { ScanLineIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
@@ -21,15 +22,27 @@ export type CheckInAttempt = {
   result: CheckInScanResult | { status: "failed" } | { status: "pending" };
 };
 
-/** Shared with the Kiosk, so its results read in the same colours. */
-export type Tone = "success" | "repeat" | "warning" | "neutral";
+/**
+ * Traffic lights for whoever stands at the door, shared with the Kiosk: green, a Check-In is
+ * recorded, let them in; yellow, look before letting them in (already checked in, or not
+ * registered for this day); red, no Check-In is recorded. Every text colour passes WCAG AA, but
+ * green only just: text on it smaller than 24px stays fully opaque.
+ */
+export type Tone = "go" | "check" | "stop" | "neutral";
 
 export const tones: Record<Tone, string> = {
-  success: "border-green-800 bg-green-700 text-white",
-  repeat: "border-amber-500 bg-amber-300 text-neutral-950",
-  warning: "border-orange-800 bg-orange-700 text-white",
-  neutral: "border-neutral-400 bg-white text-neutral-950",
+  go: "border-green-800 bg-green-700 text-white",
+  check: "border-yellow-500 bg-yellow-300 text-neutral-950",
+  stop: "border-red-800 bg-red-700 text-white",
+  neutral: "border-neutral-300 bg-white text-neutral-950",
 };
+
+/**
+ * The desk's result square: as tall as it is wide, shorter on a short screen, and taller only if
+ * its text needs it. Everything in it is centred.
+ */
+const resultSquare =
+  "grid aspect-square max-h-[60dvh] w-full place-content-center-safe justify-items-center gap-2 rounded-xl border-2 p-5 text-center";
 
 /** What the desk and the Kiosk show alike for a result: its colour, icon and headline. */
 export type CheckInHeading = {
@@ -49,7 +62,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
       return { tone: "neutral", Icon: null, staff: "Checking…", thai: "กำลังตรวจสอบ…", english: "Checking…" };
     case "checked-in":
       return {
-        tone: "success",
+        tone: "go",
         Icon: CheckIcon,
         staff: "Checked in",
         thai: "เช็คอินสำเร็จ",
@@ -58,7 +71,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
     case "already-checked-in": {
       const time = bangkokTime(result.checkedInAt);
       return {
-        tone: "repeat",
+        tone: "check",
         Icon: ClockIcon,
         staff: `Already checked in at ${time}`,
         thai: `เช็คอินแล้วเมื่อ ${time}`,
@@ -67,7 +80,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
     }
     case "checked-in-outside-registered-day":
       return {
-        tone: "warning",
+        tone: "check",
         Icon: AlertIcon,
         staff: "Not registered for this day",
         thai: "ไม่ได้ลงทะเบียนวันนี้",
@@ -75,7 +88,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
       };
     case "not-an-event-pass":
       return {
-        tone: "neutral",
+        tone: "stop",
         Icon: CrossIcon,
         staff: "Not an Event Pass",
         thai: "ไม่ใช่ Event Pass",
@@ -83,7 +96,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
       };
     case "not-an-event-day":
       return {
-        tone: "neutral",
+        tone: "stop",
         Icon: CrossIcon,
         staff: "Today isn't an Event Day",
         thai: "วันนี้ไม่ใช่วันจัดงาน",
@@ -91,7 +104,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
       };
     case "failed":
       return {
-        tone: "neutral",
+        tone: "stop",
         Icon: CrossIcon,
         staff: "Check-In didn't go through",
         thai: "เช็คอินไม่สำเร็จ",
@@ -99,7 +112,7 @@ export function checkInHeading(result: CheckInAttempt["result"]): CheckInHeading
       };
     case "signed-out":
       return {
-        tone: "neutral",
+        tone: "stop",
         Icon: CrossIcon,
         staff: "Session expired",
         thai: "หมดเวลาเข้าสู่ระบบ",
@@ -177,12 +190,20 @@ function panelDetails({ result, scan }: CheckInAttempt): ReactNode {
 
 function Panel({ heading: { tone, Icon, staff }, children }: { heading: CheckInHeading; children: ReactNode }) {
   return (
-    <div className={cn("rounded-xl border-2 p-5 tab:p-6", tones[tone])}>
-      <p className="flex items-center gap-3 text-3xl leading-tight font-bold tab:text-4xl">
-        {Icon && <Icon />}
-        <span>{staff}</span>
-      </p>
-      <div className="mt-3">{children}</div>
+    <div className={cn(resultSquare, tones[tone])}>
+      {Icon && <Icon className="size-12" />}
+      <p className="text-3xl leading-tight font-bold text-balance">{staff}</p>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+/** The result square before the first scan of the visit. */
+export function CheckInResultPlaceholder() {
+  return (
+    <div className={cn(resultSquare, "border-dashed border-neutral-300 bg-muted/50 text-muted-foreground")}>
+      <ScanLineIcon aria-hidden="true" className="size-12" strokeWidth={1.5} />
+      <p className="text-base leading-normal">Check-In results appear here</p>
     </div>
   );
 }
@@ -201,7 +222,7 @@ function AttendeeLines({ attendee }: { attendee: CheckedInAttendee }) {
 }
 
 function EventDayLine({ date }: { date: string }) {
-  return <p className="mt-3 text-sm leading-normal opacity-90">Check-In for {eventDayLabel(date, "en")}</p>;
+  return <p className="mt-3 text-sm leading-normal">Check-In for {eventDayLabel(date, "en")}</p>;
 }
 
 function ScannedText({ scan }: { scan: string }) {
