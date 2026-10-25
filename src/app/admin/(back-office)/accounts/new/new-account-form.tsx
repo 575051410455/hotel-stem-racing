@@ -19,6 +19,7 @@ import { type AccountKind, canChangeOwnPassword, isAccountKind } from "@/lib/aut
 import { KIND_LABELS } from "@/lib/auth/kind-labels";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-rules";
 import { CANT_REACH_SERVER, FormAlert, SessionExpired } from "../../_shell/form-messages";
+import { updateNameToast } from "../../_shell/name-toast";
 import { toastSuccess } from "../../_shell/toasts";
 import {
   EMAIL_INVALID,
@@ -27,6 +28,8 @@ import {
   KIND_CHOICES,
   KIND_INVALID,
   NAME_EMPTY,
+  NAME_HINT,
+  NAME_NOT_ENGLISH,
   NAME_TOO_LONG,
   nameProblems,
   PASSWORD_TOO_LONG,
@@ -64,6 +67,8 @@ function resultProblems(result: CreateAccountActionResult | null): Problems {
       return { name: NAME_EMPTY };
     case "name-too-long":
       return { name: NAME_TOO_LONG };
+    case "name-not-english":
+      return { name: NAME_NOT_ENGLISH };
     case "invalid-email":
       return { email: EMAIL_INVALID };
     case "email-taken":
@@ -90,7 +95,7 @@ function resultProblems(result: CreateAccountActionResult | null): Problems {
 export function NewAccountForm() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const ids = { form: useId(), passwordHint: useId(), firstSignIn: useId() };
+  const ids = { form: useId(), nameHint: useId(), passwordHint: useId(), firstSignIn: useId() };
   const [kind, setKind] = useState<AccountKind>(FIRST_KIND);
   const [problems, setProblems] = useState<Problems>({});
   const [pending, setPending] = useState(false);
@@ -123,6 +128,7 @@ export function NewAccountForm() {
 
   function showProblems(found: Problems) {
     setProblems(found);
+    updateNameToast(found.name);
     focusFirstProblem(found);
   }
 
@@ -150,6 +156,7 @@ export function NewAccountForm() {
 
     if (result?.status === "created") {
       // Stays pending until the list shows: the form is done. Hiding the page resets it.
+      updateNameToast(undefined);
       toastSuccess("Account created");
       router.push(ACCOUNTS_PATH);
       return;
@@ -181,7 +188,8 @@ export function NewAccountForm() {
       <FieldGroup>
         <Field data-invalid={problems.name ? true : undefined}>
           <FieldLabel htmlFor={`${ids.form}-name`}>Name</FieldLabel>
-          <Input {...fieldProps("name")} type="text" autoComplete="off" />
+          <Input {...fieldProps("name", ids.nameHint)} type="text" autoComplete="off" />
+          <FieldDescription id={ids.nameHint}>{NAME_HINT}</FieldDescription>
           {fieldError("name")}
         </Field>
         <Field data-invalid={problems.email ? true : undefined}>

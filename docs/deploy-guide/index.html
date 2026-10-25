@@ -236,7 +236,7 @@ sed -i \
                   <tbody>
                     <tr><td><code>CLOUDFLARE_TUNNEL_TOKEN</code></td><td>the token from step 2</td></tr>
                     <tr><td><code>SEED_STAFF_EMAIL</code></td><td><span class="var" data-var="adminEmail"></span>: the first Admin Account (step 6). There is no password variable: the command makes one up.</td></tr>
-                    <tr><td><code>SEED_STAFF_NAME</code></td><td><span class="var" data-var="adminName"></span> (defaults to เจ้าหน้าที่)</td></tr>
+                    <tr><td><code>SEED_STAFF_NAME</code></td><td><span class="var" data-var="adminName"></span>, in English (defaults to Admin)</td></tr>
                     <tr><td><code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code>, <code>TURNSTILE_SECRET_KEY</code></td><td>the real Turnstile keys. The example values are test keys that let everything through.</td></tr>
                     <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>EMAIL_FROM</code></td><td>the Gmail or Google Workspace account. <code>SMTP_PASS</code> is an app password, written without spaces. <code>EMAIL_FROM</code> must be a verified alias of <code>SMTP_USER</code>. Leave <code>SMTP_USER</code> empty to launch without email.</td></tr>
                     <tr><td><code>NEXT_PUBLIC_CONTACT_LINE</code>, <code>NEXT_PUBLIC_CONTACT_PHONE</code></td><td>the organisers' contact channels. Each is hidden when empty.</td></tr>
@@ -322,7 +322,7 @@ docker compose exec nginx nginx -t</code></pre>
                 <li>It prints the email and a random password <b>once</b>. Copy the password straight away: it isn't stored anywhere and doesn't appear in <code>docker compose logs</code>.</li>
                 <li>If an Admin Account already exists, it creates nothing and says so, so running it again is safe.</li>
                 <li>If the email already belongs to an Account, it stops and suggests <code>make-admin</code> (below).</li>
-                <li>If it stops because <code>SEED_STAFF_EMAIL</code> is missing or invalid, fix <code>.env</code>, run <code>docker compose up -d</code> so the container picks it up, and run it again.</li>
+                <li>If it stops because <code>SEED_STAFF_EMAIL</code> is missing or invalid, or <code>SEED_STAFF_NAME</code> isn't in English, fix <code>.env</code>, run <code>docker compose up -d</code> so the container picks it up, and run it again.</li>
               </ul>
             </div>
           </li>
@@ -335,7 +335,7 @@ docker compose exec nginx nginx -t</code></pre>
           <li class="task">
             <label class="check"><input type="checkbox" data-task="admin-more"><span>Add more Admin Accounts.</span></label>
             <div class="body">
-              <p>Use <code>-it</code> so the command can ask for the password: at least 12 characters, typed twice. Change the email and the name in quotes:</p>
+              <p>Use <code>-it</code> so the command can ask for the password: at least 12 characters, typed twice. Change the email and the name in quotes. Names are in English: English letters, digits, spaces, <code>-</code>, <code>'</code> and <code>.</code>, such as <code>"Somchai Jaidee"</code> or <code>"Kiosk 1"</code>. A Thai name is refused, for every kind of Account:</p>
               <pre><code>docker compose exec -it app npm run staff -- create-admin organiser2@example.com "Organiser name"</code></pre>
               <p>Pass the password on to its owner. At their first sign-in they choose their own, as you did.</p>
               <p>Keep at least one Admin at the entrance on Event days: looking an Attendee up by name and re-sending an Event Pass need an Admin Account.</p>

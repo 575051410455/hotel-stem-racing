@@ -3,7 +3,7 @@ import { type AccountKind, canChangeOwnPassword, canEditOwnName, isAccountKind }
 import type { AccountChange, Actor } from "./account-changes";
 import { type AccountHistoryPage, readAccountHistory, recordAccountChange } from "./account-history";
 import { isValidAccountEmail } from "./email-rules";
-import { MAX_NAME_LENGTH } from "./name-rules";
+import { MAX_NAME_LENGTH, nameProblem } from "./name-rules";
 import type { StaffAuth } from "./staff-auth";
 
 export type CreateAccountInput = {
@@ -13,7 +13,11 @@ export type CreateAccountInput = {
   /** A Staff Account (the default; check-in desk only), an Admin Account, or a Kiosk Account (ADR 0003, ADR 0004). */
   kind?: AccountKind;
 };
-export type CreateFirstAdminAccountInput = Omit<CreateAccountInput, "kind">;
+/** An empty or missing name names it "Admin" (`FIRST_ADMIN_NAME`). */
+export type CreateFirstAdminAccountInput = Omit<CreateAccountInput, "kind" | "name"> & { name?: string };
+
+/** The first Admin Account's name when the operator gives none (an empty `SEED_STAFF_NAME`). */
+export const FIRST_ADMIN_NAME = "Admin";
 
 /** What an Admin may change on an Account's page. A field left out stays as it is. */
 export type AccountUpdate = { name?: string; email?: string; kind?: AccountKind };
@@ -22,7 +26,11 @@ type PasswordProblem =
   | { status: "password-too-short"; minLength: number }
   | { status: "password-too-long"; maxLength: number };
 
-type NameProblem = { status: "invalid-name" } | { status: "name-too-long"; maxLength: number };
+type NameProblem =
+  | { status: "invalid-name" }
+  | { status: "name-too-long"; maxLength: number }
+  /** Not in English: only English letters, digits, spaces, `-`, `'` and `.`, with at least one letter. */
+  | { status: "name-not-english" };
 
 type NewAccountProblem = { status: "invalid-email" } | NameProblem | PasswordProblem;
 
@@ -208,11 +216,18 @@ export function createAccounts(auth: StaffAuth, db: Database) {
     return null;
   }
 
-  /** A name as it will be stored (already trimmed): not empty, at most 100 characters. */
+  /** A name as it will be stored (already trimmed): not empty, at most 100 characters, in English (name-rules.ts). */
   function checkName(name: string): NameProblem | null {
-    if (!name) return { status: "invalid-name" };
-    if (name.length > MAX_NAME_LENGTH) return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
-    return null;
+    switch (nameProblem(name)) {
+      case "empty":
+        return { status: "invalid-name" };
+      case "too-long":
+        return { status: "name-too-long", maxLength: MAX_NAME_LENGTH };
+      case "not-english":
+        return { status: "name-not-english" };
+      case null:
+        return null;
+    }
   }
 
   async function checkNewAccount(input: CreateAccountInput): Promise<NewAccountProblem | null> {
@@ -242,10 +257,15 @@ export function createAccounts(auth: StaffAuth, db: Database) {
     /**
      * Creates an Admin Account only while none exists, for `npm run seed` on a fresh deploy. Staff
      * and Kiosk Accounts don't count, so a database without an Admin still gets one. Never changes
-     * an Account: an email that is already taken (by any kind) is reported, not promoted.
+     * an Account: an email that is already taken (by any kind) is reported, not promoted. Without a
+     * name it is called "Admin".
      */
     async createFirst(input: CreateFirstAdminAccountInput, actor: Actor): Promise<CreateFirstAdminAccountResult> {
-      const account = { ...input, kind: "admin" } satisfies CreateAccountInput;
+      const account = {
+        ...input,
+        name: input.name?.trim() || FIRST_ADMIN_NAME,
+        kind: "admin",
+      } satisfies CreateAccountInput;
       // Checked first, so a wrong `.env` is reported even when there is nothing to create.
       const problem = await checkNewAccount(account);
       if (problem) return problem;
@@ -260,7 +280,7 @@ export function createAccounts(auth: StaffAuth, db: Database) {
     /**
      * Creates an Account of any kind, for an Admin on the Back Office's New Account page or the
      * commands. An email that any Account already has, enabled or disabled, is taken: one person,
-     * one Account.
+     * one Account. The name is trimmed, at most 100 characters and in English (name-rules.ts).
      */
     async create(input: CreateAccountInput, actor: Actor): Promise<CreateAccountResult> {
       const problem = await checkNewAccount(input);
@@ -372,7 +392,8 @@ export function createAccounts(auth: StaffAuth, db: Database) {
      * left out or stays the same is neither checked nor recorded, so an Account keeps a name or email
      * that today's rules wouldn't allow until someone changes it. All or nothing: any refusal
      * changes nothing. Each field that changes is recorded on its own, with its old and new value.
-     * The name is trimmed, not empty and at most 100 characters. The email is trimmed and
+     * The name is trimmed, not empty, at most 100 characters and in English (name-rules.ts), so an
+     * old Thai name doesn't stop an email or kind change. The email is trimmed and
      * lower-cased, and refused when any other Account has it, enabled or disabled. Sessions stay
      * through both; they read them afresh. A kind change signs the Account out everywhere, so no
      * open session keeps its old kind, and moves the must-change-password flag with it
@@ -439,6 +460,7 @@ export function createAccounts(auth: StaffAuth, db: Database) {
           return { status: "renamed", name: result.account.name };
         case "invalid-name":
         case "name-too-long":
+        case "name-not-english":
         case "not-found":
           return result;
         default:
