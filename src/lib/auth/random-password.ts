@@ -1,4 +1,5 @@
-// Random passwords (pure), for the first Admin Account that `npm run seed` creates.
+// Random passwords (pure), for the first Admin Account that `npm run seed` creates, and for Generate
+// on the Accounts pages' password fields. It needs only Web Crypto, so it also runs in the browser.
 
 /**
  * 32 characters with no look-alikes (no o, 0, i or 1), lower-case so it is quick to type on a phone.
