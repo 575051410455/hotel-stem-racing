@@ -4,6 +4,7 @@ import { createTestDatabase } from "@/test-support/database";
 import type { AccountKind } from "./access";
 import { createAccounts, type Accounts } from "./accounts";
 import { createStaffAuth, type StaffAuth } from "./staff-auth";
+import { isAPIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { accounts as credentials, sessions } from "@/lib/db/auth-schema";
 
@@ -232,8 +233,7 @@ describe("Accounts", () => {
   test("an email that a disabled Account has is taken too", async () => {
     const created = await accounts.create({ email: "helper@example.org", name: "Helper", password }, "server-command");
     assert.equal(created.status, "created");
-    // Until ticket 08's `disable`, disable it the way the module will: through Better Auth.
-    await (await auth.$context).internalAdapter.updateUser(created.accountId, { disabledAt: new Date() });
+    assert.deepEqual(await accounts.disable(created.accountId, "server-command"), { status: "disabled" });
 
     const result = await accounts.create(
       { email: "Helper@Example.org", name: "Someone else", password, kind: "admin" },
@@ -423,6 +423,7 @@ describe("Accounts", () => {
       status: "promoted",
       accountId: created.status === "created" ? created.accountId : "",
       from: "staff",
+      enabled: false,
     });
     assert.equal(await auth.api.getSession({ headers: new Headers({ cookie: oldCookie }) }), null);
     const session = await signInAndGetSession(auth, "staff@example.org", password);
@@ -561,9 +562,7 @@ describe("Accounts", () => {
       const created = await accounts.create({ email: `${name.replace(" ", "-")}@example.org`, name, password, kind }, "server-command");
       if (created.status === "created") ids.set(name, created.accountId);
     }
-    // Until ticket 08's `disable`, disable two Accounts the way the module will: through Better Auth.
-    const ctx = await auth.$context;
-    for (const name of ["carl", "Bob"]) await ctx.internalAdapter.updateUser(ids.get(name)!, { disabledAt: new Date() });
+    for (const name of ["carl", "Bob"]) await accounts.disable(ids.get(name)!, "server-command");
 
     const listed = await accounts.list();
 
@@ -1265,8 +1264,7 @@ describe("Accounts: an Admin edits an Account and sets its password", () => {
   }
 
   async function disable(accountId: string) {
-    // Until ticket 08's `disable`, disable it the way the module will: through Better Auth.
-    await (await auth.$context).internalAdapter.updateUser(accountId, { disabledAt: new Date() });
+    assert.deepEqual(await accounts.disable(accountId, "server-command"), { status: "disabled" });
   }
 
   test("changing the name, email and kind saves each, records each with its old and new value, and the new email signs in", async () => {
@@ -1490,5 +1488,238 @@ describe("Accounts: an Admin edits an Account and sets its password", () => {
 
     assert.equal(result.status === "password-set" && result.staysDisabled, true);
     assert.deepEqual((await accounts.get(staffId))?.disabledAt, disabledAt);
+  });
+});
+
+describe("Accounts: an Admin disables and enables an Account", () => {
+  let database: Awaited<ReturnType<typeof createTestDatabase>>;
+  let auth: StaffAuth;
+  let accounts: Accounts;
+
+  before(async () => {
+    database = await createTestDatabase();
+    auth = createStaffAuth({ db: database.db, secret: "test-secret-".repeat(4), baseURL });
+    accounts = createAccounts(auth, database.db);
+  });
+
+  beforeEach(async () => {
+    await database.reset();
+  });
+
+  after(async () => {
+    await database.drop();
+  });
+
+  /** The id of an Account the server command creates. */
+  async function createAccount(email: string, name: string, kind: AccountKind = "staff") {
+    const created = await accounts.create({ email, name, password, kind }, "server-command");
+    assert.equal(created.status, "created");
+    return created.accountId;
+  }
+
+  /** The Admin who disables and enables the others, and acts as `{ accountId }`. */
+  async function createAdmin(email = "admin@example.org", name = "Napat Wongsa") {
+    const accountId = await createAccount(email, name, "admin");
+    return { accountId };
+  }
+
+  /** One Account's changes since it was created, newest first, without ids and times. */
+  async function changesSinceCreated(accountId: string) {
+    const { changes } = await accounts.history({ accountId, page: 1 });
+    return changes
+      .filter(({ change }) => change.action !== "created")
+      .map(({ change, actor }) => ({ change, actor: actor === "server-command" ? actor : actor.accountId }));
+  }
+
+  /** Signs in as one more device and returns the cookie its browser keeps. */
+  async function signInDevice(email: string) {
+    const response = await signIn(auth, email, password);
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie")!.split(";")[0];
+  }
+
+  /** The session the browser holding this cookie has on its next request, or null when it was ended. */
+  function sessionOf(cookie: string) {
+    return auth.api.getSession({ headers: new Headers({ cookie }) });
+  }
+
+  async function sessionCount(accountId: string) {
+    return (await database.db.select().from(sessions).where(eq(sessions.userId, accountId))).length;
+  }
+
+  /** How `auth.api.signInEmail` fails: its HTTP status name and Better Auth's error code. */
+  async function signInEmailFailure(email: string, withPassword: string) {
+    try {
+      await auth.api.signInEmail({ body: { email, password: withPassword } });
+    } catch (error) {
+      assert.ok(isAPIError(error), String(error));
+      return { status: error.status, code: (error.body as { code?: unknown } | undefined)?.code };
+    }
+    assert.fail(`${email} signed in`);
+  }
+
+  test("disabling signs the Account out everywhere at once and records it", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Somchai Jaidee");
+    const phone = await signInDevice("staff@example.org");
+    const laptop = await signInDevice("staff@example.org");
+
+    const result = await accounts.disable(staffId, admin);
+
+    assert.deepEqual(result, { status: "disabled" });
+    assert.equal(await sessionOf(phone), null);
+    assert.equal(await sessionOf(laptop), null);
+    assert.equal(await sessionCount(staffId), 0);
+    assert.ok((await accounts.get(staffId))?.disabledAt instanceof Date);
+    assert.deepEqual(await changesSinceCreated(staffId), [{ change: { action: "disabled" }, actor: admin.accountId }]);
+  });
+
+  test("a disabled Account's sign-in with the right password fails as disabled, and with a wrong one as a wrong password", async () => {
+    const admin = await createAdmin();
+    for (const kind of ["staff", "admin", "kiosk"] as const) {
+      const email = `the-${kind}@example.org`;
+      const accountId = await createAccount(email, `The ${kind}`, kind);
+      await accounts.disable(accountId, admin);
+
+      assert.deepEqual(await signInEmailFailure(email, password), { status: "FORBIDDEN", code: "ACCOUNT_DISABLED" }, kind);
+      assert.deepEqual(
+        await signInEmailFailure(email, "wrong horse battery"),
+        { status: "UNAUTHORIZED", code: "INVALID_EMAIL_OR_PASSWORD" },
+        kind,
+      );
+
+      // What the sign-in page gets: no session and no cookie, only the code it maps to its message.
+      const right = await signIn(auth, email, password);
+      assert.equal(right.status, 403, kind);
+      assert.equal((await right.json()).code, "ACCOUNT_DISABLED", kind);
+      assert.equal(right.headers.get("set-cookie"), null, kind);
+      const wrong = await signIn(auth, email, "wrong horse battery");
+      assert.equal(wrong.status, 401, kind);
+      assert.equal((await wrong.json()).code, "INVALID_EMAIL_OR_PASSWORD", kind);
+      assert.equal(await sessionCount(accountId), 0, kind);
+    }
+  });
+
+  test("a sign-in refused as disabled leaves the last sign-in as it was", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const neverId = await createAccount("never@example.org", "Never Signed In");
+    await signInDevice("staff@example.org");
+    const lastSignedInAt = (await accounts.get(staffId))?.lastSignedInAt;
+    assert.ok(lastSignedInAt instanceof Date);
+    await accounts.disable(staffId, admin);
+    await accounts.disable(neverId, admin);
+
+    assert.equal((await signIn(auth, "staff@example.org", password)).status, 403);
+    assert.equal((await signIn(auth, "never@example.org", password)).status, 403);
+
+    assert.deepEqual((await accounts.get(staffId))?.lastSignedInAt, lastSignedInAt);
+    assert.equal((await accounts.get(neverId))?.lastSignedInAt, null);
+  });
+
+  test("enabling lets the Account sign in again, exactly as it was, and records it", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Somchai Jaidee");
+    const before = await accounts.get(staffId);
+    await accounts.disable(staffId, admin);
+
+    const result = await accounts.enable(staffId, admin);
+
+    assert.deepEqual(result, { status: "enabled" });
+    assert.deepEqual(await accounts.get(staffId), before);
+    const session = await sessionOf(await signInDevice("staff@example.org"));
+    assert.deepEqual([session?.user.kind, session?.user.mustChangePassword], ["staff", true]);
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "enabled" }, actor: admin.accountId },
+      { change: { action: "disabled" }, actor: admin.accountId },
+    ]);
+  });
+
+  test("an Admin can't disable or enable their own Account, which stays signed in", async () => {
+    const admin = await createAdmin();
+    await createAdmin("second-admin@example.org", "Mary-Jane O'Neil");
+    const signedIn = await signInDevice("admin@example.org");
+
+    assert.deepEqual(await accounts.disable(admin.accountId, admin), { status: "own-account" });
+    assert.deepEqual(await accounts.enable(admin.accountId, admin), { status: "own-account" });
+
+    assert.equal((await accounts.get(admin.accountId))?.disabledAt, null);
+    assert.ok(await sessionOf(signedIn));
+    assert.deepEqual(await changesSinceCreated(admin.accountId), []);
+  });
+
+  test("the last enabled Admin can't be disabled, by anyone; a disabled Admin doesn't count", async () => {
+    const lastAdminId = await createAccount("admin@example.org", "Napat Wongsa", "admin");
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const disabledAdminId = await createAccount("disabled-admin@example.org", "Disabled Admin", "admin");
+    assert.deepEqual(await accounts.disable(disabledAdminId, { accountId: lastAdminId }), { status: "disabled" });
+    const signedIn = await signInDevice("admin@example.org");
+
+    const refused = [
+      await accounts.disable(lastAdminId, "server-command"),
+      await accounts.disable(lastAdminId, { accountId: staffId }),
+    ];
+
+    assert.deepEqual(refused, [{ status: "last-enabled-admin" }, { status: "last-enabled-admin" }]);
+    assert.equal((await accounts.get(lastAdminId))?.disabledAt, null);
+    assert.ok(await sessionOf(signedIn));
+    assert.deepEqual(await changesSinceCreated(lastAdminId), []);
+    // Staff and Kiosk Accounts don't count either way: the one Admin can disable them.
+    assert.deepEqual(await accounts.disable(staffId, { accountId: lastAdminId }), { status: "disabled" });
+
+    await createAccount("second-admin@example.org", "Mary-Jane O'Neil", "admin");
+    assert.deepEqual(await accounts.disable(lastAdminId, "server-command"), { status: "disabled" });
+  });
+
+  test("disabling a disabled Account, or enabling an enabled one, changes and records nothing", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+
+    assert.deepEqual(await accounts.enable(staffId, admin), { status: "enabled" });
+    await accounts.disable(staffId, admin);
+    const disabledAt = (await accounts.get(staffId))?.disabledAt;
+    assert.deepEqual(await accounts.disable(staffId, admin), { status: "disabled" });
+    assert.deepEqual((await accounts.get(staffId))?.disabledAt, disabledAt);
+    await accounts.enable(staffId, admin);
+    assert.deepEqual(await accounts.enable(staffId, admin), { status: "enabled" });
+
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "enabled" }, actor: admin.accountId },
+      { change: { action: "disabled" }, actor: admin.accountId },
+    ]);
+    assert.deepEqual(await accounts.disable("no-such-account", admin), { status: "not-found" });
+    assert.deepEqual(await accounts.enable("no-such-account", admin), { status: "not-found" });
+  });
+
+  test("making a disabled Account an Admin enables it, recorded after the kind; a disabled Admin is enabled too", async () => {
+    const admin = await createAdmin();
+    const staffId = await createAccount("staff@example.org", "Staff");
+    const disabledAdminId = await createAccount("disabled-admin@example.org", "Disabled Admin", "admin");
+    await accounts.disable(staffId, admin);
+    await accounts.disable(disabledAdminId, admin);
+
+    const promoted = await accounts.makeAdmin("Staff@Example.org", "server-command");
+    const enabledAdmin = await accounts.makeAdmin("disabled-admin@example.org", "server-command");
+    const unchanged = await accounts.makeAdmin("admin@example.org", "server-command");
+
+    assert.deepEqual(promoted, { status: "promoted", accountId: staffId, from: "staff", enabled: true });
+    assert.deepEqual(enabledAdmin, { status: "already-admin", accountId: disabledAdminId, enabled: true });
+    assert.deepEqual(unchanged, { status: "already-admin", accountId: admin.accountId, enabled: false });
+    for (const accountId of [staffId, disabledAdminId]) {
+      const account = await accounts.get(accountId);
+      assert.deepEqual([account?.kind, account?.disabledAt], ["admin", null]);
+    }
+    assert.equal((await sessionOf(await signInDevice("staff@example.org")))?.user.kind, "admin");
+    assert.equal((await sessionOf(await signInDevice("disabled-admin@example.org")))?.user.kind, "admin");
+    assert.deepEqual(await changesSinceCreated(staffId), [
+      { change: { action: "enabled" }, actor: "server-command" },
+      { change: { action: "kind-changed", details: { from: "staff", to: "admin" } }, actor: "server-command" },
+      { change: { action: "disabled" }, actor: admin.accountId },
+    ]);
+    assert.deepEqual(await changesSinceCreated(disabledAdminId), [
+      { change: { action: "enabled" }, actor: "server-command" },
+      { change: { action: "disabled" }, actor: admin.accountId },
+    ]);
+    assert.deepEqual(await changesSinceCreated(admin.accountId), []);
   });
 });

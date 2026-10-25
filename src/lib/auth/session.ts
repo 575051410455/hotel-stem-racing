@@ -54,20 +54,33 @@ type KindRule<Kind extends AccountKind> = (kind: AccountKind) => kind is Kind;
  */
 type GuardOptions = { forOwnAccount?: boolean };
 
-/** The session's user and session id as a `CurrentAccount`. */
+/**
+ * The session's user and session id as a `CurrentAccount`, or null for a disabled Account, which is
+ * signed out wherever it is. A backstop: disabling an Account also ends its sessions, and it can't
+ * start new ones (staff-auth.ts).
+ */
 function currentAccount(
-  user: { id: string; name: string; email: string; kind: AccountKind; mustChangePassword: boolean },
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    kind: AccountKind;
+    mustChangePassword: boolean;
+    disabledAt?: Date | null;
+  },
   sessionId: string,
-): CurrentAccount {
+): CurrentAccount | null {
+  if (user.disabledAt) return null;
   const { id, name, email, kind } = user;
   return { id, name, email, kind, sessionId, mustChangePassword: mustChooseOwnPassword(kind, user.mustChangePassword) };
 }
 
 /**
  * Reads and validates the session from the request cookies (a database lookup, no cookie cache),
- * whatever kind of Account it is. Returns null when nobody is signed in. Request-time: in a Server
- * Component, call it below a `<Suspense>` boundary. Deduplicated within one render; Server Actions
- * and Route Handlers re-check. Not exported: callers ask for what they need through the helpers below.
+ * whatever kind of Account it is. Returns null when nobody is signed in, or the Account is disabled
+ * (`currentAccount`). Request-time: in a Server Component, call it below a `<Suspense>` boundary.
+ * Deduplicated within one render; Server Actions and Route Handlers re-check. Not exported: callers
+ * ask for what they need through the helpers below.
  */
 const getSignedInAccount = cache(async (): Promise<CurrentAccount | null> => {
   // Read the request first: during prerender this suspends, so the auth instance (which needs the
@@ -168,9 +181,9 @@ export function requireStaffForOwnAccount(): Promise<CurrentStaff> {
 }
 
 /**
- * The signed-in Account that may record Check-Ins (Staff or Kiosk), or null; null too for an
- * Account that must choose its own password first. For the check-in Server Action; record its `id`
- * on the Check-In.
+ * The signed-in Account that may record Check-Ins (Staff or Kiosk), or null; null too for a disabled
+ * Account, or one that must choose its own password first. For the check-in Server Action; record
+ * its `id` on the Check-In.
  *
  * Unlike the helpers above, it never writes a cookie, so it never extends the session either (30
  * days is enough for the Event). In a Server Action, Better Auth clears the cookie of a session
@@ -185,7 +198,7 @@ export async function getCurrentCheckInAccount(): Promise<CurrentCheckInAccount 
   });
   if (!session) return null;
   const account = currentAccount(session.user, session.session.id);
-  return canCheckIn(account.kind) && !account.mustChangePassword ? account : null;
+  return account && canCheckIn(account.kind) && !account.mustChangePassword ? account : null;
 }
 
 /**
