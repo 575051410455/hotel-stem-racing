@@ -5,11 +5,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { MY_ACCOUNT_PATH } from "@/lib/auth/access";
-import { KIND_LABELS } from "@/lib/auth/kind-labels";
 import { accounts } from "@/lib/auth/server";
 import { requireAdmin } from "@/lib/auth/session";
 import { PageContent } from "../../_shell/page-header";
-import { AccountStatus, LastSignIn } from "../account-list";
+import { LastSignIn } from "../account-list";
+import { AccountAvatar, AccountKindBadge, AccountStatusBadges } from "../account-presentation";
 import { accountHistoryHref } from "../history/links";
 import { AccountAccess } from "./account-access";
 import { AccountDetailsForm } from "./account-details-form";
@@ -54,20 +54,20 @@ async function AdminOnlyAccount({ params }: Pick<PageProps<"/admin/accounts/[id]
     <>
       <AccountHeader name={account.name} />
       <PageContent narrow>
-        <h1 className="text-2xl leading-normal font-semibold wrap-anywhere">{account.name}</h1>
-        <p className="mt-1 text-sm leading-normal wrap-anywhere text-muted-foreground">{account.email}</p>
-        <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm leading-normal">
-          <dt className="text-muted-foreground">Kind</dt>
-          <dd>{KIND_LABELS[account.kind]}</dd>
-          <dt className="text-muted-foreground">Status</dt>
-          <dd>
-            <AccountStatus account={account} />
-          </dd>
-          <dt className="text-muted-foreground">Last sign-in</dt>
-          <dd>
-            <LastSignIn at={account.lastSignedInAt} />
-          </dd>
-        </dl>
+        <div className="flex items-start gap-3">
+          <AccountAvatar account={account} size="lg" />
+          <div className="min-w-0">
+            <h1 className="text-2xl leading-normal font-semibold wrap-anywhere">{account.name}</h1>
+            <p className="mt-1 text-sm leading-normal wrap-anywhere text-muted-foreground">{account.email}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <AccountKindBadge kind={account.kind} />
+              <AccountStatusBadges account={account} />
+            </div>
+            <p className="mt-3 text-sm leading-normal text-muted-foreground">
+              Last sign-in <LastSignIn at={account.lastSignedInAt} />
+            </p>
+          </div>
+        </div>
         <div className="mt-4">
           <Button asChild variant="outline" size="sm">
             <Link href={accountHistoryHref({ accountId: account.id })}>

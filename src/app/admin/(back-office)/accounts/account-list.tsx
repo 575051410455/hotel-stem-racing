@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { Fragment } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Account } from "@/lib/auth/accounts";
-import { KIND_LABELS } from "@/lib/auth/kind-labels";
-import { createdLabel, lastSignInLabel, statusLabels } from "./format";
+import { AccountAvatar, AccountKindBadge, AccountStatusBadges } from "./account-presentation";
+import { createdLabel, lastSignInLabel } from "./format";
 import { accountHref } from "./links";
 
 /**
@@ -36,15 +35,18 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                 <TableCell className="pl-4 font-medium whitespace-normal">
                   <Link
                     href={accountHref(account.id)}
-                    className="block min-w-32 wrap-anywhere underline-offset-4 hover:underline"
+                    className="flex min-w-32 items-center gap-3 wrap-anywhere underline-offset-4 hover:underline"
                   >
-                    {account.name}
+                    <AccountAvatar account={account} />
+                    <span className="min-w-0">{account.name}</span>
                   </Link>
                 </TableCell>
                 <TableCell className="whitespace-normal wrap-anywhere">{account.email}</TableCell>
-                <TableCell>{KIND_LABELS[account.kind]}</TableCell>
+                <TableCell>
+                  <AccountKindBadge kind={account.kind} />
+                </TableCell>
                 <TableCell className="whitespace-normal">
-                  <AccountStatus account={account} />
+                  <AccountStatusBadges account={account} />
                 </TableCell>
                 <TableCell>
                   <LastSignIn at={account.lastSignedInAt} />
@@ -62,19 +64,26 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
         {accounts.map((account) => (
           <li key={account.id} className="relative p-4 hover:bg-muted/50 has-focus-visible:bg-muted/50">
             {/* Stretched over the row, so a tap anywhere on it opens the Account. */}
-            <Link
-              href={accountHref(account.id)}
-              className="block leading-normal font-medium wrap-anywhere outline-none after:absolute after:inset-0 focus-visible:after:ring-[3px] focus-visible:after:ring-ring/50"
-            >
-              {account.name}
-            </Link>
-            <p className="text-sm leading-normal wrap-anywhere text-muted-foreground">{account.email}</p>
+            <div className="flex items-center gap-3">
+              <AccountAvatar account={account} />
+              <div className="min-w-0">
+                <Link
+                  href={accountHref(account.id)}
+                  className="block leading-normal font-medium wrap-anywhere outline-none after:absolute after:inset-0 focus-visible:after:ring-[3px] focus-visible:after:ring-ring/50"
+                >
+                  {account.name}
+                </Link>
+                <p className="text-sm leading-normal wrap-anywhere text-muted-foreground">{account.email}</p>
+              </div>
+            </div>
             <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm leading-normal">
               <dt className="text-muted-foreground">Kind</dt>
-              <dd>{KIND_LABELS[account.kind]}</dd>
+              <dd>
+                <AccountKindBadge kind={account.kind} />
+              </dd>
               <dt className="text-muted-foreground">Status</dt>
               <dd>
-                <AccountStatus account={account} />
+                <AccountStatusBadges account={account} />
               </dd>
               <dt className="text-muted-foreground">Last sign-in</dt>
               <dd>
@@ -90,16 +99,6 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
       </ul>
     </div>
   );
-}
-
-/** "Enabled · Must change password", wrapping only between the two. Also on the Account's page. */
-export function AccountStatus({ account }: { account: Account }) {
-  return statusLabels(account).map((label, index) => (
-    <Fragment key={label}>
-      {index > 0 && " · "}
-      <span className="whitespace-nowrap">{label}</span>
-    </Fragment>
-  ));
 }
 
 /** "22 Oct 2026, 14:05" in Bangkok time, or "Never". Also on the Account's page. */
