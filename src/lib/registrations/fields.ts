@@ -18,8 +18,8 @@ export type RegistrationForm = {
   referralSources: string[];
   referralOther: string;
   competingTeamCheeredFor: string;
-  accessibilityNeeds: string;
   comments: string;
+  pdpaAcknowledged: boolean;
 };
 
 export type FieldName = keyof RegistrationForm;
@@ -37,8 +37,8 @@ export const fieldOrder = [
   "referralSources",
   "referralOther",
   "competingTeamCheeredFor",
-  "accessibilityNeeds",
   "comments",
+  "pdpaAcknowledged",
 ] as const satisfies readonly FieldName[];
 
 const multiValueFields = ["eventDays", "referralSources"] as const;
@@ -58,8 +58,8 @@ export const emptyRegistrationForm: RegistrationForm = {
   referralSources: [],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: false,
 };
 
 // ---- Options (Thai labels are the organisers' canonical copy; English from the copy deck) ----
@@ -180,6 +180,7 @@ const messages: Record<
     referralSourcesMissing: string;
     referralSourceNotListed: string;
     referralOtherMissing: string;
+    pdpaAcknowledgmentMissing: string;
   }
 > = {
   th: {
@@ -202,6 +203,7 @@ const messages: Record<
     referralSourcesMissing: "กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง",
     referralSourceNotListed: "กรุณาเลือกช่องทางที่ทราบข่าวจากรายการ",
     referralOtherMissing: "กรุณาระบุช่องทางที่ทราบข่าว",
+    pdpaAcknowledgmentMissing: "กรุณารับทราบนโยบายคุ้มครองข้อมูลส่วนบุคคลก่อนลงทะเบียน",
   },
   en: {
     nameField: { givenName: "given name", familyName: "family name" },
@@ -224,6 +226,7 @@ const messages: Record<
     referralSourcesMissing: "Please choose at least one way you heard about the Event",
     referralSourceNotListed: "Please choose from the list",
     referralOtherMissing: "Please specify where you heard about the Event",
+    pdpaAcknowledgmentMissing: "Please acknowledge the Personal Data Protection Policy before registering",
   },
 };
 
@@ -236,7 +239,6 @@ export const maxLengths = {
   organisation: 200,
   referralOther: 100,
   competingTeamCheeredFor: 200,
-  accessibilityNeeds: 1000,
   comments: 1000,
 } as const satisfies Partial<Record<FieldName, number>>;
 
@@ -407,9 +409,10 @@ export function validateField(field: FieldName, form: RegistrationForm, language
         ? validateText(form.referralOther, maxLengths.referralOther, language, text.referralOtherMissing)
         : undefined;
     case "competingTeamCheeredFor":
-    case "accessibilityNeeds":
     case "comments":
       return validateText(form[field], maxLengths[field], language);
+    case "pdpaAcknowledged":
+      return form.pdpaAcknowledged === true ? undefined : text.pdpaAcknowledgmentMissing;
   }
 }
 
@@ -440,7 +443,6 @@ export type ValidRegistration = {
   referralSources: ReferralSource[];
   referralOther: string | null;
   competingTeamCheeredFor: string | null;
-  accessibilityNeeds: string | null;
   comments: string | null;
 };
 
@@ -473,7 +475,6 @@ export function parseRegistration(form: RegistrationForm, language: Language): P
       referralSources: referralSources.filter((source) => chosenSources.includes(source)),
       referralOther: chosenSources.includes("other") ? optionalText(form.referralOther) : null,
       competingTeamCheeredFor: optionalText(form.competingTeamCheeredFor),
-      accessibilityNeeds: optionalText(form.accessibilityNeeds),
       comments: optionalText(form.comments),
     },
   };
@@ -483,6 +484,11 @@ export function parseRegistration(form: RegistrationForm, language: Language): P
 export function registrationFormFromFormData(formData: FormData): RegistrationForm {
   const form: RegistrationForm = { ...emptyRegistrationForm };
   for (const field of fieldOrder) {
+    if (field === "pdpaAcknowledged") {
+      const values = formData.getAll(field);
+      form.pdpaAcknowledged = values.length === 1 && values[0] === "yes";
+      continue;
+    }
     const values = formData.getAll(field).filter((value): value is string => typeof value === "string");
     if (isMultiValueField(field)) form[field] = values;
     else form[field] = values[0] ?? "";

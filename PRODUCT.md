@@ -38,5 +38,4 @@ Fast, youthful, welcoming. The energy of a youth motorsport final, carried by th
 - WCAG 2.1 AA across public pages and the Back Office, checked at 320, 375 and 1280 px.
 - Keyboard focus rings always available (hidden only after pointer input); a skip link on every public page.
 - Respect `prefers-reduced-motion` (globals.css reduces all transitions and animations).
-- Accessibility needs are collected on the form without asking for health data.
 - Language is marked with `lang` on the page and on each language link.

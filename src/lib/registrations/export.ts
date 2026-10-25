@@ -31,7 +31,6 @@ export type RegistrationExportRow = {
   referralSources: ReferralSource[];
   referralOther: string | null;
   competingTeamCheeredFor: string | null;
-  accessibilityNeeds: string | null;
   comments: string | null;
   /** How many Event Pass emails were sent; 0 means none yet. */
   emailSentCount: number;
@@ -52,7 +51,6 @@ const exportColumns = {
   referralSources: registrationsTable.referralSources,
   referralOther: registrationsTable.referralOther,
   competingTeamCheeredFor: registrationsTable.competingTeamCheeredFor,
-  accessibilityNeeds: registrationsTable.accessibilityNeeds,
   comments: registrationsTable.comments,
   emailSentCount: registrationsTable.emailSentCount,
   lastEmailSentAt: registrationsTable.lastEmailSentAt,

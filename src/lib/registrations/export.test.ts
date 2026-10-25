@@ -39,7 +39,6 @@ describe("Registration module: exporting Registrations", () => {
       referralSources: ["line", "other"],
       referralOther: "ป้ายหน้างาน",
       competingTeamCheeredFor: "Thunder Bolt",
-      accessibilityNeeds: "รถเข็น",
       comments: "จอดรถได้ที่ไหน",
     });
 
@@ -63,7 +62,6 @@ describe("Registration module: exporting Registrations", () => {
       referralSources: ["line", "other"],
       referralOther: "ป้ายหน้างาน",
       competingTeamCheeredFor: "Thunder Bolt",
-      accessibilityNeeds: "รถเข็น",
       comments: "จอดรถได้ที่ไหน",
       emailSentCount: 0,
       lastEmailSentAt: null,
@@ -148,6 +146,6 @@ const attendee: RegistrationForm = {
   referralSources: ["facebook"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };

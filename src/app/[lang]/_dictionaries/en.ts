@@ -43,12 +43,20 @@ export const en: Dictionary = {
     referralQuestion: "How did you hear about the Event?",
     referralOther: "Please specify where you heard about it",
     competingTeamCheeredFor: "Team you're coming to cheer for (optional)",
-    accessibilityNeeds: "Help you need to attend (optional)",
-    accessibilityHints: ["For example, wheelchair access.", "You don't need to give health information or a diagnosis."],
     comments: "Questions or suggestions",
+    pdpaHeading: "Acknowledgment of the Personal Data Protection Policy (PDPA)",
+    pdpaIntroduction:
+      "Grand Richmond Hotel, as the organizer of STEM Racing Thailand National Finals 2026, is committed to protecting the personal data of all registrants in accordance with the Personal Data Protection Act B.E. 2562 (2019) (PDPA).",
+    pdpaPurposes:
+      "The information provided through this registration form, including your full name, telephone number, email address, and other relevant details, will be collected and used for registration purposes, attendance confirmation, event coordination, communication of event-related information, and event management. All personal data will be processed in accordance with the stated purposes and appropriate data protection measures.",
+    pdpaMoreBefore:
+      "Registrants may find further information regarding the use of personal data, data retention periods, and their rights as data subjects in the",
+    pdpaPolicyLink: "Organizer’s Privacy Policy",
+    pdpaMoreAfter: ".",
+    pdpaAcknowledgment:
+      "I acknowledge that I have read and understood the Personal Data Protection Policy (PDPA), including the purposes of the collection, use, and disclosure of my personal data as outlined above.",
     submit: "Register",
     submitting: "Registering…",
-    privacyNote: "We use your details to manage your registration, contact you about attending, and plan for attendees.",
     onePerForm: "One person per form, please.",
   },
   botProtection: {

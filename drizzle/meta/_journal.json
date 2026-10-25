@@ -43,6 +43,13 @@
       "when": 1792851674538,
       "tag": "0005_account-history",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792919236890,
+      "tag": "0006_pdpa-acknowledgment",
+      "breakpoints": true
     }
   ]
 }

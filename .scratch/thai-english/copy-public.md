@@ -86,14 +86,14 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | Referral: other (stored answer) | อื่น ๆ | Other |
 | Referral, please specify | โปรดระบุช่องทางที่ทราบข่าว | Please specify where you heard about it |
 | Team cheered for | ชื่อทีมที่ท่านต้องการมาเชียร์ (ถ้ามี) | Team you're coming to cheer for (optional) |
-| Accessibility needs | ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (ถ้ามี) | Help you need to attend (optional) |
-| Accessibility hint 1 | เช่น การอำนวยความสะดวกสำหรับผู้ใช้รถเข็น | For example, wheelchair access. |
-| Accessibility hint 2 | ไม่จำเป็นต้องระบุข้อมูลสุขภาพหรือการวินิจฉัยโรค | You don't need to give health information or a diagnosis. |
 | Comments | ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม | Questions or suggestions |
 | Submit | ลงทะเบียน | Register |
 | Submitting | กำลังลงทะเบียน… | Registering… |
-| Privacy note | ข้อมูลที่ท่านกรอกจะใช้สำหรับจัดการลงทะเบียน ติดต่อเกี่ยวกับการเข้าร่วมงาน และวางแผนรองรับผู้เข้าร่วมงาน | We use your details to manage your registration, contact you about attending, and plan for attendees. |
 | One per form | กรุณาลงทะเบียน 1 คนต่อ 1 แบบฟอร์ม | One person per form, please. |
+
+## PDPA acknowledgment (new)
+
+The complete Thai and English notice, policy link, and checkbox wording are in the [PDPA acknowledgment spec](../pdpa-registration-acknowledgment/spec.md). The notice follows Questions or suggestions; the short privacy note below Register is removed. The checkbox is required.
 
 ## Validation messages
 
@@ -119,6 +119,7 @@ Part of [spec.md](spec.md). This is a draft for the organisers to review.
 | No Referral Source | กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง | Please choose at least one way you heard about the Event |
 | Referral Source not in list | กรุณาเลือกช่องทางที่ทราบข่าวจากรายการ | Please choose from the list |
 | Referral other empty | กรุณาระบุช่องทางที่ทราบข่าว | Please specify where you heard about the Event |
+| PDPA acknowledgment missing | กรุณารับทราบนโยบายคุ้มครองข้อมูลส่วนบุคคลก่อนลงทะเบียน | Please acknowledge the Personal Data Protection Policy before registering |
 
 ## Security check (Turnstile)
 

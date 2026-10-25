@@ -194,9 +194,10 @@ Since account-management 02, this form is the "Change password" section of My Ac
 | ชื่อ / นามสกุล / เบอร์โทรศัพท์ / อีเมล | Given name / Family name / Phone / Email |
 | ฐานะการเข้าร่วมงาน / วันเข้าร่วมงาน / ช่องทางที่ทราบข่าว | Attendee Role / Event Days / Referral Sources |
 | ทีมที่ต้องการมาเชียร์ | Team cheering for |
-| ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน | Help needed to attend |
 | ข้อสอบถามหรือข้อเสนอแนะ | Questions or suggestions |
 | ไม่ได้ระบุ | Not given |
+| — (added in English only, 2026-10-25) | PDPA acknowledgment / Acknowledged (Bangkok time) / Event notice version / Policy URL |
+| — (added in English only, 2026-10-25) | Not recorded |
 | คัดลอกลิงก์ / คัดลอกลิงก์แล้ว | Copy link / Link copied |
 | คัดลอกไม่ได้ เลือกลิงก์ด้านบนแล้วคัดลอกเอง | Couldn't copy. Select the link above and copy it yourself. |
 | เปิด Event Pass | Open Event Pass |
@@ -378,7 +379,6 @@ The file stays UTF-8 with BOM, and the filename is unchanged. Values use the for
 | ช่องทางที่ทราบข่าว | Referral Sources |
 | ช่องทางที่ทราบข่าว (ระบุ) | Referral Source (other) |
 | ทีมที่ต้องการมาเชียร์ | Team cheering for |
-| ความช่วยเหลือที่ต้องการ | Help needed |
 | ข้อสอบถามหรือข้อเสนอแนะ | Questions or suggestions |
 | ส่งอีเมล Event Pass แล้ว (ครั้ง) | Event Pass emails sent |
 | ส่งอีเมล Event Pass ล่าสุดเมื่อ | Last Event Pass email (Bangkok time) |

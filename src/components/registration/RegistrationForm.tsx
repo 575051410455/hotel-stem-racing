@@ -29,8 +29,9 @@ import {
   referralSources,
   validateRegistration,
 } from "@/lib/registrations/fields";
+import { PDPA_POLICY_URL } from "@/lib/registrations/pdpa";
 import { BotProtection, type BotProtectionCopy } from "./BotProtection";
-import { ChoiceGroup, TextAreaField, TextField } from "./controls";
+import { ChoiceGroup, describedBy, errorId, FieldError, RequiredMark, TextAreaField, TextField } from "./controls";
 import { type DuplicateRegistrationCopy, DuplicateRegistrationNotice } from "./DuplicateRegistrationNotice";
 import { keepAnswers, takeKeptAnswers } from "./kept-answers";
 import { RegistrationClosed, type RegistrationClosedCopy } from "./RegistrationClosed";
@@ -60,12 +61,16 @@ export type RegistrationFormCopy = {
     referralQuestion: string;
     referralOther: string;
     competingTeamCheeredFor: string;
-    accessibilityNeeds: string;
-    accessibilityHints: string[];
     comments: string;
+    pdpaHeading: string;
+    pdpaIntroduction: string;
+    pdpaPurposes: string;
+    pdpaMoreBefore: string;
+    pdpaPolicyLink: string;
+    pdpaMoreAfter: string;
+    pdpaAcknowledgment: string;
     submit: string;
     submitting: string;
-    privacyNote: string;
     onePerForm: string;
   };
   botProtection: BotProtectionCopy;
@@ -76,7 +81,7 @@ export type RegistrationFormCopy = {
 const initialState: RegistrationFormState = { status: "idle" };
 
 type ListField = "eventDays" | "referralSources";
-type TextFieldName = Exclude<FieldName, ListField | "role">;
+type TextFieldName = Exclude<FieldName, ListField | "role" | "pdpaAcknowledged">;
 
 const inputId = (field: FieldName) => `registration-${field}`;
 
@@ -370,15 +375,57 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
 
       <TextField {...textProps("competingTeamCheeredFor")} label={text.competingTeamCheeredFor} />
 
-      <TextAreaField
-        {...textProps("accessibilityNeeds")}
-        label={text.accessibilityNeeds}
-        help={text.accessibilityHints.map((hint) => (
-          <p key={hint}>{hint}</p>
-        ))}
-      />
-
       <TextAreaField {...textProps("comments")} label={text.comments} />
+
+      <section
+        aria-labelledby="pdpa-heading"
+        className="flex flex-col gap-3 rounded-input border border-line p-4 text-[0.875rem] leading-relaxed tab:p-5"
+      >
+        <h2 id="pdpa-heading" className="text-base font-bold">
+          {text.pdpaHeading}
+        </h2>
+        <p>{text.pdpaIntroduction}</p>
+        <p>{text.pdpaPurposes}</p>
+        <p>
+          {text.pdpaMoreBefore}{" "}
+          <a
+            href={PDPA_POLICY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-link underline"
+          >
+            {text.pdpaPolicyLink}
+          </a>
+          {text.pdpaMoreAfter}
+        </p>
+        <div>
+          <label
+            htmlFor={inputId("pdpaAcknowledged")}
+            className="flex cursor-pointer items-start gap-3 font-medium"
+          >
+            <input
+              id={inputId("pdpaAcknowledged")}
+              name="pdpaAcknowledged"
+              type="checkbox"
+              value="yes"
+              checked={values.pdpaAcknowledged}
+              required
+              aria-invalid={errorFor("pdpaAcknowledged") ? true : undefined}
+              aria-describedby={describedBy(
+                errorFor("pdpaAcknowledged") && errorId(inputId("pdpaAcknowledged")),
+              )}
+              onChange={(event) => change("pdpaAcknowledged", event.target.checked)}
+              onBlur={() => leave("pdpaAcknowledged")}
+              className="mt-1 size-5 shrink-0 accent-focus"
+            />
+            <span>
+              {text.pdpaAcknowledgment}
+              <RequiredMark />
+            </span>
+          </label>
+          <FieldError id={inputId("pdpaAcknowledged")} message={errorFor("pdpaAcknowledged")} />
+        </div>
+      </section>
 
       <div className="flex flex-col gap-4">
         <BotProtection state={state} pending={pending} copy={copy.botProtection} language={language} />
@@ -394,7 +441,6 @@ export function RegistrationForm({ action, eventDays, language, copy }: Registra
           {pending ? text.submitting : text.submit}
         </button>
         <div className="flex flex-col gap-2 text-[0.875rem] text-muted">
-          <p>{text.privacyNote}</p>
           <p>{text.onePerForm}</p>
         </div>
       </div>

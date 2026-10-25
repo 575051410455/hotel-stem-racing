@@ -60,8 +60,13 @@ export const registrations = pgTable(
     referralSources: referralSource().array().notNull(),
     referralOther: text(),
     competingTeamCheeredFor: text(),
+    // Legacy column retained for existing Registrations; the form and Back Office no longer use it.
     accessibilityNeeds: text(),
     comments: text(),
+    // Null for Registrations made before the PDPA acknowledgment was introduced.
+    pdpaAcknowledgedAt: timestamp({ withTimezone: true }),
+    pdpaNoticeVersion: text(),
+    pdpaPolicyUrl: text(),
     emailSentCount: integer().notNull().default(0),
     lastEmailSentAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

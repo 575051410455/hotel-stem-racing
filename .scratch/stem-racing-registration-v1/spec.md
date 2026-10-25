@@ -48,13 +48,13 @@ Delivery is phased:
 17. As an Attendee arriving after the last Event Day has ended, I want to see that registration is closed, so that I'm not left with a broken form.
 18. As an Attendee, I want to tick every channel through which I heard about the Event, and type one if it's "Other", so that the organisers learn what works.
 19. As an Attendee, I want to optionally name the Competing Team I'm coming to cheer, so that the organisers know who supports whom.
-20. As an Attendee with accessibility needs, I want to describe the help I need without being asked for health information, so that the venue can prepare for me.
+20. Retired (2026-10-25): this field is no longer collected.
 21. As an Attendee, I want to leave a question or suggestion, so that I can reach the organisers.
 22. As an Attendee, I want each field's error shown in Thai when I leave the field, and re-checked as I type after an error, so that I can fix mistakes as I go.
 23. As an Attendee, I want required fields clearly marked, so that I know what I must fill in.
 24. As an Attendee who presses submit with mistakes, I want the cursor moved to the first invalid field, so that I can fix it immediately.
 25. As an Attendee, I want the bot check to stay out of my way, so that registering is still quick.
-26. As an Attendee, I want to read how my data will be used right next to the submit button, so that I know what I'm agreeing to.
+26. As an Attendee, I want to read and acknowledge the PDPA notice after the optional comments field before submitting, so that I know how my Registration data will be used. See the [PDPA acknowledgment spec](../pdpa-registration-acknowledgment/spec.md) for both languages, policy link and evidence rules.
 27. As an Attendee, I want the form usable from a 320px-wide phone up to a desktop, with no sideways scrolling, so that any device works.
 28. As a keyboard or screen-reader user, I want a skip link, real labels, announced errors and visible keyboard focus, so that I can register without a mouse.
 
@@ -100,7 +100,7 @@ Delivery is phased:
 57. As Staff, I want search, filters, sort and page kept in the URL, so that refreshing, going back or sharing a link keeps my view.
 58. As Staff, I want the list to stay usable while the next page loads, so that the table doesn't flash empty.
 59. As Staff, I want head counts per Event Day broken down by Attendee Role, so that we can plan staffing and seating.
-60. As Staff, I want to open a Registration and see every answer, including accessibility needs and comments, so that we can prepare for individual needs.
+60. As Staff, I want to open a Registration and see every answer, including comments, so that we can review questions or suggestions.
 61. As Staff, I want to delete spam or Duplicate Registrations, so that counts stay accurate.
 62. As Staff, I want to export the Registrations matching my current filters as a CSV that opens in Excel with Thai intact, so that I can share lists with the venue.
 63. As Staff, I want to see whether each Attendee's Event Pass email was sent and how many times, so that I know who may be missing their pass.
@@ -153,7 +153,7 @@ Delivery is phased:
 - The UI is Thai only, Back Office included.
 - Font stack, system fonts only, with no font files hosted (the SF Pro licence forbids web embedding): "SF Pro Text", "SF Pro TH", "SF Pro Icons", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Leelawadee UI", "Noto Sans Thai", sans-serif.
 - Footer: logos, © 2026 STEM Racing Thailand, and the organisers' contact channels. Each channel is hidden when not configured.
-- Canonical Thai copy comes from the organisers' form: intro text, field labels, privacy notice and thank-you message.
+- Canonical Thai copy comes from the organisers' form: intro text, field labels and thank-you message. The current bilingual PDPA notice and its versioning rule are in the [PDPA acknowledgment spec](../pdpa-registration-acknowledgment/spec.md).
 
 ### URLs (product contract)
 - `/`: public registration form.
@@ -198,7 +198,7 @@ Delivery is phased:
 - **Organisation** (optional): required, and relabelled, when the Attendee Role is Sponsor. This merges the original form's questions 5 and 6.
 - **Event Days** (required, at least one): only days that have not ended. The server re-checks against the clock.
 - **Referral Sources** (required, at least one): Facebook, Instagram, TikTok, LINE, Website, School/institution, Company/organisation, Friend/acquaintance, Competing Team, Other. "Other" requires text.
-- **Competing Team cheered for, accessibility needs, comments**: optional free text.
+- **Competing Team cheered for, comments**: optional free text.
 - Every text field has a sensible maximum length, enforced in the browser and on the server.
 
 ### Duplicate Registration
@@ -300,7 +300,7 @@ Delivery is phased:
 
 ### Data shape
 Decision-level, not final column names:
-- **Registration**: id, token (unique), Pass Code (unique), given name, family name, phone (E.164), email, Attendee Role, role-other text, organisation, chosen Event Days (one or more), Referral Sources (one or more) plus other text, Competing Team cheered for, accessibility needs, comments, email sent count, last email sent time, created time. Unique on the Duplicate Registration key.
+- **Registration**: id, token (unique), Pass Code (unique), given name, family name, phone (E.164), email, Attendee Role, role-other text, organisation, chosen Event Days (one or more), Referral Sources (one or more) plus other text, Competing Team cheered for, comments, nullable PDPA acknowledgment time, event notice version and linked policy URL, email sent count, last email sent time, created time. Unique on the Duplicate Registration key. The event notice version changes when the notice wording changes; it is not a version of the hotel's external policy.
 - **Check-In**: id, Registration, Event Day, checked-in time, Staff Account, flag for a non-registered day. Unique on (Registration, Event Day).
 - **Staff auth**: Better Auth's own tables (users, sessions, accounts, verifications).
 

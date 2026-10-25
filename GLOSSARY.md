@@ -53,6 +53,14 @@ _Avoid_: Double booking, repeat
 A channel through which an Attendee heard about the Event; one Registration can name several.
 _Avoid_: Channel, marketing source
 
+**PDPA acknowledgment** (การรับทราบนโยบายคุ้มครองข้อมูลส่วนบุคคล):
+An Attendee's required statement, when submitting a Registration, that they have read the Event's PDPA notice. It is saved with the server time, the event notice version and the linked policy URL. Registrations made before the checkbox was added have none. It is not consent to marketing.
+_Avoid_: Consent, agreement, opt-in
+
+**Event notice version** (เวอร์ชันข้อความแจ้ง):
+The identifier of the PDPA notice wording shown beside the checkbox; it changes whenever that wording changes. It is not a version of the hotel's own privacy policy.
+_Avoid_: Policy version
+
 ### At the door
 
 **Check-In** (การเช็คอิน):

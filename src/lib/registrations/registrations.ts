@@ -27,6 +27,7 @@ import {
   type RegistrationForm,
   type ValidRegistration,
 } from "./fields";
+import { PDPA_NOTICE_VERSION, PDPA_POLICY_URL } from "./pdpa";
 import {
   type BotCheckVerifier,
   type Clock,
@@ -152,7 +153,7 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
     dependencies.attemptLimiter ?? createInMemoryRateLimiter({ limit: ATTEMPTS_PER_WINDOW });
 
   /** Saves a new Registration, or resolves to undefined when it is a Duplicate Registration. */
-  async function save(registration: ValidRegistration): Promise<EventPass | undefined> {
+  async function save(registration: ValidRegistration, acknowledgedAt: Date): Promise<EventPass | undefined> {
     const token = randomUUID();
     for (let attempt = 1; ; attempt++) {
       try {
@@ -163,6 +164,9 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
             token,
             passCode: deps.generatePassCode(),
             duplicateKey: duplicateKey(registration),
+            pdpaAcknowledgedAt: acknowledgedAt,
+            pdpaNoticeVersion: PDPA_NOTICE_VERSION,
+            pdpaPolicyUrl: PDPA_POLICY_URL,
           })
           .returning(eventPassColumns);
         return pass;
@@ -213,7 +217,7 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
       };
       if (!parsed.ok || Object.keys(fieldErrors).length > 0) return { status: "invalid", fieldErrors };
 
-      const pass = await save(parsed.registration);
+      const pass = await save(parsed.registration, now);
       if (!pass) return respondToDuplicate(deps, duplicateKey(parsed.registration));
 
       // Never fails the Registration: sendEventPassEmail catches and logs everything.

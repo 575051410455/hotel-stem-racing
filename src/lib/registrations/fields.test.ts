@@ -27,8 +27,8 @@ const valid: RegistrationForm = {
   referralSources: ["facebook"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };
 
 const withValues = (values: Partial<RegistrationForm>): RegistrationForm => ({ ...valid, ...values });
@@ -364,8 +364,8 @@ describe("Field validation: Event Days and Referral Sources", () => {
 });
 
 describe("Field validation: optional free text", () => {
-  test("the Competing Team, accessibility needs and comments may be left empty", () => {
-    for (const field of ["competingTeamCheeredFor", "accessibilityNeeds", "comments"] as const) {
+  test("the Competing Team and comments may be left empty", () => {
+    for (const field of ["competingTeamCheeredFor", "comments"] as const) {
       assert.equal(validateField(field, withValues({ [field]: "" }), "th"), undefined, field);
       assert.equal(validateField(field, withValues({ [field]: "ทีม Thunder ⚡ (รร. ตัวอย่าง)" }), "th"), undefined, field);
     }
@@ -374,7 +374,6 @@ describe("Field validation: optional free text", () => {
   test("every free-text field has a maximum length", () => {
     const limits = {
       competingTeamCheeredFor: 200,
-      accessibilityNeeds: 1000,
       comments: 1000,
       referralOther: 100,
     } as const;
@@ -393,7 +392,19 @@ describe("Field validation: the whole form", () => {
   });
 
   test("an empty form reports each required field, in form order", () => {
-    assert.deepEqual(validateRegistration(emptyRegistrationForm, "th"), {
+    const errors = validateRegistration(emptyRegistrationForm, "th");
+    // deepEqual ignores key order, so check the order on its own.
+    assert.deepEqual(Object.keys(errors), [
+      "givenName",
+      "familyName",
+      "phone",
+      "email",
+      "role",
+      "eventDays",
+      "referralSources",
+      "pdpaAcknowledged",
+    ]);
+    assert.deepEqual(errors, {
       givenName: "กรุณากรอกชื่อ",
       familyName: "กรุณากรอกนามสกุล",
       phone: "กรุณากรอกเบอร์โทรศัพท์",
@@ -401,6 +412,7 @@ describe("Field validation: the whole form", () => {
       role: "กรุณาเลือกฐานะการเข้าร่วมงาน",
       eventDays: "กรุณาเลือกวันที่ต้องการเข้าร่วมงานอย่างน้อย 1 วัน",
       referralSources: "กรุณาเลือกช่องทางที่ทราบข่าวอย่างน้อย 1 ช่องทาง",
+      pdpaAcknowledged: "กรุณารับทราบนโยบายคุ้มครองข้อมูลส่วนบุคคลก่อนลงทะเบียน",
     });
   });
 
@@ -417,8 +429,8 @@ describe("Field validation: the whole form", () => {
       referralSources: ["line", "facebook", "line"],
       referralOther: "ignored unless Other",
       competingTeamCheeredFor: " Thunder ",
-      accessibilityNeeds: "",
       comments: "  ",
+      pdpaAcknowledged: true,
     }, "th");
 
     assert.deepEqual(result, {
@@ -435,7 +447,6 @@ describe("Field validation: the whole form", () => {
         referralSources: ["facebook", "line"],
         referralOther: null,
         competingTeamCheeredFor: "Thunder",
-        accessibilityNeeds: null,
         comments: null,
       },
     });
@@ -469,6 +480,7 @@ describe("Field validation: the whole form", () => {
     formData.append("eventDays", "2026-10-31");
     formData.append("eventDays", "2026-11-01");
     formData.append("referralSources", "line");
+    formData.set("accessibilityNeeds", "legacy field must be ignored");
     formData.set("$ACTION_ID_abc", "");
 
     assert.deepEqual(registrationFormFromFormData(formData), {
@@ -478,6 +490,16 @@ describe("Field validation: the whole form", () => {
       eventDays: ["2026-10-31", "2026-11-01"],
       referralSources: ["line"],
     });
+  });
+
+  test("accepts only one checked PDPA acknowledgment value from FormData", () => {
+    const formData = new FormData();
+    formData.set("pdpaAcknowledged", "yes");
+    assert.equal(registrationFormFromFormData(formData).pdpaAcknowledged, true);
+    formData.append("pdpaAcknowledged", "yes");
+    assert.equal(registrationFormFromFormData(formData).pdpaAcknowledged, false);
+    formData.set("pdpaAcknowledged", "on");
+    assert.equal(registrationFormFromFormData(formData).pdpaAcknowledged, false);
   });
 });
 
@@ -492,6 +514,7 @@ describe("Field validation: messages in English", () => {
       role: "Please choose how you're attending",
       eventDays: "Please choose at least one day",
       referralSources: "Please choose at least one way you heard about the Event",
+      pdpaAcknowledged: "Please acknowledge the Personal Data Protection Policy before registering",
     });
   });
 

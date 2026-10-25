@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
+import { eq } from "drizzle-orm";
 import { registrations as registrationsTable } from "@/lib/db/schema";
 import { createTestDatabase } from "@/test-support/database";
 import type { RegistrationForm } from "./fields";
@@ -10,6 +11,7 @@ const TEN_MINUTES = 10 * 60 * 1000;
 const appUrl = "https://register.example.com/";
 // Registration is open (the last Event Day ends 2026-11-01, Bangkok time) at every clock used here.
 const beforeTheEvent = () => new Date("2026-10-22T12:00:00+07:00");
+const aDayLater = () => new Date("2026-10-23T12:00:00+07:00");
 
 /** A Latin name, so case-folding is visible. */
 const attendee: RegistrationForm = {
@@ -24,8 +26,8 @@ const attendee: RegistrationForm = {
   referralSources: ["facebook"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };
 
 describe("Duplicate Registration", () => {
@@ -59,8 +61,19 @@ describe("Duplicate Registration", () => {
   test("a repeat submission for the same person returns the masked email and no Event Pass", async () => {
     const original = await registrations.submit(attendee);
     assert.equal(original.status, "accepted");
+    const evidence = () =>
+      database.db
+        .select({
+          acknowledgedAt: registrationsTable.pdpaAcknowledgedAt,
+          noticeVersion: registrationsTable.pdpaNoticeVersion,
+          policyUrl: registrationsTable.pdpaPolicyUrl,
+        })
+        .from(registrationsTable)
+        .where(eq(registrationsTable.token, original.pass.token));
+    const firstEvidence = await evidence();
 
-    const repeat = await registrations.submit({
+    // A day later, so a rewritten acknowledgment time would show.
+    const repeat = await createRegistrations({ db: database.db, clock: aDayLater }).submit({
       ...attendee,
       givenName: "  JOHN ",
       familyName: "smith",
@@ -77,6 +90,7 @@ describe("Duplicate Registration", () => {
     assert.ok(!shown.includes(original.pass.token), "the token is never returned");
     assert.ok(!shown.includes(original.pass.passCode), "the Pass Code is never returned");
     assert.equal(await registrationCount(), 1);
+    assert.deepEqual(await evidence(), firstEvidence);
   });
 
   test("the same names with the same international number is a Duplicate Registration", async () => {

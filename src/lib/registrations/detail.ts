@@ -40,8 +40,10 @@ export type RegistrationDetail = {
   /** The Attendee's own words when a Referral Source is "other"; otherwise null. */
   referralOther: string | null;
   competingTeamCheeredFor: string | null;
-  accessibilityNeeds: string | null;
   comments: string | null;
+  pdpaAcknowledgedAt: Date | null;
+  pdpaNoticeVersion: string | null;
+  pdpaPolicyUrl: string | null;
   /** How many Event Pass emails were sent; 0 means none yet. */
   emailSentCount: number;
   lastEmailSentAt: Date | null;
@@ -72,8 +74,10 @@ const detailColumns = {
   referralSources: registrationsTable.referralSources,
   referralOther: registrationsTable.referralOther,
   competingTeamCheeredFor: registrationsTable.competingTeamCheeredFor,
-  accessibilityNeeds: registrationsTable.accessibilityNeeds,
   comments: registrationsTable.comments,
+  pdpaAcknowledgedAt: registrationsTable.pdpaAcknowledgedAt,
+  pdpaNoticeVersion: registrationsTable.pdpaNoticeVersion,
+  pdpaPolicyUrl: registrationsTable.pdpaPolicyUrl,
   emailSentCount: registrationsTable.emailSentCount,
   lastEmailSentAt: registrationsTable.lastEmailSentAt,
 };

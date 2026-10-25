@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, beforeEach, describe, test } from "node:test";
+import { eq } from "drizzle-orm";
+import { registrations as registrationsTable } from "@/lib/db/schema";
 import { createTestDatabase } from "@/test-support/database";
 import type { RegistrationForm } from "./fields";
 import { createRegistrations } from "./registrations";
@@ -35,6 +37,30 @@ describe("Registration module", () => {
   });
 
   describe("submitting a Registration", () => {
+    test("requires PDPA acknowledgment and records the server time, notice version and policy URL", async () => {
+      assert.deepEqual(await registrations.submit({ ...attendee, pdpaAcknowledged: false }), {
+        status: "invalid",
+        fieldErrors: { pdpaAcknowledged: "กรุณารับทราบนโยบายคุ้มครองข้อมูลส่วนบุคคลก่อนลงทะเบียน" },
+      });
+      assert.equal(await database.db.$count(registrationsTable), 0);
+
+      const result = await registrations.submit(attendee);
+      assert.equal(result.status, "accepted");
+      const [row] = await database.db
+        .select({
+          acknowledgedAt: registrationsTable.pdpaAcknowledgedAt,
+          noticeVersion: registrationsTable.pdpaNoticeVersion,
+          policyUrl: registrationsTable.pdpaPolicyUrl,
+        })
+        .from(registrationsTable)
+        .where(eq(registrationsTable.token, result.pass.token));
+      assert.deepEqual(row, {
+        acknowledgedAt: beforeTheEvent(),
+        noticeVersion: "stem-racing-2026-v1",
+        policyUrl: "https://grandrichmondhotel.com/privacypolicy",
+      });
+    });
+
     test("a valid submission returns an Event Pass that can be fetched by its token", async () => {
       const result = await registrations.submit(attendee);
 
@@ -214,6 +240,6 @@ const attendee: RegistrationForm = {
   referralSources: ["facebook", "line"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };

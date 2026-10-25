@@ -11,7 +11,7 @@ const HEADER =
   "Registered (Bangkok time),Pass Code,Given name,Family name,Phone,Phone (E.164),Email," +
   "Attendee Role,Attendee Role (other),School or organisation," +
   "Event Days,Referral Sources,Referral Source (other),Team cheering for," +
-  "Help needed,Questions or suggestions,Event Pass emails sent," +
+  "Questions or suggestions,Event Pass emails sent," +
   "Last Event Pass email (Bangkok time)";
 
 /** A line's cells: split on the commas outside quotes, such as the one in "22 Oct 2026, 14:05". */
@@ -30,7 +30,6 @@ describe("Registration CSV", () => {
         organisation: "=1+2",
         referralOther: "@SUM(A1)",
         competingTeamCheeredFor: "+1",
-        accessibilityNeeds: "-2",
         comments: "\tเริ่มด้วยแท็บ",
       },
     ]);
@@ -39,7 +38,7 @@ describe("Registration CSV", () => {
       csv,
       `${BOM}${HEADER}\r\n` +
         "\"22 Oct 2026, 14:05\",EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
-        "Parent,ครู-อาจารย์,'=1+2,Saturday 31 October 2026,Facebook,'@SUM(A1),'+1,'-2,'\tเริ่มด้วยแท็บ,0,\r\n",
+        "Parent,ครู-อาจารย์,'=1+2,Saturday 31 October 2026,Facebook,'@SUM(A1),'+1,'\tเริ่มด้วยแท็บ,0,\r\n",
     );
   });
 
@@ -50,7 +49,6 @@ describe("Registration CSV", () => {
         organisation: "บริษัท ก, จำกัด",
         referralOther: 'ป้าย "STEM"',
         competingTeamCheeredFor: "ทีม A\r\nทีม B",
-        accessibilityNeeds: '=HYPERLINK("http://x.example","y")',
         comments: "บรรทัดแรก\nบรรทัดสอง",
       },
     ]);
@@ -60,7 +58,7 @@ describe("Registration CSV", () => {
       `${BOM}${HEADER}\r\n` +
         "\"22 Oct 2026, 14:05\",EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
         'Parent,,"บริษัท ก, จำกัด",Saturday 31 October 2026,Facebook,"ป้าย ""STEM""","ทีม A\r\nทีม B",' +
-        '"\'=HYPERLINK(""http://x.example"",""y"")","บรรทัดแรก\nบรรทัดสอง",0,\r\n',
+        '"บรรทัดแรก\nบรรทัดสอง",0,\r\n',
     );
   });
 
@@ -97,9 +95,9 @@ describe("Registration CSV", () => {
       `${BOM}${HEADER}\r\n` +
         "\"22 Oct 2026, 14:05\",EP-7KQ2MZ9H,วิชัย,ใจดี,081-234-5678,'+66812345678,wichai@example.com," +
         "Other,ศิษย์เก่า,,Saturday 31 October 2026; Sunday 1 November 2026," +
-        "LINE; A Competing Team; Other,ป้ายหน้างาน,,,,2,\"23 Oct 2026, 00:30\"\r\n" +
+        "LINE; A Competing Team; Other,ป้ายหน้างาน,,,2,\"23 Oct 2026, 00:30\"\r\n" +
         "\"23 Oct 2026, 09:00\",EP-ABCDEFGH,Alice,Smith,02-123-4567,'+6621234567,alice@example.com," +
-        "Sponsor / Supporter,,Grand Richmond,Sunday 1 November 2026,Website,,,,,0,\r\n",
+        "Sponsor / Supporter,,Grand Richmond,Sunday 1 November 2026,Website,,,,0,\r\n",
     );
   });
 
@@ -173,7 +171,6 @@ const wichai: RegistrationExportRow = {
   referralSources: ["facebook"],
   referralOther: null,
   competingTeamCheeredFor: null,
-  accessibilityNeeds: null,
   comments: null,
   emailSentCount: 0,
   lastEmailSentAt: null,

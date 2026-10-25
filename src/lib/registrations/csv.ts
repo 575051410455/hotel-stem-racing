@@ -49,7 +49,6 @@ const columns: { header: string; value: (row: RegistrationExportRow) => string |
   },
   { header: "Referral Source (other)", value: (row) => row.referralOther },
   { header: "Team cheering for", value: (row) => row.competingTeamCheeredFor },
-  { header: "Help needed", value: (row) => row.accessibilityNeeds },
   { header: "Questions or suggestions", value: (row) => row.comments },
   { header: "Event Pass emails sent", value: (row) => String(row.emailSentCount) },
   { header: "Last Event Pass email (Bangkok time)", value: (row) => bangkokDateTime(row.lastEmailSentAt) },

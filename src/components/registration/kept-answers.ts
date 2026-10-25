@@ -51,6 +51,8 @@ function readAnswers(stored: unknown): KeptAnswers | null {
     const value = (values as Record<string, unknown>)[field];
     if (field === "eventDays" || field === "referralSources") {
       if (Array.isArray(value)) form[field] = value.filter((item): item is string => typeof item === "string");
+    } else if (field === "pdpaAcknowledged") {
+      form.pdpaAcknowledged = value === true;
     } else if (typeof value === "string") {
       form[field] = value;
     }

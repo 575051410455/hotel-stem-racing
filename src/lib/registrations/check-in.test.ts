@@ -322,6 +322,6 @@ const attendee: RegistrationForm = {
   referralSources: ["facebook"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };

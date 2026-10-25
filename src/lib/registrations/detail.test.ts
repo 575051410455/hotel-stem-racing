@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { checkIns as checkInsTable } from "@/lib/db/schema";
+import { checkIns as checkInsTable, registrations as registrationsTable } from "@/lib/db/schema";
 import { createTestDatabase } from "@/test-support/database";
 import type { RegistrationForm } from "./fields";
+import { PDPA_NOTICE_VERSION, PDPA_POLICY_URL } from "./pdpa";
 import type { EventPassEmailSender } from "./ports";
 import { createRegistrations } from "./registrations";
 
@@ -63,7 +64,6 @@ describe("Registration module: detail and delete", () => {
       referralSources: ["line", "other"],
       referralOther: "ป้ายหน้างาน",
       competingTeamCheeredFor: "ทีมสายฟ้า",
-      accessibilityNeeds: "ใช้รถเข็น\nต้องการที่นั่งใกล้ทางเข้า",
       comments: "มากัน 2 คน",
     });
     const oct31Morning = new Date("2026-10-31T09:15:00+07:00");
@@ -91,8 +91,10 @@ describe("Registration module: detail and delete", () => {
         referralSources: ["line", "other"],
         referralOther: "ป้ายหน้างาน",
         competingTeamCheeredFor: "ทีมสายฟ้า",
-        accessibilityNeeds: "ใช้รถเข็น\nต้องการที่นั่งใกล้ทางเข้า",
         comments: "มากัน 2 คน",
+        pdpaAcknowledgedAt: registeredAt,
+        pdpaNoticeVersion: PDPA_NOTICE_VERSION,
+        pdpaPolicyUrl: PDPA_POLICY_URL,
         emailSentCount: 1,
         lastEmailSentAt: registeredAt,
         checkIns: [
@@ -101,6 +103,20 @@ describe("Registration module: detail and delete", () => {
         ],
       },
     });
+  });
+
+  test("a Registration from before the PDPA field has no acknowledgment record", async () => {
+    const { row } = await register();
+    await database.db
+      .update(registrationsTable)
+      .set({ pdpaAcknowledgedAt: null, pdpaNoticeVersion: null, pdpaPolicyUrl: null })
+      .where(eq(registrationsTable.id, row.id));
+
+    const result = await registrationsAt(registeredAt).getRegistrationDetail(row.id);
+    assert.equal(result.status, "found");
+    assert.equal(result.registration.pdpaAcknowledgedAt, null);
+    assert.equal(result.registration.pdpaNoticeVersion, null);
+    assert.equal(result.registration.pdpaPolicyUrl, null);
   });
 
   test("an id with no Registration is not found", async () => {
@@ -190,6 +206,6 @@ const attendee: RegistrationForm = {
   referralSources: ["facebook"],
   referralOther: "",
   competingTeamCheeredFor: "",
-  accessibilityNeeds: "",
   comments: "",
+  pdpaAcknowledged: true,
 };

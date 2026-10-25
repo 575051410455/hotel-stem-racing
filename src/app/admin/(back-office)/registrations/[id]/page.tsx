@@ -119,6 +119,10 @@ async function RegistrationDetailContent({
             <Answers registration={registration} />
           </Section>
 
+          <Section title="PDPA acknowledgment">
+            <PdpaAcknowledgment registration={registration} />
+          </Section>
+
           <Section title="Event Pass">
             <dl className="flex flex-col gap-4 text-sm">
               <div className="flex flex-col gap-1">
@@ -250,7 +254,6 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
       ),
     },
     { label: "Team cheering for", value: registration.competingTeamCheeredFor },
-    { label: "Help needed to attend", value: registration.accessibilityNeeds },
     { label: "Questions or suggestions", value: registration.comments },
   ];
 
@@ -261,6 +264,48 @@ function Answers({ registration }: { registration: RegistrationDetail }) {
           <dt className="leading-normal text-muted-foreground sm:w-56 sm:shrink-0">{label}</dt>
           <dd className="min-w-0 flex-1 leading-normal whitespace-pre-line wrap-anywhere">
             {value ?? <span className="text-muted-foreground">Not given</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The evidence saved with the Registration. Registrations from before the checkbox have none. */
+function PdpaAcknowledgment({ registration }: { registration: RegistrationDetail }) {
+  const { pdpaAcknowledgedAt, pdpaNoticeVersion, pdpaPolicyUrl } = registration;
+  if (!pdpaAcknowledgedAt) {
+    return <p className="text-sm leading-normal text-muted-foreground">Not recorded</p>;
+  }
+
+  const acknowledgedAt = pdpaAcknowledgedAt.toISOString();
+  const evidence: { label: string; value: ReactNode }[] = [
+    {
+      label: "Acknowledged (Bangkok time)",
+      value: (
+        <time dateTime={acknowledgedAt} className="tabular-nums">
+          {formatCreatedAt(acknowledgedAt)}
+        </time>
+      ),
+    },
+    { label: "Event notice version", value: pdpaNoticeVersion },
+    {
+      label: "Policy URL",
+      value: pdpaPolicyUrl && (
+        <a href={pdpaPolicyUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-4 hover:underline">
+          {pdpaPolicyUrl}
+        </a>
+      ),
+    },
+  ];
+
+  return (
+    <dl className="divide-y border-t text-sm">
+      {evidence.map(({ label, value }) => (
+        <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-6">
+          <dt className="leading-normal text-muted-foreground sm:w-56 sm:shrink-0">{label}</dt>
+          <dd className="min-w-0 flex-1 leading-normal wrap-anywhere">
+            {value ?? <span className="text-muted-foreground">Not recorded</span>}
           </dd>
         </div>
       ))}

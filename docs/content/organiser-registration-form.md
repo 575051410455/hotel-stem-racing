@@ -56,10 +56,14 @@ Supplied by the organisers as a Google Form draft. This is the source of truth f
 **10. ความช่วยเหลือที่ต้องการในการเข้าร่วมงาน (ถ้ามี)**
 เช่น การอำนวยความสะดวกสำหรับผู้ใช้รถเข็น
 ไม่จำเป็นต้องระบุข้อมูลสุขภาพหรือการวินิจฉัยโรค
+[Retired 2026-10-25: no longer on the form. Answers given before then stay in the database.]
 
 **11. ข้อสอบถามหรือข้อเสนอแนะเพิ่มเติม**
 
+[Followed by the PDPA notice, a link to the hotel's privacy policy and a required acknowledgment checkbox; wording in `.scratch/pdpa-registration-acknowledgment/spec.md`.]
+
 ข้อมูลที่ท่านกรอกจะใช้สำหรับจัดการลงทะเบียน ติดต่อเกี่ยวกับการเข้าร่วมงาน และวางแผนรองรับผู้เข้าร่วมงาน
+[Removed 2026-10-25: replaced by the PDPA notice.]
 
 กรุณาลงทะเบียน 1 คนต่อ 1 แบบฟอร์ม
 
