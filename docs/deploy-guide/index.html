@@ -438,15 +438,50 @@ docker compose logs --tail 100 db</code></pre>
         <h2>9. Day-to-day</h2>
         <dl class="ops">
           <dt>Back up</dt>
-          <dd><pre><code>mkdir -p ~/backups
-docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; ~/backups/stem-racing-$(date +%F-%H%M).dump</code></pre>Do it before every deploy. Backups go to <code>~/backups</code>, outside the checkout, so they never reach a Docker build. A backup on the server is lost with the server: copy it to your own computer as well (run this there, with your SSH login):<pre><code>scp '&lt;user&gt;@&lt;server&gt;:backups/stem-racing-*.dump' .</code></pre></dd>
+          <dd><pre><code>(
+  set -eu
+  umask 077
+  backup_dir="$HOME/backups"
+  [ ! -L "$backup_dir" ]
+  mkdir -p "$backup_dir"
+  chmod 700 "$backup_dir"
+  backup_file="$backup_dir/stem-racing-$(date +%F-%H%M).dump"
+  [ ! -L "$backup_file" ]
+  [ ! -e "$backup_file" ] || [ -f "$backup_file" ]
+  touch "$backup_file"
+  chmod 600 "$backup_file"
+  docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; "$backup_file"
+)</code></pre>
+            <p>Do it before every deploy. Backups stay in <code>~/backups</code>, outside the checkout. The subshell limits <code>umask 077</code> to this command. It restricts even an existing directory to <code>0700</code> and an existing output file to <code>0600</code> before writing. Symlink destinations and non-file outputs are refused; stop and inspect a failed check instead of bypassing it.</p>
+            <p>Restrict earlier dumps once, without following symlinks or changing unrelated or nested files:</p>
+            <pre><code>(
+  set -eu
+  backup_dir="$HOME/backups"
+  [ ! -L "$backup_dir" ]
+  chmod 700 "$backup_dir"
+  find -P "$backup_dir" -maxdepth 1 -type f -name 'stem-racing-*.dump' -exec chmod 600 {} +
+)</code></pre>
+            <p>A backup on the server is lost with the server. On your own computer, copy into a new private directory (replace the SSH login):</p>
+            <pre><code>(
+  set -eu
+  umask 077
+  copy_dir=$(mktemp -d "$HOME/stem-racing-backups.XXXXXX")
+  scp '&lt;user&gt;@&lt;server&gt;:backups/stem-racing-*.dump' "$copy_dir/"
+  find -P "$copy_dir" -maxdepth 1 -type f -name 'stem-racing-*.dump' -exec chmod 600 {} +
+  printf 'Private backup copies: %s\n' "$copy_dir"
+)</code></pre>
+            <p>Check permissions without opening a dump:</p>
+            <pre><code>ls -ld "$HOME/backups"
+find -P "$HOME/backups" -maxdepth 1 -type f -name 'stem-racing-*.dump' -exec ls -l {} +</code></pre>
+            <p>The directory must read <code>drwx------</code> (<code>0700</code>) and each regular dump <code>-rw-------</code> (<code>0600</code>). On your computer, check the printed copy directory the same way. Repairing permissions prevents future reads by other local accounts; it cannot establish whether earlier copies were read.</p>
+          </dd>
           <dt>Deploy a new version</dt>
           <dd><pre><code>cd {{dir}} &amp;&amp; git pull &amp;&amp; docker compose up -d --build</code></pre>Back up first (above). If the build fails, the running version keeps serving. Migrations run on start, and the database volume is untouched. While the new app starts, visitors get errors for a few seconds (about 2 in most test runs), so avoid the busiest entry times. Afterwards:<ul class="notes"><li>Reload every Kiosk iPad and every open check-in desk, so they run the new version.</li><li>Run the 404 check from step 5.</li></ul></dd>
           <dt>Go back to the previous version</dt>
           <dd><pre><code>git log --oneline -5                      # the version that worked
 git checkout &lt;commit&gt; &amp;&amp; docker compose up -d --build</code></pre>If the bad version applied a migration (its log said <code>applied 1 new migration(s)</code> or more), the older app may not work with the newer database. Only then, restore the backup taken before the deploy (below): it also undoes every Registration and Check-In made since. Before the next deploy, return with <code>git checkout main</code>.</dd>
           <dt>Back up every night (recommended during Event week)</dt>
-          <dd>Add this line with <code>crontab -e</code>. It keeps two weeks of nightly backups:<pre><code>0 3 * * * cd {{dir}} &amp;&amp; docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; $HOME/backups/stem-racing-$(date +\%F).dump &amp;&amp; find $HOME/backups -name 'stem-racing-*.dump' -mtime +14 -delete</code></pre></dd>
+          <dd>Add this single line with <code>crontab -e</code>. It enforces the same private permissions and symlink checks, even for an existing nightly filename, then removes regular dumps older than two weeks only after a successful backup. Keep the escaped <code>\%</code>: cron otherwise treats it as a line break.<pre><code>0 3 * * * (set -eu; umask 077; cd "{{dir}}"; backup_dir="$HOME/backups"; [ ! -L "$backup_dir" ]; mkdir -p "$backup_dir"; chmod 700 "$backup_dir"; backup_file="$backup_dir/stem-racing-$(date +\%F).dump"; [ ! -L "$backup_file" ]; [ ! -e "$backup_file" ] || [ -f "$backup_file" ]; touch "$backup_file"; chmod 600 "$backup_file"; docker compose exec -T db pg_dump -U stem_racing -Fc stem_racing &gt; "$backup_file"; find -P "$backup_dir" -maxdepth 1 -type f -name 'stem-racing-*.dump' -mtime +14 -delete)</code></pre></dd>
           <dt>Restart the app</dt>
           <dd><pre><code>docker compose restart app</code></pre></dd>
           <dt>Database shell</dt>
