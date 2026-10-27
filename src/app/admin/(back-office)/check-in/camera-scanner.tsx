@@ -2,9 +2,9 @@
 
 // The camera scanner at the entrance. It reads QR codes anywhere in the frame with html5-qrcode,
 // which loads only in the browser, when the camera first opens, so it never touches the server
-// render or the build. Event Passes go to `onPass`, which checks them in through the desk; any
-// other QR gets a brief orange notice and scanning carries on. In Kiosk mode (ticket 19) the same
-// scanner opens the front camera by itself and fills the Kiosk's preview box.
+// render or the build. The Staff flow receives every decoded QR via `onRead` and owns admission.
+// The separate Kiosk receives Event Passes via `onPass`; other QRs get a brief orange notice.
+// In Kiosk mode the scanner opens the front camera by itself and fills the Kiosk's preview box.
 
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,11 @@ const SAME_PASS_QUIET_MS = 5_000;
 const REFIT_SETTLE_MS = 500;
 
 /**
- * The Kiosk preview's width, inside its box (a size container): as wide as the box allows while a
+ * The preview's width, inside its box (a size container): as wide as the box allows while a
  * 4:3 stream in landscape, or a 3:4 one in portrait (iPad Safari turns the stream with the
  * device), still fits its height. Any other shape is letterboxed or trimmed, never squashed.
  */
-const KIOSK_READER_WIDTH = "w-[min(100cqw,calc(100cqh*4/3))] portrait:w-[min(100cqw,calc(100cqh*3/4))]";
+const READER_WIDTH = "w-[min(100cqw,calc(100cqh*4/3))] portrait:w-[min(100cqw,calc(100cqh*3/4))]";
 
 type Camera = {
   open(facing: CameraFacing): Promise<void>;
@@ -69,7 +69,12 @@ async function loadCamera(elementId: string, onDecoded: (text: string) => void):
     async open(facing) {
       // No qrbox, so the whole frame is read; 10 frames a second. ZXing's TRY_HARDER hint stays
       // off (html5-qrcode sets it to false), which keeps decoding fast on phones.
-      await scanner.start({ facingMode: FACING_MODES[facing] }, { fps: 10 }, (text) => onDecoded(text), undefined);
+      await scanner.start(
+        { facingMode: FACING_MODES[facing] },
+        { fps: 10 },
+        (text) => onDecoded(text),
+        undefined,
+      );
     },
     async close() {
       if (scanner.getState() !== Html5QrcodeScannerState.NOT_STARTED) await scanner.stop();
@@ -150,7 +155,15 @@ function cameraProblem(failure: unknown): Message {
 }
 
 /** A message as the scanner shows it: English at the desk; on a Kiosk, Thai, then the English below. */
-function Words({ message, kiosk, englishClassName }: { message: Message; kiosk: boolean; englishClassName?: string }) {
+function Words({
+  message,
+  kiosk,
+  englishClassName,
+}: {
+  message: Message;
+  kiosk: boolean;
+  englishClassName?: string;
+}) {
   if (!kiosk) return message.en;
   return (
     <>
@@ -167,6 +180,7 @@ type Status = "off" | "starting" | "on" | "stopping";
 /**
  * The camera preview with its Start, Switch and Stop controls, in English. `onPass` receives
  * decoded text that looks like an Event Pass, at most once per presentation of a pass.
+ * `onRead` instead receives every decoded QR; the Staff flow handles held input and rearming.
  *
  * `mirrorPreview` flips the preview like a mirror, with CSS only (what is scanned is unaffected).
  * It defaults to mirroring while the front camera is open.
@@ -179,15 +193,18 @@ type Status = "off" | "starting" | "on" | "stopping";
  */
 export function CameraScanner({
   onPass,
+  onRead,
   mirrorPreview,
   kiosk = false,
   className,
 }: {
-  onPass: (text: string) => void;
   mirrorPreview?: boolean;
   kiosk?: boolean;
   className?: string;
-}) {
+} & (
+  | { onPass: (text: string) => void; onRead?: never }
+  | { onRead: (text: string) => void; onPass?: never }
+)) {
   const previewId = useId();
   const [status, setStatus] = useState<Status>(kiosk ? "starting" : "off");
   // The camera that is open, or being reopened after a failed switch.
@@ -201,6 +218,7 @@ export function CameraScanner({
   // The camera was closed because the page went out of sight (Kiosk only).
   const pausedRef = useRef(false);
   const onPassRef = useRef(onPass);
+  const onReadRef = useRef(onRead);
   const lastPassRef = useRef<{ text: string; seenAt: number } | null>(null);
   const strayWarnedAtRef = useRef(new Map<string, number>());
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -209,6 +227,7 @@ export function CameraScanner({
   // (which knows the Event Day chosen now) through a ref.
   useEffect(() => {
     onPassRef.current = onPass;
+    onReadRef.current = onRead;
   });
 
   const startOnMount = useEffectEvent(() => {
@@ -283,12 +302,18 @@ export function CameraScanner({
 
   function handleDecoded(text: string) {
     if (!mountedRef.current) return;
+    // The Staff flow receives every sighting, including invalid codes and sightings while busy.
+    // It owns admission and rearming; the separate Kiosk keeps its established filtering below.
+    if (onReadRef.current) {
+      onReadRef.current(text);
+      return;
+    }
     const now = Date.now();
     if (looksLikeEventPass(text)) {
       const last = lastPassRef.current;
       lastPassRef.current = { text, seenAt: now };
       if (last?.text === text && now - last.seenAt < SAME_PASS_QUIET_MS) return;
-      onPassRef.current(text);
+      onPassRef.current?.(text);
       return;
     }
     // Not an Event Pass (a menu, a poster, LINE): a silent notice, then keep scanning.
@@ -425,9 +450,9 @@ export function CameraScanner({
         className={cn(
           "relative overflow-hidden bg-neutral-950",
           kiosk
-            ? // A size container, so the reader can be sized to fit both ways (KIOSK_READER_WIDTH).
+            ? // A size container, so the reader can be sized to fit both ways (READER_WIDTH).
               "grid min-h-0 flex-1 place-content-center rounded-2xl [container-type:size]"
-            : ["w-full rounded-xl", status === "off" && "hidden", status === "starting" && "min-h-48"],
+            : "grid aspect-[4/3] max-h-[32dvh] w-full place-content-center rounded-xl [container-type:size]",
         )}
       >
         {/* html5-qrcode owns this element's children (video and canvas), so React renders none.
@@ -436,8 +461,14 @@ export function CameraScanner({
           ref={readerRef}
           id={previewId}
           aria-hidden="true"
-          className={cn(kiosk && KIOSK_READER_WIDTH, mirrored && "-scale-x-100")}
+          className={cn(READER_WIDTH, mirrored && "-scale-x-100")}
         />
+        {!kiosk && status === "off" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-white">
+            <p className="font-medium">Camera is off</p>
+            <p className="text-sm text-white/80">Start the camera to inspect an Event Pass.</p>
+          </div>
+        )}
         {status === "starting" && (
           <p
             className={cn(
@@ -488,11 +519,10 @@ export function CameraScanner({
 
       {!kiosk && (
         <>
-          {/* Full-width buttons, one under another: they fit a phone whatever the label's length. */}
-          <div className={cn("grid gap-2", status !== "off" && "mt-3")}>
+          <div className="mt-3 flex flex-wrap gap-2 [&>button]:h-auto [&>button]:min-h-11 [&>button]:flex-1 [&>button]:py-2 [&>button]:whitespace-normal">
             {status === "off" ? (
               <Button type="button" size="lg" onClick={start}>
-                Open camera to scan QR
+                {error ? "Retry camera" : "Start camera"}
               </Button>
             ) : (
               <>

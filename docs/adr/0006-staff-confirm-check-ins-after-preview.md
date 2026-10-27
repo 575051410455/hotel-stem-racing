@@ -1,0 +1,3 @@
+# Staff confirm a Check-In after reviewing the scanned Event Pass
+
+The Staff/Admin-operated Check-In desk will first show the scanned Attendee and relevant Check-In status without recording arrival; the Staff member must press **Confirm Check-In** before a Check-In is recorded. We accept the additional deliberate tap so Staff can inspect the result before creating an arrival record, while preserving one Check-In per Registration per Event Day and the ability to admit an Attendee on a day they did not select. This decision applies to the staffed desk redesign agreed on 27 October 2026; the separately scoped Attendee-operated Kiosk remains governed by ADR 0003.

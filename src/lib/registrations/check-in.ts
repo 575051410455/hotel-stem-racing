@@ -57,37 +57,77 @@ export type CheckInResult =
 
 type CheckInDependencies = { db: Database; clock: Clock };
 
+export type CheckInInspectionRequest = Pick<CheckInRequest, "scan" | "eventDay">;
+export type CheckInInspection =
+  | { status: "ready"; eventDay: string; attendee: CheckedInAttendee; outsideRegisteredDay: boolean }
+  | Extract<CheckInResult, { status: "already-checked-in" | "not-an-event-pass" | "not-an-event-day" }>;
+
 const notAnEventPass = { status: "not-an-event-pass" } as const satisfies CheckInResult;
 const notAnEventDay = { status: "not-an-event-day" } as const satisfies CheckInResult;
+
+function checkInDay(now: Date, chosen: string | undefined): string | undefined {
+  return chosen === undefined
+    ? eventDayOn(now)?.date
+    : event.eventDays.find((day) => day.date === chosen)?.date;
+}
+
+async function findAttendee(db: Database, scan: string) {
+  const resolved = resolveScan(scan);
+  if (resolved.kind === "not-a-pass") return undefined;
+  const [attendee] = await db
+    .select({
+      id: registrations.id,
+      givenName: registrations.givenName,
+      familyName: registrations.familyName,
+      role: registrations.role,
+      passCode: registrations.passCode,
+      eventDays: registrations.eventDays,
+    })
+    .from(registrations)
+    .where(
+      resolved.kind === "token"
+        ? eq(registrations.token, resolved.token)
+        : eq(registrations.passCode, resolved.passCode),
+    )
+    .limit(1);
+  return attendee;
+}
+
+async function findRecordedCheckIn(db: Database, registrationId: number, eventDay: string) {
+  const [recorded] = await db
+    .select({ checkedInAt: checkIns.checkedInAt, outsideRegisteredDay: checkIns.outsideRegisteredDay })
+    .from(checkIns)
+    .where(and(eq(checkIns.registrationId, registrationId), eq(checkIns.eventDay, eventDay)))
+    .limit(1);
+  return recorded;
+}
+
+/** Read-only Staff preview; confirmation still rechecks the pass and writes through checkIn. */
+export function createCheckInInspection({ db, clock }: CheckInDependencies) {
+  return async (request: CheckInInspectionRequest): Promise<CheckInInspection> => {
+    const eventDay = checkInDay(clock(), request.eventDay);
+    if (!eventDay) return notAnEventDay;
+    const attendee = await findAttendee(db, request.scan);
+    if (!attendee) return notAnEventPass;
+    const { id, ...shown } = attendee;
+    const recorded = await findRecordedCheckIn(db, id, eventDay);
+    if (recorded) return { status: "already-checked-in", eventDay, attendee: shown, ...recorded };
+    return {
+      status: "ready",
+      eventDay,
+      attendee: shown,
+      outsideRegisteredDay: !shown.eventDays.includes(eventDay),
+    };
+  };
+}
 
 export function createCheckIn({ db, clock }: CheckInDependencies) {
   return async function checkIn(request: CheckInRequest): Promise<CheckInResult> {
     const now = clock();
-    const eventDay =
-      request.eventDay === undefined
-        ? eventDayOn(now)?.date
-        : event.eventDays.find((day) => day.date === request.eventDay)?.date;
+    const eventDay = checkInDay(now, request.eventDay);
     if (!eventDay) return notAnEventDay;
 
-    const resolved = resolveScan(request.scan);
-    if (resolved.kind === "not-a-pass") return notAnEventPass;
-
-    const [attendee] = await db
-      .select({
-        id: registrations.id,
-        givenName: registrations.givenName,
-        familyName: registrations.familyName,
-        role: registrations.role,
-        passCode: registrations.passCode,
-        eventDays: registrations.eventDays,
-      })
-      .from(registrations)
-      .where(
-        resolved.kind === "token"
-          ? eq(registrations.token, resolved.token)
-          : eq(registrations.passCode, resolved.passCode),
-      )
-      .limit(1);
+    const attendee = await findAttendee(db, request.scan);
     if (!attendee) return notAnEventPass;
 
     const { id: registrationId, ...shown } = attendee;
@@ -116,14 +156,7 @@ export function createCheckIn({ db, clock }: CheckInDependencies) {
       };
     }
 
-    const [original] = await db
-      .select({
-        checkedInAt: checkIns.checkedInAt,
-        outsideRegisteredDay: checkIns.outsideRegisteredDay,
-      })
-      .from(checkIns)
-      .where(and(eq(checkIns.registrationId, registrationId), eq(checkIns.eventDay, eventDay)))
-      .limit(1);
+    const original = await findRecordedCheckIn(db, registrationId, eventDay);
     // Only when the Registration was deleted in between (its Check-Ins go with it).
     if (!original) return notAnEventPass;
 

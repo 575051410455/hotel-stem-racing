@@ -11,7 +11,7 @@ import {
 } from "./bot-protection";
 import { bulkSendSummary, type EventPassBatchRequest, sendEventPassBatch } from "./bulk-send";
 import type { BulkSendMode } from "./bulk-send-params";
-import { createCheckIn } from "./check-in";
+import { createCheckIn, createCheckInInspection } from "./check-in";
 import { headCounts } from "./counts";
 import { newRegistrationsPerDay } from "./daily-registrations";
 import { deleteRegistration, getRegistrationDetail } from "./detail";
@@ -182,6 +182,8 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
   return {
     /** Checks an Attendee in from scanned or typed text; see `check-in.ts` for the outcomes. */
     checkIn: createCheckIn(deps),
+    /** Inspects a presented pass and Event Day without recording arrival. */
+    inspectCheckIn: createCheckInInspection(deps),
 
     /**
      * Submits a Registration from what the Attendee entered. The same Field validation the
