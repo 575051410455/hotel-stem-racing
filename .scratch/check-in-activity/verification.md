@@ -85,13 +85,13 @@ Review total: Standards 0; Spec 0; no remaining worst issue on either axis.
 
 ## Push and production preconditions
 
-At this pre-push checkpoint, exact-SHA CI is pending. The available GitHub connector filters commit workflow queries to PR-triggered runs, so push-run discovery uses the GitHub Actions REST API; job evidence can use the connector. Local Docker is unavailable; require the pushed SHA's Docker/Compose/nginx job in addition to its four-gate job. CI does not deploy this repository.
+The implementation revision's exact-SHA CI passed after push; evidence is below. The available GitHub connector filters commit workflow queries to PR-triggered runs, so push-run discovery used the GitHub Actions REST API and job evidence used the connector. Local Docker is unavailable; the same SHA's Linux Docker/Compose/nginx job provides image-build evidence. CI does not deploy this repository.
 
 Production rollout remains **BLOCKED**, independently of local checks, until:
 
 1. The operator identifies the running image's source SHA and rebuild record; a checkout SHA alone is insufficient.
 2. The production migration journal is compared with candidate SQL/journal files. No new migration is introduced here, but older pending migrations remain possible.
-3. The exact candidate's CI gates and Docker/Compose/nginx job pass.
+3. The exact release candidate's CI gates and Docker/Compose/nginx job pass. This is verified for the implementation revision below; any later release revision must have its own passing run.
 4. The operator resolves the documented 29 October–1 November freeze and any service interruption window, confirms a readable private backup and private off-server copy, and completes relevant real-device acceptance.
 
 Read-only migration metadata for the operator, **not run against production**:
@@ -103,3 +103,18 @@ SELECT id, hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id;
 ```
 
 **POST-DEPLOY: NOT VERIFIED.** No production access or rollout occurred. After an authorized rollout, confirm running image/health/logs, reload desks/Kiosks, open previously issued Event Passes in both languages, and verify permitted synthetic desk/Kiosk checks without creating arrivals for real Attendees.
+
+## Post-push evidence
+
+Implementation revision: **`5e9fa8efb7a064b8c740e0e288bf23e98fb2bd13`**. Its parent is the stated task-start/source baseline. `git ls-remote origin refs/heads/main` independently matched the implementation revision after push. The committed candidate contains 20 classified files; `.env.example` and `memory.md` remain local user changes outside it.
+
+The push-triggered [CI run 40887311793](https://github.com/575051410455/hotel-stem-racing/actions/runs/40887311793) completed successfully for that full SHA. The Actions REST response reported `event=push`, the matching `head_sha`, `status=completed` and `conclusion=success`.
+
+| Exact-SHA job                                                                                                                  | Result                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [Typecheck, lint, test and build](https://github.com/575051410455/hotel-stem-racing/actions/runs/40887311793/job/123494381737) | PASS; all four required gates.                                            |
+| [Docker image, Compose and nginx](https://github.com/575051410455/hotel-stem-racing/actions/runs/40887311793/job/123494381097) | PASS; Compose/nginx configuration and production application image build. |
+
+Both independent review axes were repeated against the committed `baseline...HEAD` diff: Standards **0 final findings**, Spec **0 final findings**. Browser verification passed all 10 groups above, and a final localhost metadata query found zero remaining temporary test databases. No test database or local test server is left running.
+
+This closeout updates only this evidence and the final ticket's completed acceptance boxes. Application sources remain identical to the tested implementation revision. The final handoff verifies the subsequent documentation commit's exact-SHA CI separately. Production verdict remains **BLOCKED**, and post-deploy status remains **NOT VERIFIED**; passing source/image CI is not evidence of a production rollout.
