@@ -12,6 +12,7 @@ import { type CameraFacing, deviceCameraPreference } from "@/lib/check-in/camera
 import { looksLikeEventPass } from "@/lib/check-in/pass-recogniser";
 import type { Language } from "@/lib/language";
 import { cn } from "@/lib/utils";
+import { staffActionStyles } from "./staff-action-styles";
 
 /** Non-exact facing modes: a device without that camera opens the camera it has instead of failing. */
 const FACING_MODES: Record<CameraFacing, "user" | "environment"> = { front: "user", back: "environment" };
@@ -521,15 +522,15 @@ export function CameraScanner({
         <>
           <div className="mt-3 flex flex-wrap gap-2 [&>button]:h-auto [&>button]:min-h-11 [&>button]:flex-1 [&>button]:py-2 [&>button]:whitespace-normal">
             {status === "off" ? (
-              <Button type="button" size="lg" onClick={start}>
+              <Button type="button" size="lg" className={error ? staffActionStyles.retry : staffActionStyles.primary} onClick={start}>
                 {error ? "Retry camera" : "Start camera"}
               </Button>
             ) : (
               <>
-                <Button type="button" size="lg" variant="outline" disabled={busy} onClick={switchCamera}>
+                <Button type="button" size="lg" variant="outline" className={staffActionStyles.secondary} disabled={busy} onClick={switchCamera}>
                   Switch to {CAMERA_NAMES.en[facing === "back" ? "front" : "back"]}
                 </Button>
-                <Button type="button" size="lg" variant="outline" disabled={busy} onClick={stop}>
+                <Button type="button" size="lg" variant="outline" className={staffActionStyles.secondary} disabled={busy} onClick={stop}>
                   Turn off camera
                 </Button>
               </>

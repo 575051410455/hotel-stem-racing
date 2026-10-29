@@ -68,7 +68,7 @@ Source anchors: `src/app/admin/(back-office)/check-in/`, `src/app/kiosk/`, `src/
 
 ## Agreement
 
-All interview questions are resolved. The organiser confirmed shared understanding; specification and ticket synthesis can use these decisions without reopening the interview. Subsequent changes to Check-In behavior, Account boundaries or the pre-freeze schedule should be identified explicitly.
+The 27 October interview is resolved. The organiser confirmed shared understanding; specification and ticket synthesis can use those decisions. The 28 October colors and mobile-navigation follow-up below is also resolved: after accepting Q1–Q8, the organiser requested conversion to a specification. Its accepted scope is published separately as [Back Office status colors and mobile navigation](../back-office-status-and-mobile-navigation/spec.md). Subsequent changes to Check-In behavior, Account boundaries or the pre-freeze schedule should be identified explicitly.
 
 ## Verification and delivery
 
@@ -81,3 +81,29 @@ All interview questions are resolved. The organiser confirmed shared understandi
 ## Documentation approach
 
 Record confirmed UI decisions here as the interview progresses. Existing domain terms cover the discussion: **Confirm Check-In** records the existing Check-In, rather than introducing a redemption entitlement. ADR 0006 captures the meaningful change from immediate recording to preview and explicit confirmation at the staffed desk. Reversible presentation choices remain in this conversation document.
+
+## Follow-up: status colors, buttons and mobile navigation — 28 October 2026
+
+Status: ready-for-agent
+
+After the production rollout, the organiser reported that the green/red/yellow status backgrounds appeared to be missing at `/admin/check-in` and supplied the idle `Ready to scan next` HTML. Source inspection found that the outer right-hand panel stays neutral and the result colors belong to smaller inner cards. The supplied idle HTML does not establish whether colors fail to render after a recorded, existing or invalid-pass outcome.
+
+Confirmed in the follow-up:
+
+- **Q1 — Color area:** apply the status background to the entire right-hand result panel, including its surrounding space, rather than only the inner message card.
+- **Q2 — Color meaning:** idle, inspecting and an unconfirmed preview stay neutral. A newly recorded Check-In is green; an existing Check-In is yellow; an invalid Event Pass is red. A wrong-day preview retains a yellow warning, and successful confirmation shows green with that warning still visible. Keep the existing distinction between readiness and the previous Attendee's last result.
+- **Q3 — Action-button colors:** Confirm Check-In is green with white text; Cancel is white with a gray border and dark text; Inspect pass, Scan next, Start camera and Sign in again are blue with white text; Retry confirmation, Retry inspection and Retry camera are amber with dark text; Switch camera and Turn off camera are white with a gray border and dark text. Button boundaries and focus indicators must remain clear on the colored result-panel backgrounds.
+- **Q4 — Recovery and unavailable states:** session expiry, no usable Event Day, inspection failure and uncertain confirmation use a yellow result-panel background. Uncertain confirmation retains the explanation that a Check-In may already have been recorded and offers Retry confirmation. Inspecting and confirming remain neutral while pending. Red continues to mean an invalid Event Pass.
+
+- **Q5 — Mobile appearance:** fixed bottom **glass** navigation with a translucent blurred background and rounded corners. The organiser explicitly selected **icons only**, overriding the proposed visible short labels. Preserve accessible names for every icon-only control and a clear active-page indicator. Leave room above the iPhone Home indicator/safe area.
+- **Q6 — Scope:** replace the sidebar navigation throughout the signed-in Back Office on phones in both portrait and landscape. Desktop/iPad retain the existing sidebar. The separate Kiosk retains its navigation-free layout; this change does not add navigation to sign-in pages.
+- **Q7 — Destinations and Account access:** Admin sees icons for Registrations, Check-In, Email, Accounts and Account. Staff sees Check-In and Account. Account opens a bottom sheet with My Account and Sign out. Preserve current authorization, active-section matching and the My Account recovery path for an Account that must change its password.
+- **Q8 — Keyboard:** hide the bottom navigation temporarily while the on-screen keyboard is open and restore it when the keyboard closes. Reserve content clearance when the navigation is visible so it does not cover inputs, results or confirmation actions.
+
+The organiser accepted Q1–Q8, with the explicit icons-only choice for Q5, then explicitly requested conversion to a specification. The combined scope is published as [Back Office status colors and mobile navigation](../back-office-status-and-mobile-navigation/spec.md), marked ready-for-agent. This request authorizes specification synthesis; application implementation, commit, push and production rollout remain separate work.
+
+Source facts for the navigation discussion: the existing mobile breakpoint is below 768px, independent of the public 735px `tab:` breakpoint. Mobile uses a left drawer; a wide iPhone landscape viewport can receive the desktop sidebar. Admin navigation has Registrations, Check-In, Email and Accounts; Staff has Check-In. My Account and Sign out are in the sidebar Account menu, including the must-change-password recovery path. The separate Kiosk has its own layout without Back Office navigation.
+
+These are reversible UI choices using the existing domain terms; no new glossary term or ADR is needed for the visual changes alone. The original Check-In behavior, Account boundaries and deployment scheduling constraints remain in force.
+
+The organiser invoked implementation on 29 October 2026. Local code, tests and review are recorded in the [follow-up verification](../back-office-status-and-mobile-navigation/verification.md); real-device acceptance and release readiness remain separate. The existing deployment freeze has not been lifted.

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { confirmCheckInScan, inspectCheckInScan } from "./actions";
 import { CameraScanner } from "./camera-scanner";
 import { StaffCheckInResult } from "./staff-check-in-result";
+import { staffActionStyles } from "./staff-action-styles";
 
 /** The Staff desk always inspects first, including old links with ?kiosk=1. */
 export function CheckInDesk({ today }: { today: string | null }) {
@@ -158,7 +159,7 @@ export function CheckInDesk({ today }: { today: string | null }) {
                   aria-describedby="check-in-scan-hint"
                   className="h-12 w-full min-w-0 rounded-lg border bg-background px-3 font-mono text-base focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
                 />
-                <Button type="submit" disabled={!ready} className="h-12 px-4">
+                <Button type="submit" disabled={!ready} className={cn("h-12 px-4", staffActionStyles.primary)}>
                   Inspect pass
                 </Button>
               </div>
@@ -167,22 +168,13 @@ export function CheckInDesk({ today }: { today: string | null }) {
               </p>
             </form>
           </div>
-          <div
+          <StaffCheckInResult
             ref={resultRef}
-            tabIndex={-1}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            aria-label="Attendee and Check-In status"
-            className="order-1 flex min-w-0 flex-col justify-center rounded-2xl border bg-card p-4 shadow-sm outline-offset-4 tab:order-2"
-          >
-            <StaffCheckInResult
-              flow={flow}
-              onConfirm={() => send({ type: "confirm" })}
-              onClear={() => send({ type: "clear" })}
-              onRetryInspection={() => send({ type: "retry-inspection" })}
-            />
-          </div>
+            flow={flow}
+            onConfirm={() => send({ type: "confirm" })}
+            onClear={() => send({ type: "clear" })}
+            onRetryInspection={() => send({ type: "retry-inspection" })}
+          />
         </div>
       </div>
     </div>

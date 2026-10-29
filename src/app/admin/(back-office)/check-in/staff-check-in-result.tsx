@@ -8,7 +8,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_PATH } from "@/lib/auth/access";
 import { bangkokTime } from "@/lib/bangkok-time";
@@ -17,6 +17,7 @@ import { eventDayLabel } from "@/lib/event";
 import type { CheckedInAttendee, CheckInResult } from "@/lib/registrations/check-in";
 import { attendeeRoleShortLabels } from "@/lib/registrations/fields";
 import { cn } from "@/lib/utils";
+import { staffActionStyles } from "./staff-action-styles";
 
 function Attendee({ attendee, day }: { attendee: CheckedInAttendee; day: string }) {
   return (
@@ -35,26 +36,14 @@ function Attendee({ attendee, day }: { attendee: CheckedInAttendee; day: string 
 function Panel({
   title,
   icon,
-  tone = "neutral",
   children,
 }: {
   title: string;
   icon: ReactNode;
-  tone?: "neutral" | "success" | "warning" | "error";
   children?: ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 p-4 text-center",
-        {
-          "border-border bg-background text-foreground": tone === "neutral",
-          "border-green-800 bg-green-700 text-white": tone === "success",
-          "border-yellow-500 bg-yellow-100 text-neutral-950": tone === "warning",
-          "border-red-800 bg-red-700 text-white": tone === "error",
-        },
-      )}
-    >
+    <div className="flex w-full flex-col items-center justify-center gap-3 text-center">
       <span aria-hidden="true">{icon}</span>
       <h2 className="text-xl leading-tight font-semibold tab:text-2xl">{title}</h2>
       {children}
@@ -81,7 +70,6 @@ function Recorded({ result, last = false }: { result: CheckInResult; last?: bool
   return (
     <Panel
       title={existing ? `Already checked in at ${bangkokTime(result.checkedInAt)}` : "Check-In recorded"}
-      tone={existing ? "warning" : "success"}
       icon={existing ? <ClockIcon className="size-8" /> : <CheckCircle2Icon className="size-8" />}
     >
       {last && <p className="text-xs font-semibold tracking-wide uppercase">Last result</p>}
@@ -92,21 +80,56 @@ function Recorded({ result, last = false }: { result: CheckInResult; last?: bool
   );
 }
 
-/** Staff presentation is separate from the Kiosk's immediate-recording result panel. */
-export function StaffCheckInResult({
-  flow,
-  onConfirm,
-  onClear,
-  onRetryInspection,
-}: {
+type ResultProps = {
   flow: StaffCheckInFlow;
   onConfirm: () => void;
   onClear: () => void;
   onRetryInspection: () => void;
-}) {
+};
+
+function resultTone({ step, lastResult }: StaffCheckInFlow) {
+  if (step.kind === "ready") return lastResult ? "success" : "neutral";
+  if (step.kind === "signed-out" || step.kind === "uncertain") return "warning";
+  if (step.kind === "result") return step.result.status === "not-an-event-pass" ? "error" : "warning";
+  return "neutral";
+}
+
+/** One persistent announcement region; the entire panel owns its authoritative outcome color. */
+export function StaffCheckInResult({ ref, ...props }: ResultProps & { ref?: Ref<HTMLDivElement> }) {
+  const tone = resultTone(props.flow);
+  return (
+    <div
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label="Attendee and Check-In status"
+      className={cn(
+        "order-1 flex min-w-0 flex-col justify-center rounded-2xl border-2 p-4 shadow-sm outline-offset-4 tab:order-2",
+        {
+          "border-border bg-card text-card-foreground": tone === "neutral",
+          "border-green-800 bg-green-700 text-white": tone === "success",
+          "border-yellow-600 bg-yellow-100 text-neutral-950": tone === "warning",
+          "border-red-800 bg-red-700 text-white": tone === "error",
+        },
+      )}
+    >
+      <ResultContents {...props} />
+    </div>
+  );
+}
+
+/** Staff presentation is separate from the Kiosk's immediate-recording result panel. */
+function ResultContents({
+  flow,
+  onConfirm,
+  onClear,
+  onRetryInspection,
+}: ResultProps) {
   const step = flow.step;
   const scanNext = (
-    <Button type="button" size="lg" className="min-h-12 w-full whitespace-normal" onClick={onClear}>
+    <Button type="button" size="lg" className={cn("min-h-12 w-full whitespace-normal", staffActionStyles.primary)} onClick={onClear}>
       Scan next
     </Button>
   );
@@ -134,7 +157,7 @@ export function StaffCheckInResult({
         <Panel title="Session ended" icon={<ShieldAlertIcon className="size-8" />}>
           <p className="text-sm">Sign in again, then inspect the pass again before confirming.</p>
         </Panel>
-        <Button asChild size="lg" className="min-h-12 w-full">
+        <Button asChild size="lg" className={cn("min-h-12 w-full", staffActionStyles.primary)}>
           <Link href={SIGN_IN_PATH}>Sign in again</Link>
         </Button>
       </div>
@@ -180,13 +203,13 @@ export function StaffCheckInResult({
             type="button"
             size="lg"
             disabled={confirming}
-            className="min-h-14 h-auto flex-1 px-6 py-3 text-lg whitespace-normal"
+            className={cn("min-h-14 h-auto flex-1 px-6 py-3 text-lg whitespace-normal", uncertain ? staffActionStyles.retry : staffActionStyles.confirm)}
             onClick={onConfirm}
           >
             {uncertain ? "Retry confirmation" : confirming ? "Confirming…" : "Confirm Check-In"}
           </Button>
           {step.kind === "preview" && (
-            <Button type="button" size="lg" variant="outline" className="min-h-14" onClick={onClear}>
+            <Button type="button" size="lg" variant="outline" className={cn("min-h-14", staffActionStyles.secondary)} onClick={onClear}>
               Cancel
             </Button>
           )}
@@ -208,7 +231,6 @@ export function StaffCheckInResult({
                 ? "Choose an Event Day"
                 : "Invalid Event Pass"
           }
-          tone={result.status === "not-an-event-pass" ? "error" : "neutral"}
           icon={
             result.status === "not-an-event-pass" ? (
               <XCircleIcon className="size-8" />
@@ -227,7 +249,7 @@ export function StaffCheckInResult({
         </Panel>
       )}
       {result.status === "inspection-failed" && (
-        <Button type="button" variant="outline" className="min-h-12 w-full" onClick={onRetryInspection}>
+        <Button type="button" variant="outline" className={cn("min-h-12 w-full", staffActionStyles.retry)} onClick={onRetryInspection}>
           Retry inspection
         </Button>
       )}

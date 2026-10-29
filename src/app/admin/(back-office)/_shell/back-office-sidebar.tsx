@@ -1,7 +1,10 @@
+"use client";
+
 import { FlagIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
 import { event } from "@/lib/event";
+import { usePhoneNavigation } from "./phone-navigation-layout";
 
 /**
  * The Back Office sidebar: its name and the Event, `nav` (the page links the signed-in Account may
@@ -9,6 +12,8 @@ import { event } from "@/lib/event";
  * in. Inset, as in dashboard-01.
  */
 export function BackOfficeSidebar({ nav, accountMenu }: { nav: ReactNode; accountMenu: ReactNode }) {
+  const { isPhone } = usePhoneNavigation();
+  if (isPhone) return null;
   return (
     <Sidebar variant="inset" collapsible="offcanvas">
       {/* A landmark, so the name and the account menu aren't stranded outside one. */}

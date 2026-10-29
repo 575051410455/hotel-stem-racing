@@ -18,7 +18,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/c
 import type { CurrentStaff } from "@/lib/auth/session";
 
 /** Who the menu shows: only what the browser needs from the session. */
-type SignedInAccount = Pick<CurrentStaff, "name" | "email">;
+export type SignedInAccount = Pick<CurrentStaff, "name" | "email">;
 
 /**
  * The Staff account menu's button and dropdown (My Account, sign out); `StaffAccountMenu` passes in
@@ -77,7 +77,7 @@ export function StaffAccountDropdown({ account }: { account: SignedInAccount }) 
 }
 
 /** A person icon (no initials: a Thai name can start with a leading vowel), the name and the email. */
-function AccountSummary({ account: { name, email } }: { account: SignedInAccount }) {
+export function AccountSummary({ account: { name, email } }: { account: SignedInAccount }) {
   return (
     <>
       <Avatar className="size-8 rounded-lg">

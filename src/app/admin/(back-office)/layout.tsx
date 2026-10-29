@@ -1,11 +1,17 @@
+import type { Viewport } from "next";
 import { type CSSProperties, Suspense } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { BackOfficeNav } from "./_shell/back-office-nav";
 import { BackOfficeSidebar } from "./_shell/back-office-sidebar";
 import { CurrentBackOfficeNav } from "./_shell/current-back-office-nav";
+import { CurrentPhoneNavigation } from "./_shell/current-phone-navigation";
+import { PhoneNavigationLayout } from "./_shell/phone-navigation-layout";
 import { StaffAccountMenu, StaffAccountMenuSkeleton } from "./_shell/staff-account-menu";
 import { BackOfficeQueryProvider } from "./query-provider";
+
+// Safe-area insets apply to the signed-in phone shell, leaving public and sign-in pages alone.
+export const viewport: Viewport = { viewportFit: "cover" };
 
 // Chrome for every signed-in Back Office page: the sidebar (page links and the Staff account menu)
 // and the inset each page fills with its own header (see _shell/page-header.tsx) and content.
@@ -16,32 +22,37 @@ import { BackOfficeQueryProvider } from "./query-provider";
 // (layouts don't re-run on client navigation).
 export default function SignedInBackOfficeLayout({ children }: LayoutProps<"/admin">) {
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as CSSProperties
-      }
-    >
-      <BackOfficeSidebar
-        nav={
-          <Suspense fallback={<BackOfficeNav kind={null} />}>
-            <CurrentBackOfficeNav />
-          </Suspense>
+    <PhoneNavigationLayout>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as CSSProperties
         }
-        accountMenu={
-          <Suspense fallback={<StaffAccountMenuSkeleton />}>
-            <StaffAccountMenu />
-          </Suspense>
-        }
-      />
-      {/* min-w-0: a flex item would otherwise grow to the Registration table's width, so the page
-          scrolled sideways instead of the table. */}
-      <SidebarInset className="min-w-0">
-        <BackOfficeQueryProvider>{children}</BackOfficeQueryProvider>
-      </SidebarInset>
-      <Toaster />
-    </SidebarProvider>
+      >
+        <BackOfficeSidebar
+          nav={
+            <Suspense fallback={<BackOfficeNav kind={null} />}>
+              <CurrentBackOfficeNav />
+            </Suspense>
+          }
+          accountMenu={
+            <Suspense fallback={<StaffAccountMenuSkeleton />}>
+              <StaffAccountMenu />
+            </Suspense>
+          }
+        />
+        {/* min-w-0: a flex item would otherwise grow to the Registration table's width, so the page
+            scrolled sideways instead of the table. */}
+        <SidebarInset className="min-w-0">
+          <BackOfficeQueryProvider>{children}</BackOfficeQueryProvider>
+        </SidebarInset>
+        <Toaster />
+        <Suspense fallback={null}>
+          <CurrentPhoneNavigation />
+        </Suspense>
+      </SidebarProvider>
+    </PhoneNavigationLayout>
   );
 }

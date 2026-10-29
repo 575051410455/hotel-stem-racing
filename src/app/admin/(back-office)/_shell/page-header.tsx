@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { BackOfficeSidebarToggle } from "./phone-navigation-layout";
 
 /**
  * The bar on top of every Back Office page: the sidebar toggle, then the page's title (`PageTitle`)
@@ -12,8 +11,7 @@ export function PageHeader({ children }: { children: ReactNode }) {
   return (
     <header className="sticky top-0 z-10 flex h-(--header-height) shrink-0 items-center border-b bg-background md:rounded-t-xl">
       <div className="flex w-full min-w-0 items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
+        <BackOfficeSidebarToggle />
         {children}
       </div>
     </header>

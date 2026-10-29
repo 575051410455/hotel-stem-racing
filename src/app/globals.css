@@ -1,6 +1,55 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Signed-in phone navigation only; public pages, sign-in and the separate Kiosk have no shell. */
+@layer components {
+  html:has(.back-office-phone-layout[data-phone-navigation="true"][data-keyboard-open="false"]) {
+    scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .back-office-phone-layout[data-phone-navigation="true"] [data-slot="sidebar-inset"] {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .back-office-phone-layout[data-keyboard-open="true"] [data-slot="sidebar-inset"] {
+    padding-bottom: 0;
+  }
+
+  .back-office-bottom-nav {
+    position: fixed;
+    z-index: 40;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    left: calc(0.75rem + env(safe-area-inset-left, 0px));
+    right: calc(0.75rem + env(safe-area-inset-right, 0px));
+    display: flex;
+    width: max-content;
+    max-width: calc(100% - 1.5rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    margin-inline: auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid rgb(115 115 115 / 0.55);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.97);
+    box-shadow: 0 8px 32px rgb(0 0 0 / 0.18);
+  }
+
+  .back-office-bottom-nav[hidden] {
+    display: none;
+  }
+
+  @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+    .back-office-bottom-nav {
+      background: rgb(255 255 255 / 0.85);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+    }
+  }
+}
+
 @theme {
   /* ---- Brand (sampled from the STEM Racing Thailand National Finals 2026 banner) ---- */
   --color-brand-deep: #10011e;

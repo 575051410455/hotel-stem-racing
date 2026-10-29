@@ -1,10 +1,9 @@
 "use client";
 
-import { type LucideIcon, MailIcon, ScanLineIcon, UsersIcon, UsersRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { type AccountKind, canManageAccounts, canUseBackOffice, canUseCheckInDesk } from "@/lib/auth/access";
+import type { AccountKind } from "@/lib/auth/access";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -13,39 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-
-/**
- * One sidebar link, shown to the kinds of Account that `may` open it. It is current when the pathname
- * is `href`, unless `isCurrent` says otherwise.
- */
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  may: (kind: AccountKind) => boolean;
-  isCurrent?: (pathname: string) => boolean;
-};
-
-const navItems: NavItem[] = [
-  {
-    href: "/admin",
-    label: "Registrations",
-    icon: UsersIcon,
-    may: canUseBackOffice,
-    // A Registration's detail belongs to the list.
-    isCurrent: (pathname) => pathname === "/admin" || pathname.startsWith("/admin/registrations/"),
-  },
-  { href: "/admin/check-in", label: "Check-In", icon: ScanLineIcon, may: canUseCheckInDesk },
-  { href: "/admin/email", label: "Email", icon: MailIcon, may: canUseBackOffice },
-  {
-    href: "/admin/accounts",
-    label: "Accounts",
-    icon: UsersRoundIcon,
-    may: canManageAccounts,
-    // Each Account's page, a new Account and the Account History belong to the list.
-    isCurrent: (pathname) => pathname === "/admin/accounts" || pathname.startsWith("/admin/accounts/"),
-  },
-];
+import { backOfficeDestinations, type BackOfficeDestination, isCurrentDestination } from "./back-office-destinations";
 
 /**
  * The Back Office's page links that `kind` may open, with the current page highlighted. `kind` is null
@@ -54,7 +21,7 @@ const navItems: NavItem[] = [
  * a highlight until it resolves.
  */
 export function BackOfficeNav({ kind }: { kind: AccountKind | null }) {
-  const items = kind ? navItems.filter((item) => item.may(kind)) : [];
+  const items = backOfficeDestinations(kind);
   return (
     <Suspense fallback={<NavLinks items={items} pathname={null} />}>
       <CurrentNavLinks items={items} />
@@ -62,11 +29,11 @@ export function BackOfficeNav({ kind }: { kind: AccountKind | null }) {
   );
 }
 
-function CurrentNavLinks({ items }: { items: NavItem[] }) {
+function CurrentNavLinks({ items }: { items: BackOfficeDestination[] }) {
   return <NavLinks items={items} pathname={usePathname()} />;
 }
 
-function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string | null }) {
+function NavLinks({ items, pathname }: { items: BackOfficeDestination[]; pathname: string | null }) {
   const { setOpenMobile } = useSidebar();
 
   return (
@@ -74,8 +41,9 @@ function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string | nu
       <SidebarGroupContent>
         <nav aria-label="Back Office menu">
           <SidebarMenu>
-            {items.map(({ href, label, icon: Icon, isCurrent = (path) => path === href }) => {
-              const current = pathname !== null && isCurrent(pathname);
+            {items.map((item) => {
+              const { href, label, icon: Icon } = item;
+              const current = isCurrentDestination(item, pathname);
               return (
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton asChild isActive={current}>
