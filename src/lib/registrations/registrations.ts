@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { checkInActivity, type CheckInActivitySearch } from "./check-in-activity";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { registrations as registrationsTable } from "@/lib/db/schema";
@@ -182,6 +183,8 @@ export function createRegistrations(dependencies: RegistrationDependencies) {
   return {
     /** Checks an Attendee in from scanned or typed text; see `check-in.ts` for the outcomes. */
     checkIn: createCheckIn(deps),
+    /** Read-only Check-In history for one Event Day, for Admin-only presentation. */
+    checkInActivity: (search: CheckInActivitySearch) => checkInActivity(deps.db, search),
     /** Inspects a presented pass and Event Day without recording arrival. */
     inspectCheckIn: createCheckInInspection(deps),
 

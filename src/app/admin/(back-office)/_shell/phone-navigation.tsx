@@ -20,7 +20,7 @@ export function PhoneNavigation(props: PhoneNavigationProps) {
   return isPhone ? <Suspense fallback={null}><PhoneNavigationContents {...props} /></Suspense> : null;
 }
 
-const iconButton = "flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-transparent text-neutral-700 outline-offset-2 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-blue-700";
+const iconButton = "flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-transparent text-neutral-700 outline-offset-2 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-blue-700 min-[360px]:size-12";
 const activeIcon = "border-blue-800 bg-blue-700 text-white hover:bg-blue-800";
 
 function PhoneNavigationContents({ kind, account }: PhoneNavigationProps) {
@@ -32,7 +32,7 @@ function PhoneNavigationContents({ kind, account }: PhoneNavigationProps) {
 
   return (
     <Sheet open={accountOpen} onOpenChange={setAccountOpen}>
-      <nav aria-label="Back Office bottom navigation" className="back-office-bottom-nav" hidden={keyboardOpen}>
+      <nav aria-label="Back Office bottom navigation" className="back-office-bottom-nav max-[359px]:gap-0.5" hidden={keyboardOpen}>
         {items.map((item) => {
           const current = isCurrentDestination(item, pathname);
           const Icon = item.icon;

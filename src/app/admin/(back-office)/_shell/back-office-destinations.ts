@@ -1,4 +1,4 @@
-import { type LucideIcon, MailIcon, ScanLineIcon, UsersIcon, UsersRoundIcon } from "lucide-react";
+import { ClipboardListIcon, type LucideIcon, MailIcon, ScanLineIcon, UsersIcon, UsersRoundIcon } from "lucide-react";
 import { type AccountKind, canManageAccounts, canUseBackOffice, canUseCheckInDesk } from "@/lib/auth/access";
 
 export type BackOfficeDestination = {
@@ -18,6 +18,7 @@ const destinations: BackOfficeDestination[] = [
     isCurrent: (path) => path === "/admin" || path.startsWith("/admin/registrations/"),
   },
   { href: "/admin/check-in", label: "Check-In", icon: ScanLineIcon, may: canUseCheckInDesk },
+  { href: "/admin/check-in-activity", label: "Check-In Activity", icon: ClipboardListIcon, may: canUseBackOffice },
   { href: "/admin/email", label: "Email", icon: MailIcon, may: canUseBackOffice },
   {
     href: "/admin/accounts",
