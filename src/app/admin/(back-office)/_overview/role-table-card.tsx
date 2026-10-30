@@ -33,7 +33,7 @@ export function RoleTableCard({ className }: { className?: string }) {
           </h3>
         </CardTitle>
         <CardDescription id="role-table-note" className="leading-normal">
-          People who chose both days count on each day
+          People who chose multiple days count on each chosen day
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -7,7 +7,7 @@ Online registration for people coming to STEM Racing Thailand 2026 to watch and 
 ### The Event
 
 **Event** (งาน):
-STEM Racing Thailand 2026, held 31 October – 1 November 2026 (2569) at Grand Richmond Hotel, Nonthaburi.
+STEM Racing Thailand 2026, held 30 October – 1 November 2026 (2569) at Grand Richmond Hotel, Nonthaburi.
 _Avoid_: Competition (that is what happens at the Event), show
 
 **Event Day** (วันเข้าร่วมงาน):

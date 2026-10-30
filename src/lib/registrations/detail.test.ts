@@ -163,6 +163,12 @@ describe("Registration module: detail and delete", () => {
     assert.deepEqual(counts, {
       eventDays: [
         {
+          eventDay: "2026-10-30",
+          byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 },
+          total: 0,
+          checkIns: { total: 0, outsideRegisteredDay: 0 },
+        },
+        {
           eventDay: OCT_31,
           byRole: { parent: 1, teacher: 0, student: 0, sponsor: 0, other: 0 },
           total: 1,

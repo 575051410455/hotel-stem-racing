@@ -297,7 +297,7 @@ function SummaryPanel({
         ))}
       </dl>
       <p className="mt-2 text-sm leading-normal text-muted-foreground">
-        People who chose both days count on each day but get one email.
+        People who chose multiple days count on each chosen day but get one email.
       </p>
 
       {!shown.emailConfigured && (

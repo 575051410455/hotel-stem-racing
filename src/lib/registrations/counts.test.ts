@@ -6,6 +6,7 @@ import { createTestDatabase } from "@/test-support/database";
 import type { AttendeeRole, RegistrationForm } from "./fields";
 import { createRegistrations, type EventPass } from "./registrations";
 
+const OCT_30 = "2026-10-30";
 const OCT_31 = "2026-10-31";
 const NOV_01 = "2026-11-01";
 
@@ -13,6 +14,12 @@ const NOV_01 = "2026-11-01";
 const BEFORE_THE_EVENT = "2026-10-22T12:00:00";
 
 const noCheckIns = { total: 0, outsideRegisteredDay: 0 };
+const emptyFriday = {
+  eventDay: OCT_30,
+  byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 },
+  total: 0,
+  checkIns: noCheckIns,
+};
 
 describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Registrations", () => {
   let database: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -73,6 +80,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
 
     assert.deepEqual(await at(BEFORE_THE_EVENT).headCounts(), {
       eventDays: [
+        emptyFriday,
         { eventDay: OCT_31, byRole: { parent: 2, teacher: 1, student: 0, sponsor: 1, other: 0 }, total: 4, checkIns: noCheckIns },
         { eventDay: NOV_01, byRole: { parent: 0, teacher: 0, student: 3, sponsor: 0, other: 1 }, total: 4, checkIns: noCheckIns },
       ],
@@ -87,6 +95,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
 
     assert.deepEqual(await at(BEFORE_THE_EVENT).headCounts(), {
       eventDays: [
+        emptyFriday,
         { eventDay: OCT_31, byRole: { parent: 1, teacher: 0, student: 0, sponsor: 0, other: 0 }, total: 1, checkIns: noCheckIns },
         { eventDay: NOV_01, byRole: { parent: 1, teacher: 1, student: 0, sponsor: 0, other: 0 }, total: 2, checkIns: noCheckIns },
       ],
@@ -106,6 +115,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
 
     assert.deepEqual(await registrations.headCounts(), {
       eventDays: [
+        emptyFriday,
         { eventDay: OCT_31, byRole: { parent: 0, teacher: 0, student: 1, sponsor: 0, other: 0 }, total: 1, checkIns: noCheckIns },
         { eventDay: NOV_01, byRole: { parent: 0, teacher: 0, student: 0, sponsor: 1, other: 0 }, total: 1, checkIns: noCheckIns },
       ],
@@ -117,6 +127,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
   test("with no Registrations, every Event Day lists every Attendee Role at zero", async () => {
     assert.deepEqual(await at(BEFORE_THE_EVENT).headCounts(), {
       eventDays: [
+        emptyFriday,
         { eventDay: OCT_31, byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 }, total: 0, checkIns: noCheckIns },
         { eventDay: NOV_01, byRole: { parent: 0, teacher: 0, student: 0, sponsor: 0, other: 0 }, total: 0, checkIns: noCheckIns },
       ],
@@ -163,6 +174,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
     assert.deepEqual(
       counts.eventDays.map(({ eventDay, checkIns }) => ({ eventDay, checkIns })),
       [
+        { eventDay: OCT_30, checkIns: noCheckIns },
         { eventDay: OCT_31, checkIns: { total: 3, outsideRegisteredDay: 1 } },
         { eventDay: NOV_01, checkIns: { total: 1, outsideRegisteredDay: 0 } },
       ],
@@ -184,6 +196,7 @@ describe("head counts: per Event Day by Attendee Role, Check-Ins and today's Reg
     assert.deepEqual(
       counts.eventDays.map(({ eventDay, checkIns }) => ({ eventDay, checkIns })),
       [
+        { eventDay: OCT_30, checkIns: noCheckIns },
         { eventDay: OCT_31, checkIns: { total: 1, outsideRegisteredDay: 0 } },
         { eventDay: NOV_01, checkIns: noCheckIns },
       ],

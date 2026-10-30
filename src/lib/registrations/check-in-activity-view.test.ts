@@ -10,8 +10,10 @@ import {
 test("Check-In Activity links resolve a Bangkok Event Day and preserve a complete filtered view", () => {
   assert.equal(
     defaultActivityDay(new Date("2026-10-29T12:00:00+07:00")),
-    "2026-10-31",
+    "2026-10-30",
   );
+  assert.equal(defaultActivityDay(new Date("2026-10-30T12:00:00+07:00")), "2026-10-30");
+  assert.equal(defaultActivityDay(new Date("2026-10-30T17:00:00Z")), "2026-10-31");
   assert.equal(
     defaultActivityDay(new Date("2026-10-31T17:00:00Z")),
     "2026-11-01",
@@ -71,4 +73,5 @@ test("malformed links recover per field while the API rejects invalid known para
     false,
   );
   assert.equal(parseActivityRequest(new URLSearchParams()).success, false);
+  assert.equal(parseActivityRequest(new URLSearchParams("day=2026-10-30")).success, true);
 });

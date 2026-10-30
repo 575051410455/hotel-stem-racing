@@ -5,6 +5,7 @@ import type { RegistrationForm } from "./fields";
 import type { EventPassEmailSender, EventPassMessage } from "./ports";
 import { createRegistrations, type EventPass } from "./registrations";
 
+const OCT_30 = "2026-10-30";
 const OCT_31 = "2026-10-31";
 const NOV_01 = "2026-11-01";
 
@@ -71,6 +72,7 @@ describe("bulk send of Event Pass emails", () => {
       emailConfigured: true,
       emails: 6,
       eventDays: [
+        { eventDay: OCT_30, registrations: 0 },
         { eventDay: OCT_31, registrations: 4 },
         { eventDay: NOV_01, registrations: 3 },
       ],
@@ -94,6 +96,7 @@ describe("bulk send of Event Pass emails", () => {
       emailConfigured: true,
       emails: 3,
       eventDays: [
+        { eventDay: OCT_30, registrations: 0 },
         { eventDay: OCT_31, registrations: 2 },
         { eventDay: NOV_01, registrations: 2 },
       ],
@@ -111,6 +114,7 @@ describe("bulk send of Event Pass emails", () => {
       emailConfigured: true,
       emails: 0,
       eventDays: [
+        { eventDay: OCT_30, registrations: 0 },
         { eventDay: OCT_31, registrations: 0 },
         { eventDay: NOV_01, registrations: 0 },
       ],
@@ -277,6 +281,7 @@ describe("bulk send of Event Pass emails", () => {
       emailConfigured: true,
       emails: 1,
       eventDays: [
+        { eventDay: OCT_30, registrations: 0 },
         { eventDay: OCT_31, registrations: 1 },
         { eventDay: NOV_01, registrations: 0 },
       ],

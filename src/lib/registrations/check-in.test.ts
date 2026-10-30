@@ -260,7 +260,7 @@ describe("Check-In", () => {
     test("when today isn't an Event Day and none is chosen, the Check-In reports it and records nothing", async () => {
       await register();
 
-      for (const now of ["2026-10-30T09:00:00", "2026-11-02T09:00:00"]) {
+      for (const now of ["2026-10-29T09:00:00", "2026-11-02T09:00:00"]) {
         assert.deepEqual(
           await at(now).checkIn({ scan: "EP-7KQ2MZ9H", staffAccountId: "staff-account-1" }),
           { status: "not-an-event-day" },

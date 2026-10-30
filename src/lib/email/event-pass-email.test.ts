@@ -96,6 +96,19 @@ describe("Event Pass email", () => {
       }
     });
 
+    test("formats Friday 30 October and a three-day Event Pass in both languages", async () => {
+      const friday = await buildEventPassEmail(message({ eventDays: ["2026-10-30"] }));
+      for (const part of [friday.html, friday.text]) {
+        assert.ok(part.includes("วันศุกร์ที่ 30 ตุลาคม 2569"), "Thai Friday");
+        assert.ok(part.includes("Friday, 30 October 2026"), "English Friday");
+      }
+      const allDays = await buildEventPassEmail(message({ eventDays: ["2026-11-01", "2026-10-30", "2026-10-31"] }));
+      for (const part of [allDays.html, allDays.text]) {
+        assert.ok(part.includes("วันศุกร์ที่ 30 ตุลาคม – วันอาทิตย์ที่ 1 พฤศจิกายน 2569"), "Thai three-day range");
+        assert.ok(part.includes("Friday 30 October – Sunday 1 November 2026"), "English three-day range");
+      }
+    });
+
     test("adds opening hours in Bangkok time once they are configured", async () => {
       const email = await buildEventPassEmail(message({ eventDays: ["2026-10-31"] }), {
         openingHours: { opens: "09:00", closes: "17:30" },

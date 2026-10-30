@@ -8,8 +8,13 @@ const bangkok = (wallClock: string) => new Date(`${wallClock}+07:00`);
 const dates = (now: Date) => openEventDays(now).map((day) => day.date);
 
 describe("Event Day availability", () => {
-  test("before the Event, both Event Days are open", () => {
-    assert.deepEqual(dates(bangkok("2026-10-22T12:00:00")), ["2026-10-31", "2026-11-01"]);
+  test("before the Event, all three Event Days are open", () => {
+    assert.deepEqual(dates(bangkok("2026-10-22T12:00:00")), ["2026-10-30", "2026-10-31", "2026-11-01"]);
+  });
+
+  test("30 October stays selectable until midnight in Bangkok", () => {
+    assert.deepEqual(dates(bangkok("2026-10-30T23:59:59.999")), ["2026-10-30", "2026-10-31", "2026-11-01"]);
+    assert.deepEqual(dates(new Date("2026-10-30T17:00:00Z")), ["2026-10-31", "2026-11-01"]);
   });
 
   test("on the morning of 31 October, both Event Days are open", () => {

@@ -314,8 +314,8 @@ describe("Field validation: Attendee Role and organisation", () => {
 });
 
 describe("Field validation: Event Days and Referral Sources", () => {
-  test("accepts one or both Event Days", () => {
-    for (const eventDays of [["2026-10-31"], ["2026-11-01"], ["2026-10-31", "2026-11-01"]]) {
+  test("accepts one or more of the three Event Days", () => {
+    for (const eventDays of [["2026-10-30"], ["2026-10-31"], ["2026-11-01"], ["2026-10-31", "2026-11-01"], ["2026-10-30", "2026-10-31", "2026-11-01"]]) {
       assert.equal(validateField("eventDays", withValues({ eventDays }), "th"), undefined, eventDays.join());
     }
   });

@@ -166,6 +166,57 @@ describe("Registration module", () => {
     const at = (bangkokWallClock: string) =>
       createRegistrations({ db: database.db, clock: () => new Date(`${bangkokWallClock}+07:00`) });
 
+    test("30 October can be selected alone or with the other Event Days", async () => {
+      const friday = await at("2026-10-30T08:00:00").submit({ ...attendee, eventDays: ["2026-10-30"] });
+      assert.equal(friday.status, "accepted");
+      assert.deepEqual(friday.pass.eventDays, ["2026-10-30"]);
+
+      const allDays = await at("2026-10-30T08:00:00").submit({
+        ...attendee, givenName: "วิภา", eventDays: ["2026-11-01", "2026-10-30", "2026-10-31"],
+      });
+      assert.equal(allDays.status, "accepted");
+      assert.deepEqual(allDays.pass.eventDays, ["2026-10-30", "2026-10-31", "2026-11-01"]);
+      const current = at("2026-10-30T09:00:00");
+      await current.checkIn({ scan: friday.pass.passCode, staffAccountId: "staff-account" });
+      assert.equal((await current.search({ day: "2026-10-30", page: 1, pageSize: 25 })).total, 2);
+      const counts = await current.headCounts();
+      assert.equal(counts.eventDays.find((day) => day.eventDay === "2026-10-30")?.total, 2);
+      assert.deepEqual((await current.checkInActivity({ day: "2026-10-30", page: 1, pageSize: 25 })).summary,
+        { registered: 2, checkedInRegistered: 1, awaiting: 1, outside: 0, total: 1 });
+      assert.deepEqual((await current.bulkSendSummary("all")).eventDays, [
+        { eventDay: "2026-10-30", registrations: 2 },
+        { eventDay: "2026-10-31", registrations: 1 },
+        { eventDay: "2026-11-01", registrations: 1 },
+      ]);
+    });
+
+    test("an existing Event Pass checks in on 30 October without changing its chosen days or identity", async () => {
+      const existing = await at("2026-10-29T12:00:00").submit(attendee);
+      assert.equal(existing.status, "accepted");
+      const friday = at("2026-10-30T09:00:00");
+      const checkIn = await friday.checkIn({ scan: existing.pass.token, staffAccountId: "kiosk-account" });
+      assert.equal(checkIn.status, "checked-in-outside-registered-day");
+      assert.equal(checkIn.eventDay, "2026-10-30");
+      assert.equal((await friday.checkIn({ scan: existing.pass.passCode, staffAccountId: "kiosk-account" })).status, "already-checked-in");
+      assert.deepEqual(await friday.getEventPass(existing.pass.token), { status: "found", pass: existing.pass });
+      const activity = await friday.checkInActivity({ day: "2026-10-30", page: 1, pageSize: 25 });
+      assert.equal(activity.total, 1);
+      assert.deepEqual(activity.summary, { registered: 0, checkedInRegistered: 0, awaiting: 0, outside: 1, total: 1 });
+    });
+
+    test("30 October closes at midnight in Bangkok with the appropriate language message", async () => {
+      const nextDay = at("2026-10-31T00:00:00");
+      for (const language of ["th", "en"] as const) {
+        const result = await nextDay.submit({ ...attendee, eventDays: ["2026-10-30"] }, {}, language);
+        assert.deepEqual(result, {
+          status: "invalid",
+          fieldErrors: { eventDays: language === "th"
+            ? "วันที่ 30 ตุลาคม 2569 ผ่านไปแล้ว กรุณาเลือกวันเข้าร่วมงานอื่น"
+            : "Friday 30 October 2026 has already passed. Please choose another day." },
+        });
+      }
+    });
+
     test("before the Event, both Event Days are accepted", async () => {
       const result = await at("2026-10-22T12:00:00").submit(attendee);
 

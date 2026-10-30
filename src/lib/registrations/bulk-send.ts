@@ -25,7 +25,7 @@ export type BulkSendSummary = {
   emails: number;
   /**
    * Per configured Event Day, in Event order: how many of those Registrations chose it. A
-   * Registration for both days is counted on each, so these can add up to more than `emails`.
+   * A Registration for multiple days is counted on each chosen day, so these can add up to more than `emails`.
    */
   eventDays: { eventDay: string; registrations: number }[];
   /**

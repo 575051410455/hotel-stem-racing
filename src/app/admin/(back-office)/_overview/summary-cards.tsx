@@ -69,7 +69,7 @@ export async function HeadCountCards() {
             <UserPlusIcon aria-hidden="true" />+{formatCount(counts.registeredToday)} today
           </Badge>
         }
-        footer={<p className="text-muted-foreground">People who chose both days count once</p>}
+        footer={<p className="text-muted-foreground">People who chose multiple days count once</p>}
       />
       {counts.eventDays.map((day) => (
         <SummaryCard

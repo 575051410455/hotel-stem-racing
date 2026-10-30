@@ -14,9 +14,10 @@ export type EventDay = {
 export const event = {
   name: "STEM Racing Thailand 2026",
   venue: { th: "โรงแรมแกรนด์ ริชมอนด์ จังหวัดนนทบุรี", en: "Grand Richmond Hotel, Nonthaburi" },
-  dateRangeLabel: { th: "31 ตุลาคม – 1 พฤศจิกายน 2569", en: "31 October – 1 November 2026" },
+  dateRangeLabel: { th: "30 ตุลาคม – 1 พฤศจิกายน 2569", en: "30 October – 1 November 2026" },
   timeZone: "Asia/Bangkok",
   eventDays: [
+    { date: "2026-10-30", label: { th: "วันที่ 30 ตุลาคม 2569", en: "Friday 30 October 2026" } },
     { date: "2026-10-31", label: { th: "วันที่ 31 ตุลาคม 2569", en: "Saturday 31 October 2026" } },
     { date: "2026-11-01", label: { th: "วันที่ 1 พฤศจิกายน 2569", en: "Sunday 1 November 2026" } },
   ] satisfies EventDay[],
@@ -32,7 +33,7 @@ export function eventDayLabel(date: string, language: Language): string {
   return findEventDay(date)?.label[language] ?? date;
 }
 
-/** "31 ตุลาคม – 1 พฤศจิกายน 2569" / "31 October – 1 November 2026". */
+/** "30 ตุลาคม – 1 พฤศจิกายน 2569" / "30 October – 1 November 2026". */
 export function eventDateRangeLabel(language: Language): string {
   return event.dateRangeLabel[language];
 }

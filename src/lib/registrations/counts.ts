@@ -24,7 +24,7 @@ export type EventDayCounts = {
 export type HeadCounts = {
   /** One entry per configured Event Day, in Event order. */
   eventDays: EventDayCounts[];
-  /** Distinct Registrations: one that chose both days counts once here, but on each day above. */
+  /** Distinct Registrations: one that chose multiple days counts once here, but on each chosen day above. */
   registrations: number;
   /** Registrations created on today's Bangkok calendar day, by the clock. */
   registeredToday: number;
