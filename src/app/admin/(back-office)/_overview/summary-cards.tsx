@@ -51,26 +51,32 @@ function People({ count }: { count: number }) {
   );
 }
 
-/**
- * Card 1 (all Registrations, with today's) and one card per Event Day (its Registrations and
- * Check-Ins), in Event order. Admin-only; render below a <Suspense> boundary.
- */
-export async function HeadCountCards() {
+/** All Registrations, with today's new ones. Admin-only; render below <Suspense>. */
+export async function TotalRegistrationsCard() {
+  await requireAdmin();
+  const counts = await readHeadCounts();
+
+  return (
+    <SummaryCard
+      title={TOTAL_TITLE}
+      value={<People count={counts.registrations} />}
+      badge={
+        <Badge variant="outline">
+          <UserPlusIcon aria-hidden="true" />+{formatCount(counts.registeredToday)} today
+        </Badge>
+      }
+      footer={<p className="text-muted-foreground">People who chose multiple days count once</p>}
+    />
+  );
+}
+
+/** Registrations and Check-Ins for each Event Day, in order. Admin-only; render below <Suspense>. */
+export async function EventDayCards() {
   await requireAdmin();
   const counts = await readHeadCounts();
 
   return (
     <>
-      <SummaryCard
-        title={TOTAL_TITLE}
-        value={<People count={counts.registrations} />}
-        badge={
-          <Badge variant="outline">
-            <UserPlusIcon aria-hidden="true" />+{formatCount(counts.registeredToday)} today
-          </Badge>
-        }
-        footer={<p className="text-muted-foreground">People who chose multiple days count once</p>}
-      />
       {counts.eventDays.map((day) => (
         <SummaryCard
           key={day.eventDay}
@@ -90,7 +96,7 @@ export async function HeadCountCards() {
   );
 }
 
-/** Card 4: Registrations never sent their Event Pass email. Admin-only; render below a <Suspense> boundary. */
+/** Registrations never sent their Event Pass email. Admin-only; render below <Suspense>. */
 export async function UnsentEmailCard() {
   await requireAdmin();
   const summary = await registrations().bulkSendSummary("unsent");
@@ -138,11 +144,14 @@ function SummaryCardSkeleton({ title, button = false }: { title: string; button?
   );
 }
 
-/** The fallback for `HeadCountCards`: the same cards, so nothing moves when the numbers arrive. */
-export function HeadCountCardsSkeleton() {
+export function TotalRegistrationsCardSkeleton() {
+  return <SummaryCardSkeleton title={TOTAL_TITLE} />;
+}
+
+/** The same Event Day cards while their counts load, preserving their order and grid positions. */
+export function EventDayCardsSkeleton() {
   return (
     <>
-      <SummaryCardSkeleton title={TOTAL_TITLE} />
       {event.eventDays.map(({ date, label }) => (
         <SummaryCardSkeleton key={date} title={label.en} />
       ))}
