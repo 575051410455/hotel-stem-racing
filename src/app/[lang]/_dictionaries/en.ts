@@ -36,7 +36,7 @@ export const en: Dictionary = {
     roleQuestion: "You're attending as",
     chooseOne: "(choose one)",
     chooseOneOrMore: "(choose one or more)",
-    roleOther: "Please specify how you're attending",
+    roleOther: "Please specify your role",
     organisationHintSponsor: "Please give the company or organisation you represent",
     organisationHintOthers: "Leave blank if none",
     eventDaysQuestion: "Which days will you attend?",

@@ -219,7 +219,7 @@ const messages: Record<
     emailInvalid: "Please enter a valid email, such as name@example.com",
     textTooLong: (maxLength) => `This can be at most ${maxLength} characters`,
     roleMissing: "Please choose how you're attending",
-    roleOtherMissing: "Please specify how you're attending",
+    roleOtherMissing: "Please specify your role",
     sponsorOrganisationMissing: "Please give the company or organisation you represent",
     eventDaysMissing: "Please choose at least one day",
     eventDayNotListed: "Please choose a day from the list",

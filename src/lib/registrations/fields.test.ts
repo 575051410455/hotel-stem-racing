@@ -548,7 +548,7 @@ describe("Field validation: messages in English", () => {
   test("Attendee Role, organisation, Event Day and Referral Source problems in English", () => {
     assert.equal(
       validateField("roleOther", withValues({ role: "other", roleOther: "" }), "en"),
-      "Please specify how you're attending",
+      "Please specify your role",
     );
     assert.equal(
       validateField("organisation", withValues({ role: "sponsor", organisation: "" }), "en"),
