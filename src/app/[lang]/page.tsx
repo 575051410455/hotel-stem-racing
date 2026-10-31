@@ -66,8 +66,8 @@ async function Registration({ language, dictionary }: { language: Language; dict
   await connection();
   const { contactListName } = dictionary;
   const closedCopy = { ...dictionary.registrationClosed, contactListName };
-  // Temporarily hide 1 November from new Registration choices; keep the Event Day for existing passes and Check-Ins.
-  const eventDays = openEventDays(new Date()).filter((day) => day.date !== "2026-11-01");
+  // Offer only 1 November for new Registrations; keep all Event Days for existing passes and Check-Ins.
+  const eventDays = openEventDays(new Date()).filter((day) => day.date === "2026-11-01");
   if (eventDays.length === 0) return <RegistrationClosed copy={closedCopy} language={language} />;
 
   return (
